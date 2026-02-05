@@ -1,0 +1,275 @@
+{
+  "version": "1.0",
+  "updated": "2024-11-26",
+  "tasks": [
+    {
+      "id": "calc_deriv_001",
+      "topic": "derivatives",
+      "skills": ["derivatives", "power_rule"],
+      "difficulty": "easy",
+      "problem": "Найдите производную функции $f(x) = x^3$",
+      "solution": "Применяем правило степени: $(x^n)' = n \\cdot x^{n-1}$\n\n$$f'(x) = 3x^{3-1} = 3x^2$$",
+      "answer": "$3x^2$",
+      "hints": [
+        "Вспомните правило дифференцирования степенной функции",
+        "Формула: $(x^n)' = n \\cdot x^{n-1}$",
+        "Подставьте $n = 3$ в формулу"
+      ],
+      "common_mistakes": [
+        "Забыть уменьшить степень на 1",
+        "Перепутать порядок: написать $x^3 \\cdot 3$ вместо $3x^2$"
+      ]
+    },
+    {
+      "id": "calc_deriv_002",
+      "topic": "derivatives",
+      "skills": ["derivatives", "power_rule"],
+      "difficulty": "easy",
+      "problem": "Найдите производную функции $f(x) = 5x^2 - 3x + 7$",
+      "solution": "Дифференцируем каждое слагаемое:\n\n$$(5x^2)' = 10x$$\n$$(-3x)' = -3$$\n$$(7)' = 0$$\n\nИтого: $f'(x) = 10x - 3$",
+      "answer": "$10x - 3$",
+      "hints": [
+        "Производная суммы равна сумме производных",
+        "Производная константы равна нулю",
+        "$(ax^n)' = a \\cdot n \\cdot x^{n-1}$"
+      ],
+      "common_mistakes": [
+        "Забыть, что производная константы = 0",
+        "Ошибка в коэффициенте: $5 \\cdot 2 = 10$"
+      ]
+    },
+    {
+      "id": "calc_deriv_003",
+      "topic": "derivatives",
+      "skills": ["derivatives", "chain_rule"],
+      "difficulty": "medium",
+      "problem": "Найдите производную функции $f(x) = \\sin(2x)$",
+      "solution": "Применяем цепное правило: $(f(g(x)))' = f'(g(x)) \\cdot g'(x)$\n\nЗдесь $f(u) = \\sin(u)$, $g(x) = 2x$\n\n$$f'(x) = \\cos(2x) \\cdot 2 = 2\\cos(2x)$$",
+      "answer": "$2\\cos(2x)$",
+      "hints": [
+        "Это сложная функция — нужно цепное правило",
+        "Внешняя функция: $\\sin$, внутренняя: $2x$",
+        "$(\\sin u)' = \\cos u$, а $(2x)' = 2$"
+      ],
+      "common_mistakes": [
+        "Забыть умножить на производную внутренней функции",
+        "Написать $\\cos(2x)$ без множителя 2"
+      ]
+    },
+    {
+      "id": "calc_deriv_004",
+      "topic": "derivatives", 
+      "skills": ["derivatives", "product_rule"],
+      "difficulty": "medium",
+      "problem": "Найдите производную функции $f(x) = x^2 \\cdot e^x$",
+      "solution": "Применяем правило произведения: $(uv)' = u'v + uv'$\n\nГде $u = x^2$, $v = e^x$\n\n$$f'(x) = 2x \\cdot e^x + x^2 \\cdot e^x = e^x(2x + x^2)$$",
+      "answer": "$e^x(x^2 + 2x)$",
+      "hints": [
+        "Это произведение двух функций",
+        "Формула: $(uv)' = u'v + uv'$",
+        "$(e^x)' = e^x$"
+      ],
+      "common_mistakes": [
+        "Просто перемножить производные: $(x^2)' \\cdot (e^x)'$",
+        "Забыть одно из слагаемых в правиле произведения"
+      ]
+    },
+    {
+      "id": "calc_deriv_005",
+      "topic": "derivatives",
+      "skills": ["derivatives", "quotient_rule"],
+      "difficulty": "hard",
+      "problem": "Найдите производную функции $f(x) = \\frac{x^2 + 1}{x - 1}$",
+      "solution": "Применяем правило частного: $\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}$\n\n$$f'(x) = \\frac{2x(x-1) - (x^2+1) \\cdot 1}{(x-1)^2}$$\n\n$$= \\frac{2x^2 - 2x - x^2 - 1}{(x-1)^2} = \\frac{x^2 - 2x - 1}{(x-1)^2}$$",
+      "answer": "$\\frac{x^2 - 2x - 1}{(x-1)^2}$",
+      "hints": [
+        "Это дробь — нужно правило частного",
+        "$\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}$",
+        "Не забудьте упростить числитель"
+      ],
+      "common_mistakes": [
+        "Перепутать порядок: $u'v - uv'$ vs $uv' - u'v$",
+        "Забыть возвести знаменатель в квадрат"
+      ]
+    },
+    {
+      "id": "calc_limit_001",
+      "topic": "limits",
+      "skills": ["limits"],
+      "difficulty": "easy",
+      "problem": "Вычислите предел: $\\lim_{x \\to 2} (x^2 - 3x + 5)$",
+      "solution": "Подставляем $x = 2$ напрямую (функция непрерывна):\n\n$$\\lim_{x \\to 2} (x^2 - 3x + 5) = 4 - 6 + 5 = 3$$",
+      "answer": "$3$",
+      "hints": [
+        "Многочлен — непрерывная функция",
+        "Можно просто подставить значение",
+        "$2^2 - 3 \\cdot 2 + 5 = ?$"
+      ],
+      "common_mistakes": [
+        "Пытаться применить сложные методы там, где достаточно подстановки"
+      ]
+    },
+    {
+      "id": "calc_limit_002",
+      "topic": "limits",
+      "skills": ["limits"],
+      "difficulty": "medium",
+      "problem": "Вычислите предел: $\\lim_{x \\to 0} \\frac{\\sin x}{x}$",
+      "solution": "Это первый замечательный предел:\n\n$$\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1$$\n\nЭто фундаментальный результат, который доказывается геометрически.",
+      "answer": "$1$",
+      "hints": [
+        "Это знаменитый 'первый замечательный предел'",
+        "При $x \\to 0$: $\\sin x \\approx x$",
+        "Ответ — целое число"
+      ],
+      "common_mistakes": [
+        "Думать, что $\\frac{0}{0}$ даёт 0 или ∞",
+        "Не знать этот стандартный предел"
+      ]
+    },
+    {
+      "id": "calc_limit_003",
+      "topic": "limits",
+      "skills": ["limits"],
+      "difficulty": "medium",
+      "problem": "Вычислите предел: $\\lim_{x \\to 0} \\frac{\\sqrt{1+x} - 1}{x}$",
+      "solution": "Умножаем на сопряжённое:\n\n$$\\lim_{x \\to 0} \\frac{(\\sqrt{1+x} - 1)(\\sqrt{1+x} + 1)}{x(\\sqrt{1+x} + 1)}$$\n\n$$= \\lim_{x \\to 0} \\frac{1+x - 1}{x(\\sqrt{1+x} + 1)} = \\lim_{x \\to 0} \\frac{1}{\\sqrt{1+x} + 1} = \\frac{1}{2}$$",
+      "answer": "$\\frac{1}{2}$",
+      "hints": [
+        "При подстановке получаем $\\frac{0}{0}$ — неопределённость",
+        "Попробуйте умножить на сопряжённое выражение",
+        "$(\\sqrt{a} - b)(\\sqrt{a} + b) = a - b^2$"
+      ],
+      "common_mistakes": [
+        "Не видеть метод сопряжённого",
+        "Ошибка при раскрытии скобок"
+      ]
+    },
+    {
+      "id": "calc_int_001",
+      "topic": "integrals",
+      "skills": ["integrals"],
+      "difficulty": "easy",
+      "problem": "Найдите неопределённый интеграл: $\\int x^3 \\, dx$",
+      "solution": "Применяем формулу $\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$:\n\n$$\\int x^3 dx = \\frac{x^4}{4} + C$$",
+      "answer": "$\\frac{x^4}{4} + C$",
+      "hints": [
+        "Используйте формулу для степенной функции",
+        "$\\int x^n dx = \\frac{x^{n+1}}{n+1} + C$",
+        "Не забудьте константу интегрирования!"
+      ],
+      "common_mistakes": [
+        "Забыть $+ C$",
+        "Ошибка в степени: должно быть $n+1 = 4$"
+      ]
+    },
+    {
+      "id": "calc_int_002",
+      "topic": "integrals",
+      "skills": ["integrals", "substitution"],
+      "difficulty": "medium",
+      "problem": "Найдите интеграл: $\\int 2x \\cdot e^{x^2} \\, dx$",
+      "solution": "Замена: $u = x^2$, тогда $du = 2x \\, dx$\n\n$$\\int 2x \\cdot e^{x^2} dx = \\int e^u du = e^u + C = e^{x^2} + C$$",
+      "answer": "$e^{x^2} + C$",
+      "hints": [
+        "Заметьте, что $2x$ — это производная от $x^2$",
+        "Попробуйте замену $u = x^2$",
+        "$\\int e^u du = e^u + C$"
+      ],
+      "common_mistakes": [
+        "Не видеть подходящую замену",
+        "Забыть вернуться к исходной переменной"
+      ]
+    },
+    {
+      "id": "alg_eq_001",
+      "topic": "quadratic_equations",
+      "skills": ["quadratic_equations"],
+      "difficulty": "easy",
+      "problem": "Решите уравнение: $x^2 - 5x + 6 = 0$",
+      "solution": "Разложим на множители или используем формулу:\n\n$x^2 - 5x + 6 = (x-2)(x-3) = 0$\n\nОтвет: $x_1 = 2$, $x_2 = 3$",
+      "answer": "$x = 2$ или $x = 3$",
+      "hints": [
+        "Это квадратное уравнение",
+        "Попробуйте разложить на множители: какие числа дают 6 в произведении и 5 в сумме?",
+        "Или используйте дискриминант: $D = b^2 - 4ac$"
+      ],
+      "common_mistakes": [
+        "Ошибка в знаках при разложении",
+        "Потерять один из корней"
+      ]
+    },
+    {
+      "id": "alg_eq_002",
+      "topic": "quadratic_equations",
+      "skills": ["quadratic_equations"],
+      "difficulty": "medium",
+      "problem": "Решите уравнение: $2x^2 + 3x - 2 = 0$",
+      "solution": "Используем формулу дискриминанта:\n\n$D = 9 + 16 = 25$\n\n$$x = \\frac{-3 \\pm 5}{4}$$\n\n$x_1 = \\frac{1}{2}$, $x_2 = -2$",
+      "answer": "$x = \\frac{1}{2}$ или $x = -2$",
+      "hints": [
+        "Дискриминант: $D = b^2 - 4ac$",
+        "$D = 9 - 4 \\cdot 2 \\cdot (-2) = ?$",
+        "Формула корней: $x = \\frac{-b \\pm \\sqrt{D}}{2a}$"
+      ],
+      "common_mistakes": [
+        "Ошибка в знаке при вычислении $D$",
+        "Забыть $2a$ в знаменателе"
+      ]
+    },
+    {
+      "id": "alg_sys_001",
+      "topic": "systems_of_equations",
+      "skills": ["systems_of_equations", "linear_equations"],
+      "difficulty": "medium",
+      "problem": "Решите систему уравнений:\n$$\\begin{cases} 2x + y = 7 \\\\ x - y = 2 \\end{cases}$$",
+      "solution": "Сложим уравнения:\n$3x = 9 \\Rightarrow x = 3$\n\nПодставим в первое: $6 + y = 7 \\Rightarrow y = 1$\n\nОтвет: $x = 3$, $y = 1$",
+      "answer": "$x = 3$, $y = 1$",
+      "hints": [
+        "Сложите оба уравнения — $y$ сократится",
+        "После нахождения $x$, подставьте в любое уравнение",
+        "Проверьте ответ подстановкой в оба уравнения"
+      ],
+      "common_mistakes": [
+        "Ошибки при сложении/вычитании уравнений",
+        "Не проверить ответ"
+      ]
+    },
+    {
+      "id": "prog_rec_001",
+      "topic": "recursion",
+      "skills": ["recursion", "functions"],
+      "difficulty": "medium",
+      "problem": "Напишите рекурсивную функцию для вычисления $n!$ (факториала)",
+      "solution": "```python\ndef factorial(n):\n    if n <= 1:  # База рекурсии\n        return 1\n    return n * factorial(n - 1)  # Рекурсивный вызов\n```\n\nПример: $5! = 5 \\cdot 4! = 5 \\cdot 4 \\cdot 3! = ... = 120$",
+      "answer": "Функция с базой `n <= 1 → 1` и рекурсией `n * factorial(n-1)`",
+      "hints": [
+        "Рекурсии нужна база — когда остановиться?",
+        "Факториал 0 и 1 равен 1",
+        "Рекурсивная формула: $n! = n \\cdot (n-1)!$"
+      ],
+      "common_mistakes": [
+        "Забыть базовый случай → бесконечная рекурсия",
+        "Неправильное условие остановки"
+      ]
+    },
+    {
+      "id": "prog_loop_001",
+      "topic": "loops",
+      "skills": ["loops", "algorithms"],
+      "difficulty": "easy",
+      "problem": "Напишите код, который выводит сумму чисел от 1 до $n$",
+      "solution": "```python\ndef sum_to_n(n):\n    total = 0\n    for i in range(1, n + 1):\n        total += i\n    return total\n```\n\nИли математически: $\\frac{n(n+1)}{2}$",
+      "answer": "Цикл `for i in range(1, n+1): total += i` или формула $\\frac{n(n+1)}{2}$",
+      "hints": [
+        "Используйте цикл `for` и переменную-счётчик",
+        "`range(1, n+1)` даёт числа от 1 до n",
+        "Есть и математическая формула — формула Гаусса"
+      ],
+      "common_mistakes": [
+        "`range(n)` даёт 0..n-1, а не 1..n",
+        "Забыть инициализировать счётчик"
+      ]
+    }
+  ]
+}

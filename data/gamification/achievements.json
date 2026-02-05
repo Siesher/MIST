@@ -1,0 +1,185 @@
+{
+  "version": "1.0",
+  "achievements": [
+    {
+      "id": "first_steps",
+      "name": "Первые шаги",
+      "description": "Решите свою первую задачу",
+      "icon": "🎯",
+      "category": "progress",
+      "criteria": {"type": "problems_solved", "count": 1},
+      "xp_reward": 10,
+      "rarity": "common"
+    },
+    {
+      "id": "problem_solver_10",
+      "name": "Решатель задач",
+      "description": "Решите 10 задач",
+      "icon": "📝",
+      "category": "progress",
+      "criteria": {"type": "problems_solved", "count": 10},
+      "xp_reward": 50,
+      "rarity": "common"
+    },
+    {
+      "id": "problem_solver_50",
+      "name": "Опытный решатель",
+      "description": "Решите 50 задач",
+      "icon": "📚",
+      "category": "progress",
+      "criteria": {"type": "problems_solved", "count": 50},
+      "xp_reward": 200,
+      "rarity": "rare"
+    },
+    {
+      "id": "problem_solver_100",
+      "name": "Мастер задач",
+      "description": "Решите 100 задач",
+      "icon": "🏆",
+      "category": "progress",
+      "criteria": {"type": "problems_solved", "count": 100},
+      "xp_reward": 500,
+      "rarity": "epic"
+    },
+    {
+      "id": "week_warrior",
+      "name": "Недельный боец",
+      "description": "Занимайтесь 7 дней подряд",
+      "icon": "🔥",
+      "category": "streak",
+      "criteria": {"type": "streak_days", "count": 7},
+      "xp_reward": 100,
+      "rarity": "rare"
+    },
+    {
+      "id": "month_warrior",
+      "name": "Месячный боец",
+      "description": "Занимайтесь 30 дней подряд",
+      "icon": "💪",
+      "category": "streak",
+      "criteria": {"type": "streak_days", "count": 30},
+      "xp_reward": 500,
+      "rarity": "epic"
+    },
+    {
+      "id": "streak_legend",
+      "name": "Легенда серий",
+      "description": "Занимайтесь 100 дней подряд",
+      "icon": "👑",
+      "category": "streak",
+      "criteria": {"type": "streak_days", "count": 100},
+      "xp_reward": 2000,
+      "rarity": "legendary"
+    },
+    {
+      "id": "algebra_apprentice",
+      "name": "Ученик алгебры",
+      "description": "Достигните 50% владения алгеброй",
+      "icon": "📐",
+      "category": "mastery",
+      "criteria": {"type": "topic_mastery", "topic": "algebra", "threshold": 0.5},
+      "xp_reward": 150,
+      "rarity": "rare"
+    },
+    {
+      "id": "algebra_master",
+      "name": "Мастер алгебры",
+      "description": "Достигните 90% владения алгеброй",
+      "icon": "🎓",
+      "category": "mastery",
+      "criteria": {"type": "topic_mastery", "topic": "algebra", "threshold": 0.9},
+      "xp_reward": 500,
+      "rarity": "epic"
+    },
+    {
+      "id": "geometry_apprentice",
+      "name": "Ученик геометрии",
+      "description": "Достигните 50% владения геометрией",
+      "icon": "📏",
+      "category": "mastery",
+      "criteria": {"type": "topic_mastery", "topic": "geometry", "threshold": 0.5},
+      "xp_reward": 150,
+      "rarity": "rare"
+    },
+    {
+      "id": "geometry_master",
+      "name": "Мастер геометрии",
+      "description": "Достигните 90% владения геометрией",
+      "icon": "🔷",
+      "category": "mastery",
+      "criteria": {"type": "topic_mastery", "topic": "geometry", "threshold": 0.9},
+      "xp_reward": 500,
+      "rarity": "epic"
+    },
+    {
+      "id": "no_hints",
+      "name": "Без подсказок",
+      "description": "Решите задачу без подсказок",
+      "icon": "💡",
+      "category": "challenge",
+      "criteria": {"type": "no_hints_used", "count": 1},
+      "xp_reward": 25,
+      "rarity": "common"
+    },
+    {
+      "id": "perfect_streak",
+      "name": "Идеальная серия",
+      "description": "Решите 5 задач подряд без ошибок",
+      "icon": "✨",
+      "category": "challenge",
+      "criteria": {"type": "consecutive_correct", "count": 5},
+      "xp_reward": 100,
+      "rarity": "rare"
+    },
+    {
+      "id": "hard_problem",
+      "name": "Покоритель сложного",
+      "description": "Решите задачу повышенной сложности",
+      "icon": "⚡",
+      "category": "challenge",
+      "criteria": {"type": "difficulty_solved", "difficulty": "hard"},
+      "xp_reward": 75,
+      "rarity": "rare"
+    },
+    {
+      "id": "olympiad_solver",
+      "name": "Олимпиадник",
+      "description": "Решите олимпиадную задачу",
+      "icon": "🥇",
+      "category": "challenge",
+      "criteria": {"type": "difficulty_solved", "difficulty": "olympiad"},
+      "xp_reward": 200,
+      "rarity": "epic"
+    },
+    {
+      "id": "early_bird",
+      "name": "Ранняя пташка",
+      "description": "Позанимайтесь до 8 утра",
+      "icon": "🌅",
+      "category": "challenge",
+      "criteria": {"type": "time_of_day", "before_hour": 8},
+      "xp_reward": 30,
+      "rarity": "common"
+    },
+    {
+      "id": "night_owl",
+      "name": "Ночная сова",
+      "description": "Позанимайтесь после 22:00",
+      "icon": "🦉",
+      "category": "challenge",
+      "criteria": {"type": "time_of_day", "after_hour": 22},
+      "xp_reward": 30,
+      "rarity": "common"
+    },
+    {
+      "id": "review_master",
+      "name": "Мастер повторения",
+      "description": "Успешно повторите 20 тем",
+      "icon": "🔄",
+      "category": "progress",
+      "criteria": {"type": "reviews_completed", "count": 20},
+      "xp_reward": 150,
+      "rarity": "rare"
+    }
+  ]
+}

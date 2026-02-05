@@ -1,0 +1,82 @@
+{
+  "domain": "biology",
+  "description": "Molecular biology, genetics, ecology, anatomy, evolution",
+  "prompts": [
+    {
+      "instruction_template": "Explain the process of {process} in detail, including the key steps and molecules involved.",
+      "subtopic": "molecular",
+      "difficulty": "intermediate",
+      "variables": {
+        "process": ["DNA replication", "transcription", "translation", "cellular respiration", "photosynthesis", "mitosis", "meiosis"]
+      }
+    },
+    {
+      "instruction_template": "A cross between {parent1} and {parent2} is performed. Predict the {generation} phenotype and genotype ratios.",
+      "subtopic": "genetics",
+      "difficulty": "intermediate",
+      "variables": {
+        "parent1": ["a homozygous dominant (AA)", "a heterozygous (Aa)", "a homozygous recessive (aa)"],
+        "parent2": ["a heterozygous (Aa)", "a homozygous recessive (aa)", "another heterozygous (Bb)"],
+        "generation": ["F1", "F2"]
+      }
+    },
+    {
+      "instruction_template": "Describe the ecological relationship between {organism1} and {organism2} with examples.",
+      "subtopic": "ecology",
+      "difficulty": "basic",
+      "variables": {
+        "organism1": ["predators", "parasites", "symbiotic bacteria", "pollinators", "decomposers"],
+        "organism2": ["prey", "hosts", "host organisms", "flowering plants", "dead organic matter"]
+      }
+    },
+    {
+      "instruction_template": "Explain the structure and function of the {organ} in the human body.",
+      "subtopic": "anatomy",
+      "difficulty": "intermediate",
+      "variables": {
+        "organ": ["heart", "lungs", "liver", "kidneys", "brain", "small intestine"]
+      }
+    },
+    {
+      "instruction_template": "Describe how {mechanism} provides evidence for evolution.",
+      "subtopic": "evolution",
+      "difficulty": "intermediate",
+      "variables": {
+        "mechanism": ["fossil records", "homologous structures", "vestigial organs", "molecular evidence (DNA/protein sequences)", "biogeography", "observed natural selection"]
+      }
+    },
+    {
+      "instruction_template": "What is the role of {molecule} in cellular processes?",
+      "subtopic": "molecular",
+      "difficulty": "basic",
+      "variables": {
+        "molecule": ["ATP", "enzymes", "RNA", "amino acids", "glucose", "oxygen"]
+      }
+    },
+    {
+      "instruction_template": "Explain how {genetic_concept} works and give an example.",
+      "subtopic": "genetics",
+      "difficulty": "advanced",
+      "variables": {
+        "genetic_concept": ["gene regulation", "epigenetics", "CRISPR gene editing", "polyploidy", "linkage and recombination", "mutations and their effects"]
+      }
+    },
+    {
+      "instruction_template": "Describe the flow of energy through a {ecosystem_type} ecosystem, including producers, consumers, and decomposers.",
+      "subtopic": "ecology",
+      "difficulty": "intermediate",
+      "variables": {
+        "ecosystem_type": ["forest", "marine", "grassland", "freshwater", "desert"]
+      }
+    },
+    {
+      "instruction_template": "Compare and contrast {process1} and {process2}.",
+      "subtopic": "molecular",
+      "difficulty": "advanced",
+      "variables": {
+        "process1": ["aerobic respiration", "mitosis", "transcription", "DNA"],
+        "process2": ["anaerobic respiration", "meiosis", "translation", "RNA"]
+      }
+    }
+  ]
+}

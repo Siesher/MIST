@@ -45,6 +45,8 @@ data/datasets/*
 !data/datasets/.gitkeep
 data/chromadb/*
 !data/chromadb/.gitkeep
+training/calibration_data/*
+!training/calibration_data/.gitkeep
 *.db
 *.sqlite
 
@@ -70,3 +72,15 @@ htmlcov/
 
 # Gradio
 flagged/
+
+# Node.js / Frontend
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+*.tsbuildinfo
+next-env.d.ts
+
+# Backend
+backend/.env
+backend/venv/

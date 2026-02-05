@@ -1,0 +1,186 @@
+{
+  "topic": "algebra",
+  "version": "1.0",
+  "hints": [
+    {
+      "id": "alg-lin-01",
+      "skill": "linear_equations",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Уравнение - это весы. Что бы ты ни делал с одной стороной, нужно сделать то же самое с другой.",
+      "hint_en": "An equation is like a balance scale. Whatever you do to one side, you must do to the other.",
+      "follow_up_question": "Какие операции сохраняют равенство?"
+    },
+    {
+      "id": "alg-lin-02",
+      "skill": "linear_equations",
+      "level": "procedural",
+      "trigger": "isolate_variable",
+      "hint_ru": "Чтобы найти x, нужно его 'освободить'. Сначала убери числа, которые прибавляются или вычитаются.",
+      "hint_en": "To find x, you need to 'free' it. First, remove numbers that are added or subtracted.",
+      "follow_up_question": "Что нужно сделать, чтобы убрать +5 из левой части?"
+    },
+    {
+      "id": "alg-lin-03",
+      "skill": "linear_equations",
+      "level": "specific",
+      "trigger": "division_step",
+      "hint_ru": "Если 2x = 8, на что нужно разделить обе части, чтобы получить x?",
+      "hint_en": "If 2x = 8, what should you divide both sides by to get x?",
+      "follow_up_question": "Какое число стоит перед x?"
+    },
+    {
+      "id": "alg-quad-01",
+      "skill": "quadratic_equations",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Квадратное уравнение имеет форму ax² + bx + c = 0. Есть несколько способов его решить: факторизация, формула, дополнение до квадрата.",
+      "hint_en": "A quadratic equation has the form ax² + bx + c = 0. There are several ways to solve it: factoring, formula, completing the square.",
+      "follow_up_question": "Какой коэффициент стоит при x²?"
+    },
+    {
+      "id": "alg-quad-02",
+      "skill": "quadratic_equations",
+      "level": "procedural",
+      "trigger": "discriminant",
+      "hint_ru": "Дискриминант D = b² - 4ac определяет количество корней. Если D > 0 - два корня, D = 0 - один, D < 0 - нет действительных корней.",
+      "hint_en": "The discriminant D = b² - 4ac determines the number of roots. If D > 0 - two roots, D = 0 - one root, D < 0 - no real roots.",
+      "follow_up_question": "Чему равен дискриминант в твоём уравнении?"
+    },
+    {
+      "id": "alg-quad-03",
+      "skill": "quadratic_equations",
+      "level": "specific",
+      "trigger": "formula_application",
+      "hint_ru": "Формула корней: x = (-b ± √D) / 2a. Подставь значения a, b и D.",
+      "hint_en": "Root formula: x = (-b ± √D) / 2a. Substitute the values of a, b, and D.",
+      "follow_up_question": "Какие значения a и b в твоём уравнении?"
+    },
+    {
+      "id": "alg-fact-01",
+      "skill": "factoring",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Факторизация - это представление выражения в виде произведения множителей. Ищи общий множитель или используй формулы сокращённого умножения.",
+      "hint_en": "Factoring is representing an expression as a product of factors. Look for a common factor or use special product formulas.",
+      "follow_up_question": "Есть ли у всех членов общий множитель?"
+    },
+    {
+      "id": "alg-fact-02",
+      "skill": "factoring",
+      "level": "procedural",
+      "trigger": "difference_of_squares",
+      "hint_ru": "Разность квадратов: a² - b² = (a-b)(a+b). Проверь, можно ли представить выражение в таком виде.",
+      "hint_en": "Difference of squares: a² - b² = (a-b)(a+b). Check if the expression can be written in this form.",
+      "follow_up_question": "Какие числа возводятся в квадрат в твоём выражении?"
+    },
+    {
+      "id": "alg-fact-03",
+      "skill": "factoring",
+      "level": "specific",
+      "trigger": "trinomial",
+      "hint_ru": "Для x² + bx + c ищи два числа, которые в сумме дают b, а в произведении c.",
+      "hint_en": "For x² + bx + c, find two numbers that add up to b and multiply to c.",
+      "follow_up_question": "Какие два числа дают в сумме coefficient при x?"
+    },
+    {
+      "id": "alg-sys-01",
+      "skill": "systems",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Система уравнений - это несколько уравнений, которые должны выполняться одновременно. Решение - это значения переменных, удовлетворяющие всем уравнениям.",
+      "hint_en": "A system of equations is several equations that must be true simultaneously. The solution is variable values that satisfy all equations.",
+      "follow_up_question": "Сколько уравнений и сколько неизвестных в твоей системе?"
+    },
+    {
+      "id": "alg-sys-02",
+      "skill": "systems",
+      "level": "procedural",
+      "trigger": "substitution",
+      "hint_ru": "Метод подстановки: вырази одну переменную через другую из одного уравнения и подставь во второе.",
+      "hint_en": "Substitution method: express one variable in terms of another from one equation and substitute into the second.",
+      "follow_up_question": "Из какого уравнения проще выразить переменную?"
+    },
+    {
+      "id": "alg-sys-03",
+      "skill": "systems",
+      "level": "procedural",
+      "trigger": "elimination",
+      "hint_ru": "Метод исключения: сложи или вычти уравнения так, чтобы одна переменная исчезла.",
+      "hint_en": "Elimination method: add or subtract equations so that one variable disappears.",
+      "follow_up_question": "На что нужно умножить одно из уравнений, чтобы коэффициенты при x стали одинаковыми?"
+    },
+    {
+      "id": "alg-ineq-01",
+      "skill": "inequalities",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Неравенство похоже на уравнение, но знак может измениться при умножении или делении на отрицательное число.",
+      "hint_en": "An inequality is like an equation, but the sign can change when multiplying or dividing by a negative number.",
+      "follow_up_question": "Какой знак неравенства в твоей задаче?"
+    },
+    {
+      "id": "alg-ineq-02",
+      "skill": "inequalities",
+      "level": "procedural",
+      "trigger": "sign_change",
+      "hint_ru": "ВАЖНО: При умножении или делении на отрицательное число знак неравенства меняется на противоположный!",
+      "hint_en": "IMPORTANT: When multiplying or dividing by a negative number, the inequality sign reverses!",
+      "follow_up_question": "На какое число ты собираешься делить?"
+    },
+    {
+      "id": "alg-ineq-03",
+      "skill": "inequalities",
+      "level": "specific",
+      "trigger": "interval_notation",
+      "hint_ru": "Ответ записывается в виде интервала: (a, b) - открытый, [a, b] - закрытый. Круглая скобка - граница не входит.",
+      "hint_en": "The answer is written as an interval: (a, b) - open, [a, b] - closed. Round bracket means the boundary is not included.",
+      "follow_up_question": "Входит ли граничное значение в решение?"
+    },
+    {
+      "id": "alg-expr-01",
+      "skill": "algebraic_expressions",
+      "level": "conceptual",
+      "trigger": "simplification",
+      "hint_ru": "Упрощение выражения - это приведение подобных членов (с одинаковыми переменными в одинаковых степенях).",
+      "hint_en": "Simplifying an expression means combining like terms (with the same variables in the same powers).",
+      "follow_up_question": "Какие члены можно объединить?"
+    },
+    {
+      "id": "alg-expr-02",
+      "skill": "algebraic_expressions",
+      "level": "procedural",
+      "trigger": "distribution",
+      "hint_ru": "Распределительный закон: a(b + c) = ab + ac. Умножь каждый член в скобках на множитель перед скобками.",
+      "hint_en": "Distributive law: a(b + c) = ab + ac. Multiply each term in parentheses by the factor before them.",
+      "follow_up_question": "Какой множитель стоит перед скобками?"
+    },
+    {
+      "id": "alg-binom-01",
+      "skill": "binomial_expansion",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Формула квадрата суммы: (a+b)² = a² + 2ab + b². Не забывай про удвоенное произведение!",
+      "hint_en": "Square of sum formula: (a+b)² = a² + 2ab + b². Don't forget the doubled product!",
+      "follow_up_question": "Чему равно 2ab в твоём выражении?"
+    },
+    {
+      "id": "alg-binom-02",
+      "skill": "binomial_expansion",
+      "level": "specific",
+      "trigger": "cube_expansion",
+      "hint_ru": "Куб суммы: (a+b)³ = a³ + 3a²b + 3ab² + b³. Коэффициенты - это биномиальные коэффициенты.",
+      "hint_en": "Cube of sum: (a+b)³ = a³ + 3a²b + 3ab² + b³. Coefficients are binomial coefficients.",
+      "follow_up_question": "Какая степень у тебя в задаче?"
+    },
+    {
+      "id": "alg-ratio-01",
+      "skill": "ratios_proportions",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Пропорция - это равенство двух отношений: a/b = c/d. Основное свойство: ad = bc.",
+      "hint_en": "A proportion is an equality of two ratios: a/b = c/d. Cross-multiplication: ad = bc.",
+      "follow_up_question": "Какие величины находятся в пропорции?"
+    }
+  ]
+}

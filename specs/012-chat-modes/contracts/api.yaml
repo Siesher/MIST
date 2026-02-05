@@ -1,0 +1,153 @@
+openapi: 3.0.3
+info:
+  title: MITS Chat Modes API
+  version: 1.0.0
+  description: API extensions for chat mode selection
+
+paths:
+  /api/v1/sessions:
+    post:
+      summary: Create new session with mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+
+  /api/v1/sessions/{session_id}/mode:
+    patch:
+      summary: Change session mode
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeModeRequest'
+      responses:
+        '200':
+          description: Mode changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeModeResponse'
+        '404':
+          description: Session not found
+
+components:
+  schemas:
+    ChatMode:
+      type: string
+      enum:
+        - chat
+        - guided_learning
+        - task_generator
+      description: Available chat modes
+      default: guided_learning
+
+    CreateSessionRequest:
+      type: object
+      properties:
+        topic:
+          type: string
+          description: Math/STEM topic
+          example: "derivatives"
+        difficulty:
+          type: string
+          enum: [easy, medium, hard, olympiad]
+          default: medium
+        mode:
+          $ref: '#/components/schemas/ChatMode'
+        custom_problem:
+          type: string
+          description: Optional custom problem text
+
+    ChangeModeRequest:
+      type: object
+      required:
+        - mode
+      properties:
+        mode:
+          $ref: '#/components/schemas/ChatMode'
+
+    ChangeModeResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        previous_mode:
+          $ref: '#/components/schemas/ChatMode'
+        current_mode:
+          $ref: '#/components/schemas/ChatMode'
+        message:
+          type: string
+          description: Confirmation message
+          example: "Режим изменен на 'Обычный чат'"
+
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mode:
+          $ref: '#/components/schemas/ChatMode'
+        topic:
+          type: string
+        difficulty:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        welcome_message:
+          type: string
+
+    WebSocketMessage:
+      oneOf:
+        - $ref: '#/components/schemas/WSModeChange'
+        - $ref: '#/components/schemas/WSModeChanged'
+
+    WSModeChange:
+      type: object
+      description: Client request to change mode
+      required:
+        - type
+        - mode
+      properties:
+        type:
+          type: string
+          enum: [mode_change]
+        mode:
+          $ref: '#/components/schemas/ChatMode'
+
+    WSModeChanged:
+      type: object
+      description: Server confirmation of mode change
+      properties:
+        type:
+          type: string
+          enum: [mode_changed]
+        previous_mode:
+          $ref: '#/components/schemas/ChatMode'
+        current_mode:
+          $ref: '#/components/schemas/ChatMode'
+        placeholder:
+          type: string
+          description: New input placeholder text

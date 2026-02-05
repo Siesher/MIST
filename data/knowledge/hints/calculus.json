@@ -1,0 +1,150 @@
+{
+  "topic": "calculus",
+  "version": "1.0",
+  "hints": [
+    {
+      "id": "calc-lim-01",
+      "skill": "limits",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Предел показывает, к чему стремится функция, когда аргумент приближается к какому-то значению. Попробуй подставить значение напрямую.",
+      "hint_en": "A limit shows what a function approaches as the argument gets closer to some value. Try direct substitution first.",
+      "follow_up_question": "Что получается при прямой подстановке?"
+    },
+    {
+      "id": "calc-lim-02",
+      "skill": "limits",
+      "level": "procedural",
+      "trigger": "indeterminate_form",
+      "hint_ru": "Если получилась неопределённость 0/0, попробуй разложить на множители и сократить, или применить правило Лопиталя.",
+      "hint_en": "If you get 0/0, try factoring and canceling, or apply L'Hôpital's rule.",
+      "follow_up_question": "Какая неопределённость у тебя получилась?"
+    },
+    {
+      "id": "calc-lim-03",
+      "skill": "limits",
+      "level": "specific",
+      "trigger": "lhopital",
+      "hint_ru": "Правило Лопиталя: lim(f/g) = lim(f'/g'), если получается 0/0 или ∞/∞.",
+      "hint_en": "L'Hôpital's rule: lim(f/g) = lim(f'/g') when you get 0/0 or ∞/∞.",
+      "follow_up_question": "Чему равны производные числителя и знаменателя?"
+    },
+    {
+      "id": "calc-der-01",
+      "skill": "derivatives",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Производная показывает скорость изменения функции. Геометрически - это наклон касательной к графику.",
+      "hint_en": "The derivative shows the rate of change. Geometrically, it's the slope of the tangent line.",
+      "follow_up_question": "Какого вида функция, которую нужно продифференцировать?"
+    },
+    {
+      "id": "calc-der-02",
+      "skill": "derivatives",
+      "level": "procedural",
+      "trigger": "power_rule",
+      "hint_ru": "Правило степени: (xⁿ)' = n·xⁿ⁻¹. Умножаем на показатель и уменьшаем его на 1.",
+      "hint_en": "Power rule: (xⁿ)' = n·xⁿ⁻¹. Multiply by the exponent and decrease it by 1.",
+      "follow_up_question": "Какой показатель степени у тебя?"
+    },
+    {
+      "id": "calc-chain-01",
+      "skill": "chain_rule",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Правило цепочки применяется к сложной функции f(g(x)). Дифференцируй 'снаружи внутрь'.",
+      "hint_en": "The chain rule applies to composite functions f(g(x)). Differentiate 'outside to inside'.",
+      "follow_up_question": "Какая функция 'внешняя', а какая 'внутренняя'?"
+    },
+    {
+      "id": "calc-chain-02",
+      "skill": "chain_rule",
+      "level": "procedural",
+      "trigger": "application",
+      "hint_ru": "(f(g(x)))' = f'(g(x)) · g'(x). Сначала производная внешней функции (аргумент оставляем), затем умножаем на производную внутренней.",
+      "hint_en": "(f(g(x)))' = f'(g(x)) · g'(x). First derivative of outer (keep argument), then multiply by derivative of inner.",
+      "follow_up_question": "Чему равна производная внешней функции?"
+    },
+    {
+      "id": "calc-prod-01",
+      "skill": "product_rule",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Правило произведения: (uv)' = u'v + uv'. Производная произведения - не произведение производных!",
+      "hint_en": "Product rule: (uv)' = u'v + uv'. The derivative of a product is NOT the product of derivatives!",
+      "follow_up_question": "Какие две функции перемножаются?"
+    },
+    {
+      "id": "calc-prod-02",
+      "skill": "product_rule",
+      "level": "specific",
+      "trigger": "application",
+      "hint_ru": "Обозначь u и v, найди u' и v', затем подставь в формулу: u'v + uv'.",
+      "hint_en": "Let u and v be the functions, find u' and v', then substitute into: u'v + uv'.",
+      "follow_up_question": "Чему равны u' и v'?"
+    },
+    {
+      "id": "calc-quot-01",
+      "skill": "quotient_rule",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Правило частного: (u/v)' = (u'v - uv') / v². Запомни: 'низ на ди-верх минус верх на ди-низ, всё на низ в квадрате'.",
+      "hint_en": "Quotient rule: (u/v)' = (u'v - uv') / v². Remember: 'lo-d-hi minus hi-d-lo, over lo-lo'.",
+      "follow_up_question": "Что у тебя в числителе и знаменателе?"
+    },
+    {
+      "id": "calc-int-01",
+      "skill": "integrals",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Интегрирование - это операция, обратная дифференцированию. Спроси себя: 'производная какой функции даст это выражение?'",
+      "hint_en": "Integration is the reverse of differentiation. Ask yourself: 'the derivative of what function gives this expression?'",
+      "follow_up_question": "Какую функцию нужно проинтегрировать?"
+    },
+    {
+      "id": "calc-int-02",
+      "skill": "integrals",
+      "level": "procedural",
+      "trigger": "power_rule_int",
+      "hint_ru": "Степенное правило интегрирования: ∫xⁿdx = xⁿ⁺¹/(n+1) + C (при n ≠ -1). Увеличь степень на 1 и раздели на новую степень.",
+      "hint_en": "Power rule for integration: ∫xⁿdx = xⁿ⁺¹/(n+1) + C (when n ≠ -1). Increase power by 1 and divide by new power.",
+      "follow_up_question": "Какой показатель степени у подынтегрального выражения?"
+    },
+    {
+      "id": "calc-int-03",
+      "skill": "integrals",
+      "level": "specific",
+      "trigger": "constant_c",
+      "hint_ru": "Не забудь константу интегрирования +C для неопределённого интеграла!",
+      "hint_en": "Don't forget the constant of integration +C for indefinite integrals!",
+      "follow_up_question": "Это определённый или неопределённый интеграл?"
+    },
+    {
+      "id": "calc-sub-01",
+      "skill": "integration_substitution",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Замена переменной (подстановка) упрощает интеграл. Ищи внутреннюю функцию и её производную.",
+      "hint_en": "U-substitution simplifies the integral. Look for an inner function and its derivative.",
+      "follow_up_question": "Какое выражение можно обозначить за u?"
+    },
+    {
+      "id": "calc-sub-02",
+      "skill": "integration_substitution",
+      "level": "procedural",
+      "trigger": "substitution",
+      "hint_ru": "Если u = g(x), то du = g'(x)dx. Замени все x на u и dx на du.",
+      "hint_en": "If u = g(x), then du = g'(x)dx. Replace all x with u and dx with du.",
+      "follow_up_question": "Чему равно du?"
+    },
+    {
+      "id": "calc-parts-01",
+      "skill": "integration_by_parts",
+      "level": "conceptual",
+      "trigger": "stuck_at_start",
+      "hint_ru": "Интегрирование по частям: ∫udv = uv - ∫vdu. Правило LIATE для выбора u: Log, Inverse trig, Algebraic, Trig, Exponential.",
+      "hint_en": "Integration by parts: ∫udv = uv - ∫vdu. LIATE rule for choosing u: Log, Inverse trig, Algebraic, Trig, Exponential.",
+      "follow_up_question": "Что лучше выбрать за u, а что за dv?"
+    }
+  ]
+}

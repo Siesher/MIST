@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InferenceMetrics",
+  "description": "Performance metrics for model inference tracking",
+  "type": "object",
+  "required": ["model_name", "session_id", "timestamp", "time_to_first_token_ms", "tokens_per_second"],
+  "properties": {
+    "model_name": {
+      "type": "string",
+      "description": "Name of the model used"
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique session identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the inference occurred"
+    },
+    "time_to_first_token_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Time to first token in milliseconds"
+    },
+    "tokens_per_second": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Token generation rate"
+    },
+    "total_generation_time_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total time for generation in milliseconds"
+    },
+    "vram_used_mb": {
+      "type": "number",
+      "minimum": 0,
+      "description": "VRAM used in megabytes"
+    },
+    "ram_used_mb": {
+      "type": "number",
+      "minimum": 0,
+      "description": "RAM used in megabytes"
+    },
+    "gpu_utilization_percent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "GPU utilization percentage"
+    },
+    "input_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of input tokens"
+    },
+    "output_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of output tokens generated"
+    },
+    "context_length_used": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total context length used"
+    },
+    "had_error": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether an error occurred"
+    },
+    "error_message": {
+      "type": ["string", "null"],
+      "description": "Error message if had_error is true"
+    }
+  }
+}

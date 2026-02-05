@@ -1,0 +1,85 @@
+{
+  "domain": "physics",
+  "description": "Mechanics, thermodynamics, electromagnetism, waves, quantum basics",
+  "prompts": [
+    {
+      "instruction_template": "A {object} of mass {mass} kg is {motion}. Calculate {quantity}.",
+      "subtopic": "mechanics",
+      "difficulty": "intermediate",
+      "variables": {
+        "object": ["ball", "block", "car", "projectile"],
+        "mass": ["2", "5", "10", "0.5"],
+        "motion": ["thrown vertically upward with initial velocity 20 m/s", "sliding down a frictionless incline at 30 degrees", "moving in a circle of radius 5m at constant speed 10 m/s", "accelerating uniformly from rest with acceleration 3 m/s^2"],
+        "quantity": ["the maximum height reached", "the acceleration and final velocity after traveling 10m", "the centripetal force required", "the distance traveled in 5 seconds"]
+      }
+    },
+    {
+      "instruction_template": "An ideal gas at {temp1} K and pressure {pressure1} atm undergoes {process}. Find {quantity}.",
+      "subtopic": "thermodynamics",
+      "difficulty": "intermediate",
+      "variables": {
+        "temp1": ["300", "400", "273"],
+        "pressure1": ["1", "2", "1.5"],
+        "process": ["isothermal expansion to twice its volume", "isobaric heating to 600 K", "adiabatic compression to half its volume"],
+        "quantity": ["the final pressure", "the work done by the gas", "the change in internal energy"]
+      }
+    },
+    {
+      "instruction_template": "Two point charges of {q1} C and {q2} C are separated by {distance} m. Calculate {quantity}.",
+      "subtopic": "electromagnetism",
+      "difficulty": "intermediate",
+      "variables": {
+        "q1": ["+3e-6", "-2e-6", "+5e-9"],
+        "q2": ["-4e-6", "+3e-6", "-2e-9"],
+        "distance": ["0.1", "0.5", "0.2"],
+        "quantity": ["the electric force between them", "the electric field at the midpoint", "the electric potential at a point 0.05m from the first charge"]
+      }
+    },
+    {
+      "instruction_template": "A wave on a string has frequency {freq} Hz and wavelength {wavelength} m. {question}",
+      "subtopic": "waves",
+      "difficulty": "basic",
+      "variables": {
+        "freq": ["100", "250", "500"],
+        "wavelength": ["0.5", "0.2", "0.8"],
+        "question": ["What is the wave speed?", "If the string has linear mass density 0.01 kg/m, what is the tension?", "What is the period and angular frequency?"]
+      }
+    },
+    {
+      "instruction_template": "Explain the concept of {concept} in physics with a real-world example.",
+      "subtopic": "mechanics",
+      "difficulty": "basic",
+      "variables": {
+        "concept": ["Newton's third law", "conservation of momentum", "work-energy theorem", "rotational inertia", "angular momentum"]
+      }
+    },
+    {
+      "instruction_template": "A {circuit_element} with {property} is connected to {source}. Find {quantity}.",
+      "subtopic": "electromagnetism",
+      "difficulty": "intermediate",
+      "variables": {
+        "circuit_element": ["resistor", "capacitor", "inductor"],
+        "property": ["resistance 100 ohms", "capacitance 10 microfarads", "inductance 0.5 H"],
+        "source": ["a 12V DC battery", "an AC source with 120V rms at 60 Hz", "a DC source with 5V through a 50 ohm resistor"],
+        "quantity": ["the current through it", "the power dissipated", "the impedance and phase angle"]
+      }
+    },
+    {
+      "instruction_template": "Derive the equation for {equation} starting from first principles.",
+      "subtopic": "mechanics",
+      "difficulty": "advanced",
+      "variables": {
+        "equation": ["the range of a projectile", "the period of a simple pendulum for small angles", "the escape velocity from Earth", "the moment of inertia of a solid sphere"]
+      }
+    },
+    {
+      "instruction_template": "Calculate the de Broglie wavelength of {particle} with {property}.",
+      "subtopic": "quantum",
+      "difficulty": "intermediate",
+      "variables": {
+        "particle": ["an electron", "a proton", "a neutron", "a baseball (mass 0.145 kg)"],
+        "property": ["kinetic energy 100 eV", "velocity 0.1c", "momentum 1e-24 kg*m/s", "velocity 30 m/s"]
+      }
+    }
+  ]
+}

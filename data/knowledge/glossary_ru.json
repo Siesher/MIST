@@ -1,0 +1,414 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "language": "ru",
+    "description": "Русская математическая терминология для MITS",
+    "last_updated": "2026-02-02",
+    "task": "T052"
+  },
+  "algebra": {
+    "terms": {
+      "equation": {
+        "ru": "уравнение",
+        "definition": "Математическое равенство, содержащее неизвестные величины",
+        "examples": ["$x^2 + 5x + 6 = 0$", "$2x - 3 = 7$"]
+      },
+      "inequality": {
+        "ru": "неравенство",
+        "definition": "Соотношение, указывающее, что одно выражение больше или меньше другого",
+        "examples": ["$x > 5$", "$2x + 1 \\leq 10$"]
+      },
+      "polynomial": {
+        "ru": "многочлен",
+        "definition": "Сумма одночленов",
+        "examples": ["$x^3 - 2x^2 + x - 5$"]
+      },
+      "coefficient": {
+        "ru": "коэффициент",
+        "definition": "Числовой множитель при переменной"
+      },
+      "variable": {
+        "ru": "переменная",
+        "definition": "Символ, обозначающий неизвестную или изменяющуюся величину"
+      },
+      "constant": {
+        "ru": "константа",
+        "definition": "Величина, не изменяющая своего значения"
+      },
+      "root": {
+        "ru": "корень",
+        "plural": "корни",
+        "definition": "Значение переменной, обращающее уравнение в верное равенство"
+      },
+      "solution": {
+        "ru": "решение",
+        "definition": "Значение или множество значений, удовлетворяющих условию"
+      },
+      "discriminant": {
+        "ru": "дискриминант",
+        "definition": "Выражение $D = b^2 - 4ac$ для квадратного уравнения",
+        "formula": "$D = b^2 - 4ac$"
+      },
+      "factorization": {
+        "ru": "разложение на множители",
+        "definition": "Представление выражения в виде произведения более простых выражений"
+      }
+    }
+  },
+  "calculus": {
+    "terms": {
+      "derivative": {
+        "ru": "производная",
+        "definition": "Предел отношения приращения функции к приращению аргумента",
+        "notation": "$f'(x)$ или $\\frac{df}{dx}$"
+      },
+      "integral": {
+        "ru": "интеграл",
+        "definition": "Операция, обратная дифференцированию",
+        "notation": "$\\int f(x)\\,dx$"
+      },
+      "definite_integral": {
+        "ru": "определённый интеграл",
+        "notation": "$\\int_a^b f(x)\\,dx$"
+      },
+      "indefinite_integral": {
+        "ru": "неопределённый интеграл",
+        "notation": "$\\int f(x)\\,dx + C$"
+      },
+      "limit": {
+        "ru": "предел",
+        "definition": "Значение, к которому стремится функция",
+        "notation": "$\\lim_{x \\to a} f(x)$"
+      },
+      "continuity": {
+        "ru": "непрерывность",
+        "definition": "Свойство функции не иметь разрывов"
+      },
+      "differentiability": {
+        "ru": "дифференцируемость",
+        "definition": "Свойство функции иметь производную в данной точке"
+      },
+      "antiderivative": {
+        "ru": "первообразная",
+        "definition": "Функция, производная которой равна данной функции"
+      },
+      "extremum": {
+        "ru": "экстремум",
+        "plural": "экстремумы",
+        "definition": "Максимум или минимум функции"
+      },
+      "inflection_point": {
+        "ru": "точка перегиба",
+        "definition": "Точка, в которой функция меняет направление выпуклости"
+      }
+    },
+    "rules": {
+      "chain_rule": {
+        "ru": "цепное правило",
+        "alt": "правило дифференцирования сложной функции",
+        "formula": "$(f(g(x)))' = f'(g(x)) \\cdot g'(x)$"
+      },
+      "product_rule": {
+        "ru": "правило произведения",
+        "formula": "$(uv)' = u'v + uv'$"
+      },
+      "quotient_rule": {
+        "ru": "правило частного",
+        "formula": "$\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}$"
+      },
+      "integration_by_parts": {
+        "ru": "интегрирование по частям",
+        "formula": "$\\int u\\,dv = uv - \\int v\\,du$"
+      },
+      "substitution": {
+        "ru": "замена переменной",
+        "alt": "метод подстановки"
+      }
+    }
+  },
+  "geometry": {
+    "terms": {
+      "point": {
+        "ru": "точка",
+        "plural": "точки"
+      },
+      "line": {
+        "ru": "прямая",
+        "plural": "прямые"
+      },
+      "segment": {
+        "ru": "отрезок",
+        "plural": "отрезки"
+      },
+      "ray": {
+        "ru": "луч",
+        "plural": "лучи"
+      },
+      "plane": {
+        "ru": "плоскость"
+      },
+      "angle": {
+        "ru": "угол",
+        "plural": "углы"
+      },
+      "triangle": {
+        "ru": "треугольник",
+        "plural": "треугольники"
+      },
+      "quadrilateral": {
+        "ru": "четырёхугольник"
+      },
+      "circle": {
+        "ru": "окружность",
+        "alt": "круг"
+      },
+      "radius": {
+        "ru": "радиус",
+        "plural": "радиусы"
+      },
+      "diameter": {
+        "ru": "диаметр"
+      },
+      "chord": {
+        "ru": "хорда"
+      },
+      "tangent": {
+        "ru": "касательная"
+      },
+      "secant": {
+        "ru": "секущая"
+      },
+      "area": {
+        "ru": "площадь"
+      },
+      "perimeter": {
+        "ru": "периметр"
+      },
+      "volume": {
+        "ru": "объём"
+      },
+      "hypotenuse": {
+        "ru": "гипотенуза"
+      },
+      "leg": {
+        "ru": "катет",
+        "plural": "катеты"
+      }
+    },
+    "theorems": {
+      "pythagorean": {
+        "ru": "теорема Пифагора",
+        "formula": "$a^2 + b^2 = c^2$"
+      },
+      "thales": {
+        "ru": "теорема Фалеса"
+      },
+      "inscribed_angle": {
+        "ru": "теорема о вписанном угле"
+      }
+    }
+  },
+  "trigonometry": {
+    "functions": {
+      "sin": {
+        "ru": "синус",
+        "latex_ru": "\\sin",
+        "latex_en": "\\sin"
+      },
+      "cos": {
+        "ru": "косинус",
+        "latex_ru": "\\cos",
+        "latex_en": "\\cos"
+      },
+      "tan": {
+        "ru": "тангенс",
+        "latex_ru": "\\text{tg}",
+        "latex_en": "\\tan"
+      },
+      "cot": {
+        "ru": "котангенс",
+        "latex_ru": "\\text{ctg}",
+        "latex_en": "\\cot"
+      },
+      "sec": {
+        "ru": "секанс",
+        "latex_ru": "\\text{sec}",
+        "latex_en": "\\sec"
+      },
+      "csc": {
+        "ru": "косеканс",
+        "latex_ru": "\\text{cosec}",
+        "latex_en": "\\csc"
+      },
+      "arcsin": {
+        "ru": "арксинус",
+        "latex_ru": "\\arcsin",
+        "latex_en": "\\arcsin"
+      },
+      "arccos": {
+        "ru": "арккосинус",
+        "latex_ru": "\\arccos",
+        "latex_en": "\\arccos"
+      },
+      "arctan": {
+        "ru": "арктангенс",
+        "latex_ru": "\\text{arctg}",
+        "latex_en": "\\arctan"
+      },
+      "arccot": {
+        "ru": "арккотангенс",
+        "latex_ru": "\\text{arcctg}",
+        "latex_en": "\\text{arccot}"
+      }
+    },
+    "formulas": {
+      "pythagorean_identity": {
+        "ru": "основное тригонометрическое тождество",
+        "formula": "$\\sin^2 x + \\cos^2 x = 1$"
+      },
+      "sum_formulas": {
+        "ru": "формулы сложения",
+        "examples": [
+          "$\\sin(a + b) = \\sin a \\cos b + \\cos a \\sin b$",
+          "$\\cos(a + b) = \\cos a \\cos b - \\sin a \\sin b$"
+        ]
+      },
+      "double_angle": {
+        "ru": "формулы двойного угла",
+        "examples": [
+          "$\\sin 2x = 2\\sin x \\cos x$",
+          "$\\cos 2x = \\cos^2 x - \\sin^2 x$"
+        ]
+      }
+    }
+  },
+  "logarithms": {
+    "functions": {
+      "log": {
+        "ru": "логарифм",
+        "latex_ru": "\\log",
+        "latex_en": "\\log"
+      },
+      "ln": {
+        "ru": "натуральный логарифм",
+        "latex_ru": "\\ln",
+        "latex_en": "\\ln"
+      },
+      "log10": {
+        "ru": "десятичный логарифм",
+        "latex_ru": "\\lg",
+        "latex_en": "\\log_{10}"
+      },
+      "log2": {
+        "ru": "двоичный логарифм",
+        "latex_ru": "\\text{lb}",
+        "latex_en": "\\log_2"
+      }
+    },
+    "properties": {
+      "product": {
+        "ru": "логарифм произведения",
+        "formula": "$\\log(ab) = \\log a + \\log b$"
+      },
+      "quotient": {
+        "ru": "логарифм частного",
+        "formula": "$\\log\\frac{a}{b} = \\log a - \\log b$"
+      },
+      "power": {
+        "ru": "логарифм степени",
+        "formula": "$\\log a^n = n \\log a$"
+      },
+      "change_of_base": {
+        "ru": "переход к другому основанию",
+        "formula": "$\\log_a b = \\frac{\\log_c b}{\\log_c a}$"
+      }
+    }
+  },
+  "linear_algebra": {
+    "terms": {
+      "matrix": {
+        "ru": "матрица",
+        "plural": "матрицы"
+      },
+      "determinant": {
+        "ru": "определитель",
+        "plural": "определители"
+      },
+      "vector": {
+        "ru": "вектор",
+        "plural": "векторы"
+      },
+      "eigenvalue": {
+        "ru": "собственное значение",
+        "plural": "собственные значения"
+      },
+      "eigenvector": {
+        "ru": "собственный вектор",
+        "plural": "собственные векторы"
+      },
+      "rank": {
+        "ru": "ранг"
+      },
+      "inverse_matrix": {
+        "ru": "обратная матрица"
+      },
+      "transpose": {
+        "ru": "транспонирование",
+        "verb": "транспонировать"
+      },
+      "trace": {
+        "ru": "след матрицы"
+      }
+    }
+  },
+  "sets_and_logic": {
+    "terms": {
+      "set": {
+        "ru": "множество"
+      },
+      "subset": {
+        "ru": "подмножество"
+      },
+      "union": {
+        "ru": "объединение",
+        "symbol": "$\\cup$"
+      },
+      "intersection": {
+        "ru": "пересечение",
+        "symbol": "$\\cap$"
+      },
+      "complement": {
+        "ru": "дополнение"
+      },
+      "empty_set": {
+        "ru": "пустое множество",
+        "symbol": "$\\varnothing$"
+      },
+      "element": {
+        "ru": "элемент"
+      },
+      "belongs_to": {
+        "ru": "принадлежит",
+        "symbol": "$\\in$"
+      }
+    }
+  },
+  "common_phrases": {
+    "solve": "решить",
+    "find": "найти",
+    "calculate": "вычислить",
+    "simplify": "упростить",
+    "prove": "доказать",
+    "show": "показать",
+    "given": "дано",
+    "therefore": "следовательно",
+    "hence": "отсюда",
+    "thus": "таким образом",
+    "let": "пусть",
+    "suppose": "предположим",
+    "assume": "допустим",
+    "by definition": "по определению",
+    "by property": "по свойству",
+    "QED": "ЧТД (что и требовалось доказать)"
+  }
+}

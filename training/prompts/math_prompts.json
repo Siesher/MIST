@@ -1,0 +1,90 @@
+{
+  "domain": "math",
+  "description": "Algebra, calculus, statistics, probability, linear algebra, trigonometry",
+  "prompts": [
+    {
+      "instruction_template": "Solve the equation: {equation}",
+      "subtopic": "algebra",
+      "difficulty": "basic",
+      "variables": {
+        "equation": ["2x + 5 = 13", "3(x - 4) = 2x + 1", "x^2 - 5x + 6 = 0", "2x^2 + 3x - 2 = 0", "|2x - 3| = 7"]
+      }
+    },
+    {
+      "instruction_template": "Find the derivative of f(x) = {function} and explain each step.",
+      "subtopic": "calculus",
+      "difficulty": "intermediate",
+      "variables": {
+        "function": ["x^3 - 4x^2 + 2x - 1", "sin(x) * cos(x)", "e^(2x) * ln(x)", "(x^2 + 1)/(x - 1)", "sqrt(x^2 + 4)"]
+      }
+    },
+    {
+      "instruction_template": "Evaluate the integral: {integral}",
+      "subtopic": "calculus",
+      "difficulty": "advanced",
+      "variables": {
+        "integral": ["integrate x^2 * e^x dx", "integrate 1/(x^2 + 4) dx", "integrate sin^3(x) dx", "integrate x * ln(x) dx", "integrate from 0 to pi sin(x) dx"]
+      }
+    },
+    {
+      "instruction_template": "Calculate the {statistic} for the dataset: {data}",
+      "subtopic": "statistics",
+      "difficulty": "basic",
+      "variables": {
+        "statistic": ["mean, median, and mode", "variance and standard deviation", "quartiles and IQR"],
+        "data": ["12, 15, 18, 22, 25, 28, 30", "5, 8, 8, 10, 12, 15, 20, 25", "100, 105, 110, 115, 120, 125"]
+      }
+    },
+    {
+      "instruction_template": "A fair coin is tossed {n} times. {question}",
+      "subtopic": "probability",
+      "difficulty": "intermediate",
+      "variables": {
+        "n": ["5", "6", "8", "10"],
+        "question": ["What is the probability of getting exactly 3 heads?", "What is the probability of getting at least 4 heads?", "What is the expected number of heads?"]
+      }
+    },
+    {
+      "instruction_template": "Find the eigenvalues and eigenvectors of the matrix: {matrix}",
+      "subtopic": "linear_algebra",
+      "difficulty": "advanced",
+      "variables": {
+        "matrix": ["[[2, 1], [1, 2]]", "[[4, 2], [1, 3]]", "[[3, 0, 0], [0, 2, 0], [0, 0, 1]]"]
+      }
+    },
+    {
+      "instruction_template": "Prove that {statement}",
+      "subtopic": "algebra",
+      "difficulty": "advanced",
+      "variables": {
+        "statement": ["the sum of the first n natural numbers is n(n+1)/2", "sqrt(2) is irrational", "for any integer n, n^3 - n is divisible by 6"]
+      }
+    },
+    {
+      "instruction_template": "Solve the trigonometric equation: {equation} for 0 <= x < 2*pi",
+      "subtopic": "trigonometry",
+      "difficulty": "intermediate",
+      "variables": {
+        "equation": ["sin(x) = 1/2", "cos(2x) = 0", "tan(x) = sqrt(3)", "2*sin^2(x) - sin(x) - 1 = 0"]
+      }
+    },
+    {
+      "instruction_template": "A normal distribution has mean {mu} and standard deviation {sigma}. {question}",
+      "subtopic": "probability",
+      "difficulty": "intermediate",
+      "variables": {
+        "mu": ["50", "100", "75"],
+        "sigma": ["10", "15", "5"],
+        "question": ["Find P(X < 60)", "Find P(45 < X < 55)", "Find the value x such that P(X < x) = 0.95"]
+      }
+    },
+    {
+      "instruction_template": "Solve the differential equation: {equation}",
+      "subtopic": "calculus",
+      "difficulty": "advanced",
+      "variables": {
+        "equation": ["dy/dx = 2xy", "dy/dx + 2y = e^(-x)", "d^2y/dx^2 - 4y = 0", "dy/dx = y^2 + 1"]
+      }
+    }
+  ]
+}

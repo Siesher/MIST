@@ -1,0 +1,2590 @@
+{
+  "tasks": [
+    {
+      "id": "two_sum",
+      "title": "Two Sum",
+      "title_ru": "Два числа с заданной суммой",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Дан массив целых чисел `nums` и целое число `target`. \nНайдите два числа в массиве, которые в сумме дают `target`, и выведите их индексы.\n\nГарантируется, что решение существует и единственно.",
+      "input_format": "Первая строка: числа массива через пробел.\nВторая строка: целевая сумма.",
+      "output_format": "Два индекса через пробел (0-индексация).",
+      "examples": [
+        {
+          "input": "2 7 11 15\n9",
+          "output": "0 1",
+          "explanation": "nums[0] + nums[1] = 2 + 7 = 9"
+        },
+        {
+          "input": "3 2 4\n6",
+          "output": "1 2",
+          "explanation": "nums[1] + nums[2] = 2 + 4 = 6"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "2 7 11 15\n9",
+          "output": "0 1",
+          "hidden": false
+        },
+        {
+          "input": "3 2 4\n6",
+          "output": "1 2",
+          "hidden": false
+        },
+        {
+          "input": "3 3\n6",
+          "output": "0 1",
+          "hidden": false
+        },
+        {
+          "input": "1 5 3 7 2\n9",
+          "output": "1 3",
+          "hidden": true
+        },
+        {
+          "input": "-1 -2 -3 -4 -5\n-8",
+          "output": "2 4",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "2 ≤ len(nums) ≤ 10⁴",
+        "-10⁹ ≤ nums[i] ≤ 10⁹"
+      ],
+      "hints": [
+        "Попробуйте использовать словарь для хранения уже просмотренных чисел",
+        "Для каждого числа x ищите target - x в словаре",
+        "Сложность O(n) достижима с хэш-таблицей"
+      ],
+      "solution_code": "nums = list(map(int, input().split()))\ntarget = int(input())\nseen = {}\nfor i, num in enumerate(nums):\n    complement = target - num\n    if complement in seen:\n        print(seen[complement], i)\n        break\n    seen[num] = i",
+      "solution_explanation": "Используем хэш-таблицу для поиска за O(1)",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "palindrome",
+      "title": "Palindrome Check",
+      "title_ru": "Проверка на палиндром",
+      "difficulty": "easy",
+      "category": "strings",
+      "description_ru": "Определите, является ли строка палиндромом.\nПалиндром читается одинаково слева направо и справа налево.\nУчитывайте только буквы и цифры, игнорируйте регистр.",
+      "input_format": "Одна строка.",
+      "output_format": "YES если палиндром, иначе NO.",
+      "examples": [
+        {
+          "input": "A man a plan a canal Panama",
+          "output": "YES",
+          "explanation": "amanaplanacanalpanama — палиндром"
+        },
+        {
+          "input": "hello",
+          "output": "NO",
+          "explanation": "hello ≠ olleh"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "A man a plan a canal Panama",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "hello",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "Was it a car or a cat I saw",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "a",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "ab",
+          "output": "NO",
+          "hidden": true
+        },
+        {
+          "input": "Race a Car",
+          "output": "NO",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "0 ≤ len(s) ≤ 2·10⁵"
+      ],
+      "hints": [
+        "Сначала очистите строку от лишних символов",
+        "Приведите к нижнему регистру",
+        "Сравните строку с её реверсом"
+      ],
+      "solution_code": "s = input()\ncleaned = ''.join(c.lower() for c in s if c.isalnum())\nprint(\"YES\" if cleaned == cleaned[::-1] else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "fizzbuzz",
+      "title": "FizzBuzz",
+      "title_ru": "FizzBuzz",
+      "difficulty": "easy",
+      "category": "math",
+      "description_ru": "Выведите числа от 1 до n, но:\n- Если число делится на 3, выведите \"Fizz\"\n- Если число делится на 5, выведите \"Buzz\"  \n- Если делится на оба, выведите \"FizzBuzz\"\n- Иначе выведите само число",
+      "input_format": "Целое число n.",
+      "output_format": "n строк с результатом.",
+      "examples": [
+        {
+          "input": "15",
+          "output": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "5",
+          "output": "1\n2\nFizz\n4\nBuzz",
+          "hidden": false
+        },
+        {
+          "input": "15",
+          "output": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "3",
+          "output": "1\n2\nFizz",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "1 ≤ n ≤ 10⁴"
+      ],
+      "hints": [
+        "Проверяйте делимость на 15 первой (или на 3 И 5)",
+        "Используйте оператор % для проверки делимости"
+      ],
+      "solution_code": "n = int(input())\nfor i in range(1, n + 1):\n    if i % 15 == 0:\n        print(\"FizzBuzz\")\n    elif i % 3 == 0:\n        print(\"Fizz\")\n    elif i % 5 == 0:\n        print(\"Buzz\")\n    else:\n        print(i)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "reverse_array",
+      "title": "Reverse Array",
+      "title_ru": "Переворот массива",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Разверните массив в обратном порядке.",
+      "input_format": "Числа массива через пробел.",
+      "output_format": "Числа в обратном порядке через пробел.",
+      "examples": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "5 4 3 2 1"
+        },
+        {
+          "input": "7",
+          "output": "7"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "5 4 3 2 1",
+          "hidden": false
+        },
+        {
+          "input": "7",
+          "output": "7",
+          "hidden": false
+        },
+        {
+          "input": "1 2",
+          "output": "2 1",
+          "hidden": false
+        },
+        {
+          "input": "-1 0 1",
+          "output": "1 0 -1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте срез [::-1] или функцию reversed()"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nprint(*arr[::-1])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "count_vowels",
+      "title": "Count Vowels",
+      "title_ru": "Подсчёт гласных",
+      "difficulty": "easy",
+      "category": "strings",
+      "description_ru": "Подсчитайте количество гласных букв (a, e, i, o, u) в строке. Регистр не важен.",
+      "input_format": "Строка.",
+      "output_format": "Количество гласных.",
+      "examples": [
+        {
+          "input": "Hello World",
+          "output": "3",
+          "explanation": "e, o, o"
+        },
+        {
+          "input": "Python",
+          "output": "1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "Hello World",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "Python",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "AEIOU",
+          "output": "5",
+          "hidden": false
+        },
+        {
+          "input": "xyz",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "Programming is fun",
+          "output": "5",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте множество гласных и метод lower()"
+      ],
+      "solution_code": "s = input().lower()\nvowels = set('aeiou')\nprint(sum(1 for c in s if c in vowels))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 1,
+      "accepted": 0
+    },
+    {
+      "id": "find_max",
+      "title": "Find Maximum",
+      "title_ru": "Найти максимум",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Найдите максимальный элемент в массиве без использования встроенной функции max().",
+      "input_format": "Числа массива через пробел.",
+      "output_format": "Максимальный элемент.",
+      "examples": [
+        {
+          "input": "3 1 4 1 5 9 2 6",
+          "output": "9"
+        },
+        {
+          "input": "-5 -2 -8",
+          "output": "-2"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 1 4 1 5 9 2 6",
+          "output": "9",
+          "hidden": false
+        },
+        {
+          "input": "-5 -2 -8",
+          "output": "-2",
+          "hidden": false
+        },
+        {
+          "input": "42",
+          "output": "42",
+          "hidden": false
+        },
+        {
+          "input": "0 0 0",
+          "output": "0",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Инициализируйте максимум первым элементом и пройдите по массиву"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nmaximum = arr[0]\nfor num in arr[1:]:\n    if num > maximum:\n        maximum = num\nprint(maximum)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "digit_sum",
+      "title": "Sum of Digits",
+      "title_ru": "Сумма цифр",
+      "difficulty": "easy",
+      "category": "math",
+      "description_ru": "Найдите сумму цифр положительного целого числа.",
+      "input_format": "Целое положительное число n.",
+      "output_format": "Сумма его цифр.",
+      "examples": [
+        {
+          "input": "12345",
+          "output": "15",
+          "explanation": "1+2+3+4+5=15"
+        },
+        {
+          "input": "999",
+          "output": "27"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "12345",
+          "output": "15",
+          "hidden": false
+        },
+        {
+          "input": "999",
+          "output": "27",
+          "hidden": false
+        },
+        {
+          "input": "0",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "1000000",
+          "output": "1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Можно работать со строкой или использовать % 10 и // 10"
+      ],
+      "solution_code": "n = input()\nprint(sum(int(d) for d in n))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "factorial",
+      "title": "Factorial",
+      "title_ru": "Факториал",
+      "difficulty": "easy",
+      "category": "recursion",
+      "description_ru": "Вычислите факториал числа n (n!).",
+      "input_format": "Неотрицательное целое n.",
+      "output_format": "n!",
+      "examples": [
+        {
+          "input": "5",
+          "output": "120",
+          "explanation": "5! = 5×4×3×2×1 = 120"
+        },
+        {
+          "input": "0",
+          "output": "1",
+          "explanation": "0! = 1 по определению"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "5",
+          "output": "120",
+          "hidden": false
+        },
+        {
+          "input": "0",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "10",
+          "output": "3628800",
+          "hidden": true
+        },
+        {
+          "input": "20",
+          "output": "2432902008176640000",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "0 ≤ n ≤ 20"
+      ],
+      "hints": [
+        "Используйте цикл или рекурсию",
+        "Не забудьте базовый случай: 0! = 1"
+      ],
+      "solution_code": "n = int(input())\nresult = 1\nfor i in range(2, n + 1):\n    result *= i\nprint(result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "fibonacci",
+      "title": "Fibonacci Number",
+      "title_ru": "Число Фибоначчи",
+      "difficulty": "easy",
+      "category": "recursion",
+      "description_ru": "Найдите n-ое число Фибоначчи. F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2).",
+      "input_format": "Неотрицательное целое n.",
+      "output_format": "F(n).",
+      "examples": [
+        {
+          "input": "10",
+          "output": "55",
+          "explanation": "0,1,1,2,3,5,8,13,21,34,55"
+        },
+        {
+          "input": "0",
+          "output": "0"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "10",
+          "output": "55",
+          "hidden": false
+        },
+        {
+          "input": "0",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "20",
+          "output": "6765",
+          "hidden": true
+        },
+        {
+          "input": "30",
+          "output": "832040",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "0 ≤ n ≤ 30"
+      ],
+      "hints": [
+        "Наивная рекурсия будет слишком медленной",
+        "Используйте итеративный подход или мемоизацию"
+      ],
+      "solution_code": "n = int(input())\nif n <= 1:\n    print(n)\nelse:\n    a, b = 0, 1\n    for _ in range(2, n + 1):\n        a, b = b, a + b\n    print(b)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "is_prime",
+      "title": "Is Prime",
+      "title_ru": "Простое число",
+      "difficulty": "easy",
+      "category": "math",
+      "description_ru": "Определите, является ли число простым.",
+      "input_format": "Целое число n.",
+      "output_format": "YES если простое, иначе NO.",
+      "examples": [
+        {
+          "input": "7",
+          "output": "YES"
+        },
+        {
+          "input": "4",
+          "output": "NO",
+          "explanation": "4 = 2 × 2"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "7",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "4",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "0",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "97",
+          "output": "YES",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "output": "NO",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "0 ≤ n ≤ 10⁶"
+      ],
+      "hints": [
+        "Достаточно проверить делители до √n",
+        "Числа 0 и 1 не являются простыми"
+      ],
+      "solution_code": "n = int(input())\nif n < 2:\n    print(\"NO\")\nelse:\n    is_prime = True\n    i = 2\n    while i * i <= n:\n        if n % i == 0:\n            is_prime = False\n            break\n        i += 1\n    print(\"YES\" if is_prime else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "binary_search",
+      "title": "Binary Search",
+      "title_ru": "Бинарный поиск",
+      "difficulty": "medium",
+      "category": "searching",
+      "description_ru": "Дан отсортированный массив и число x. \nНайдите индекс x в массиве или выведите -1, если его нет.",
+      "input_format": "Первая строка: отсортированный массив через пробел.\nВторая строка: искомое число.",
+      "output_format": "Индекс числа или -1.",
+      "examples": [
+        {
+          "input": "1 3 5 7 9 11\n7",
+          "output": "3"
+        },
+        {
+          "input": "1 2 3\n4",
+          "output": "-1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 3 5 7 9 11\n7",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3\n4",
+          "output": "-1",
+          "hidden": false
+        },
+        {
+          "input": "1\n1",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3 4 5\n1",
+          "output": "0",
+          "hidden": true
+        },
+        {
+          "input": "1 2 3 4 5\n5",
+          "output": "4",
+          "hidden": true
+        }
+      ],
+      "constraints": [
+        "1 ≤ len(arr) ≤ 10⁵",
+        "Массив отсортирован"
+      ],
+      "hints": [
+        "Сравнивайте с средним элементом",
+        "Сужайте область поиска вдвое на каждом шаге",
+        "Сложность должна быть O(log n)"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nx = int(input())\nleft, right = 0, len(arr) - 1\nresult = -1\nwhile left <= right:\n    mid = (left + right) // 2\n    if arr[mid] == x:\n        result = mid\n        break\n    elif arr[mid] < x:\n        left = mid + 1\n    else:\n        right = mid - 1\nprint(result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "merge_sorted",
+      "title": "Merge Sorted Arrays",
+      "title_ru": "Слияние отсортированных массивов",
+      "difficulty": "medium",
+      "category": "sorting",
+      "description_ru": "Слейте два отсортированных массива в один отсортированный.",
+      "input_format": "Первая строка: первый массив.\nВторая строка: второй массив.",
+      "output_format": "Объединённый отсортированный массив.",
+      "examples": [
+        {
+          "input": "1 3 5\n2 4 6",
+          "output": "1 2 3 4 5 6"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 3 5\n2 4 6",
+          "output": "1 2 3 4 5 6",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3\n4 5 6",
+          "output": "1 2 3 4 5 6",
+          "hidden": false
+        },
+        {
+          "input": "1\n2",
+          "output": "1 2",
+          "hidden": false
+        },
+        {
+          "input": "5 10 15\n1 2 3 20",
+          "output": "1 2 3 5 10 15 20",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте два указателя — по одному на каждый массив",
+        "На каждом шаге добавляйте меньший элемент",
+        "Не забудьте добавить оставшиеся элементы"
+      ],
+      "solution_code": "a = list(map(int, input().split()))\nb = list(map(int, input().split()))\nresult = []\ni = j = 0\nwhile i < len(a) and j < len(b):\n    if a[i] <= b[j]:\n        result.append(a[i])\n        i += 1\n    else:\n        result.append(b[j])\n        j += 1\nresult.extend(a[i:])\nresult.extend(b[j:])\nprint(*result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "valid_parens",
+      "title": "Valid Parentheses",
+      "title_ru": "Правильная скобочная последовательность",
+      "difficulty": "medium",
+      "category": "stack_queue",
+      "description_ru": "Проверьте, является ли строка правильной скобочной последовательностью.\nСтрока содержит только символы '(', ')', '[', ']', '{', '}'.",
+      "input_format": "Строка со скобками.",
+      "output_format": "YES если правильная, иначе NO.",
+      "examples": [
+        {
+          "input": "()[]{}",
+          "output": "YES"
+        },
+        {
+          "input": "([)]",
+          "output": "NO"
+        },
+        {
+          "input": "{[]}",
+          "output": "YES"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "()[]{}",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "([)]",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "{[]}",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "(",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "((()))",
+          "output": "YES",
+          "hidden": true
+        },
+        {
+          "input": "[({})]",
+          "output": "YES",
+          "hidden": true
+        },
+        {
+          "input": "[",
+          "output": "NO",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте стек",
+        "При открывающей скобке — добавляйте в стек",
+        "При закрывающей — проверяйте и удаляйте из стека"
+      ],
+      "solution_code": "s = input()\nstack = []\npairs = {')': '(', ']': '[', '}': '{'}\nvalid = True\nfor c in s:\n    if c in '([{':\n        stack.append(c)\n    elif c in ')]}':\n        if not stack or stack[-1] != pairs[c]:\n            valid = False\n            break\n        stack.pop()\nprint(\"YES\" if valid and not stack else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "anagram",
+      "title": "Anagram Check",
+      "title_ru": "Проверка анаграммы",
+      "difficulty": "medium",
+      "category": "hash_table",
+      "description_ru": "Проверьте, являются ли две строки анаграммами (содержат одинаковые буквы).",
+      "input_format": "Две строки на отдельных строках.",
+      "output_format": "YES если анаграммы, иначе NO.",
+      "examples": [
+        {
+          "input": "listen\nsilent",
+          "output": "YES"
+        },
+        {
+          "input": "hello\nworld",
+          "output": "NO"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "listen\nsilent",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "hello\nworld",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "anagram\nnagaram",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "ab\nba",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "ab\nab",
+          "output": "YES",
+          "hidden": true
+        },
+        {
+          "input": "aab\nabb",
+          "output": "NO",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Сравните отсортированные версии строк",
+        "Или используйте Counter для подсчёта букв"
+      ],
+      "solution_code": "s1 = input().lower()\ns2 = input().lower()\nprint(\"YES\" if sorted(s1) == sorted(s2) else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "longest_substring",
+      "title": "Longest Substring Without Repeating",
+      "title_ru": "Наидлиннейшая подстрока без повторов",
+      "difficulty": "medium",
+      "category": "two_pointers",
+      "description_ru": "Найдите длину наибольшей подстроки без повторяющихся символов.",
+      "input_format": "Строка.",
+      "output_format": "Длина наибольшей подстроки.",
+      "examples": [
+        {
+          "input": "abcabcbb",
+          "output": "3",
+          "explanation": "'abc'"
+        },
+        {
+          "input": "bbbbb",
+          "output": "1"
+        },
+        {
+          "input": "pwwkew",
+          "output": "3",
+          "explanation": "'wke'"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "abcabcbb",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "bbbbb",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "pwwkew",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "abcdef",
+          "output": "6",
+          "hidden": true
+        },
+        {
+          "input": "aab",
+          "output": "2",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте скользящее окно (два указателя)",
+        "Храните символы текущего окна в множестве",
+        "При повторе сдвигайте левую границу"
+      ],
+      "solution_code": "s = input()\nif not s:\n    print(0)\nelse:\n    char_set = set()\n    left = max_len = 0\n    for right in range(len(s)):\n        while s[right] in char_set:\n            char_set.remove(s[left])\n            left += 1\n        char_set.add(s[right])\n        max_len = max(max_len, right - left + 1)\n    print(max_len)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "group_anagrams",
+      "title": "Group Anagrams",
+      "title_ru": "Группировка анаграмм",
+      "difficulty": "medium",
+      "category": "hash_table",
+      "description_ru": "Сгруппируйте слова-анаграммы вместе.\nВыведите группы в порядке их первого появления.",
+      "input_format": "Слова через пробел.",
+      "output_format": "Группы анаграмм, каждая на новой строке.",
+      "examples": [
+        {
+          "input": "eat tea tan ate nat bat",
+          "output": "eat tea ate\ntan nat\nbat"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "eat tea tan ate nat bat",
+          "output": "eat tea ate\ntan nat\nbat",
+          "hidden": false
+        },
+        {
+          "input": "a",
+          "output": "a",
+          "hidden": false
+        },
+        {
+          "input": "ab ba cd dc",
+          "output": "ab ba\ncd dc",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Ключ группы — отсортированное слово",
+        "Используйте defaultdict(list)"
+      ],
+      "solution_code": "from collections import defaultdict\nwords = input().split()\ngroups = defaultdict(list)\norder = []\nfor word in words:\n    key = ''.join(sorted(word))\n    if key not in groups:\n        order.append(key)\n    groups[key].append(word)\nfor key in order:\n    print(' '.join(groups[key]))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "max_subarray",
+      "title": "Maximum Subarray",
+      "title_ru": "Максимальная подмассив",
+      "difficulty": "medium",
+      "category": "dynamic_programming",
+      "description_ru": "Найдите непрерывный подмассив с максимальной суммой.",
+      "input_format": "Массив целых чисел через пробел.",
+      "output_format": "Максимальная сумма подмассива.",
+      "examples": [
+        {
+          "input": "-2 1 -3 4 -1 2 1 -5 4",
+          "output": "6",
+          "explanation": "[4,-1,2,1]"
+        },
+        {
+          "input": "1",
+          "output": "1"
+        },
+        {
+          "input": "-1 -2 -3",
+          "output": "-1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "-2 1 -3 4 -1 2 1 -5 4",
+          "output": "6",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "-1 -2 -3",
+          "output": "-1",
+          "hidden": false
+        },
+        {
+          "input": "5 4 -1 7 8",
+          "output": "23",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте алгоритм Кадане",
+        "Отслеживайте текущую сумму и максимум",
+        "Если текущая сумма отрицательна, начните заново"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nmax_sum = current = arr[0]\nfor num in arr[1:]:\n    current = max(num, current + num)\n    max_sum = max(max_sum, current)\nprint(max_sum)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "reverse_list",
+      "title": "Reverse List",
+      "title_ru": "Переворот списка",
+      "difficulty": "medium",
+      "category": "arrays",
+      "description_ru": "Разверните список, используя O(1) дополнительной памяти.",
+      "input_format": "Числа через пробел.",
+      "output_format": "Числа в обратном порядке.",
+      "examples": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "5 4 3 2 1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "5 4 3 2 1",
+          "hidden": false
+        },
+        {
+          "input": "1 2",
+          "output": "2 1",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": false
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Меняйте элементы местами с двух концов"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nleft, right = 0, len(arr) - 1\nwhile left < right:\n    arr[left], arr[right] = arr[right], arr[left]\n    left += 1\n    right -= 1\nprint(*arr)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "count_inversions",
+      "title": "Count Inversions",
+      "title_ru": "Подсчёт инверсий",
+      "difficulty": "medium",
+      "category": "sorting",
+      "description_ru": "Подсчитайте количество инверсий в массиве.\nИнверсия — пара (i, j), где i < j, но arr[i] > arr[j].",
+      "input_format": "Массив через пробел.",
+      "output_format": "Количество инверсий.",
+      "examples": [
+        {
+          "input": "2 4 1 3 5",
+          "output": "3",
+          "explanation": "(2,1), (4,1), (4,3)"
+        },
+        {
+          "input": "1 2 3",
+          "output": "0"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "2 4 1 3 5",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "3 2 1",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "1 3 2 4",
+          "output": "1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Наивный алгоритм — O(n²)",
+        "Для оптимального решения модифицируйте merge sort"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\ncount = 0\nfor i in range(len(arr)):\n    for j in range(i + 1, len(arr)):\n        if arr[i] > arr[j]:\n            count += 1\nprint(count)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "unique_paths",
+      "title": "Unique Paths",
+      "title_ru": "Уникальные пути",
+      "difficulty": "medium",
+      "category": "dynamic_programming",
+      "description_ru": "Робот стоит в левом верхнем углу сетки m×n.\nОн может двигаться только вправо или вниз.\nСколько уникальных путей до правого нижнего угла?",
+      "input_format": "Два числа: m и n.",
+      "output_format": "Количество путей.",
+      "examples": [
+        {
+          "input": "3 7",
+          "output": "28"
+        },
+        {
+          "input": "3 2",
+          "output": "3"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 7",
+          "output": "28",
+          "hidden": false
+        },
+        {
+          "input": "3 2",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "1 1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "2 2",
+          "output": "2",
+          "hidden": false
+        },
+        {
+          "input": "10 10",
+          "output": "48620",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "dp[i][j] = dp[i-1][j] + dp[i][j-1]",
+        "Первая строка и столбец — все 1",
+        "Можно оптимизировать до O(n) памяти"
+      ],
+      "solution_code": "m, n = map(int, input().split())\ndp = [1] * n\nfor i in range(1, m):\n    for j in range(1, n):\n        dp[j] += dp[j - 1]\nprint(dp[-1])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "lcs",
+      "title": "Longest Common Subsequence",
+      "title_ru": "Наибольшая общая подпоследовательность",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Найдите длину наибольшей общей подпоследовательности двух строк.",
+      "input_format": "Две строки на отдельных строках.",
+      "output_format": "Длина LCS.",
+      "examples": [
+        {
+          "input": "abcde\nace",
+          "output": "3",
+          "explanation": "'ace'"
+        },
+        {
+          "input": "abc\nabc",
+          "output": "3"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "abcde\nace",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "abc\nabc",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "abc\ndef",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "abcdgh\naedfhr",
+          "output": "3",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Классическая задача ДП",
+        "dp[i][j] — LCS для s1[:i] и s2[:j]",
+        "Если символы равны: dp[i][j] = dp[i-1][j-1] + 1"
+      ],
+      "solution_code": "s1 = input()\ns2 = input()\nm, n = len(s1), len(s2)\ndp = [[0] * (n + 1) for _ in range(m + 1)]\nfor i in range(1, m + 1):\n    for j in range(1, n + 1):\n        if s1[i-1] == s2[j-1]:\n            dp[i][j] = dp[i-1][j-1] + 1\n        else:\n            dp[i][j] = max(dp[i-1][j], dp[i][j-1])\nprint(dp[m][n])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "edit_distance",
+      "title": "Edit Distance",
+      "title_ru": "Редакционное расстояние",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Найдите минимальное количество операций для преобразования s1 в s2.\nДопустимые операции: вставка, удаление, замена символа.",
+      "input_format": "Две строки на отдельных строках.",
+      "output_format": "Минимальное количество операций.",
+      "examples": [
+        {
+          "input": "horse\nros",
+          "output": "3"
+        },
+        {
+          "input": "intention\nexecution",
+          "output": "5"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "horse\nros",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "intention\nexecution",
+          "output": "5",
+          "hidden": false
+        },
+        {
+          "input": "abc\nabc",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "a\nb",
+          "output": "1",
+          "hidden": true
+        },
+        {
+          "input": "kitten\nsitting",
+          "output": "3",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "dp[i][j] — расстояние между s1[:i] и s2[:j]",
+        "Три операции дают три перехода"
+      ],
+      "solution_code": "s1 = input()\ns2 = input()\nm, n = len(s1), len(s2)\ndp = [[0] * (n + 1) for _ in range(m + 1)]\nfor i in range(m + 1):\n    dp[i][0] = i\nfor j in range(n + 1):\n    dp[0][j] = j\nfor i in range(1, m + 1):\n    for j in range(1, n + 1):\n        if s1[i-1] == s2[j-1]:\n            dp[i][j] = dp[i-1][j-1]\n        else:\n            dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])\nprint(dp[m][n])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "knapsack",
+      "title": "0/1 Knapsack",
+      "title_ru": "Рюкзак 0/1",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Дано n предметов с весами и ценностями.\nНайдите максимальную ценность, которую можно унести в рюкзаке вместимости W.\nКаждый предмет можно взять только один раз.",
+      "input_format": "Первая строка: n W\nДалее n строк: weight value",
+      "output_format": "Максимальная ценность.",
+      "examples": [
+        {
+          "input": "3 50\n10 60\n20 100\n30 120",
+          "output": "220"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 50\n10 60\n20 100\n30 120",
+          "output": "220",
+          "hidden": false
+        },
+        {
+          "input": "4 7\n1 1\n3 4\n4 5\n5 7",
+          "output": "9",
+          "hidden": false
+        },
+        {
+          "input": "1 1\n2 10",
+          "output": "0",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "dp[i][w] — максимум для первых i предметов и вместимости w",
+        "Для каждого предмета: брать или нет"
+      ],
+      "solution_code": "line = input().split()\nn, W = int(line[0]), int(line[1])\nitems = []\nfor _ in range(n):\n    w, v = map(int, input().split())\n    items.append((w, v))\ndp = [0] * (W + 1)\nfor w, v in items:\n    for j in range(W, w - 1, -1):\n        dp[j] = max(dp[j], dp[j - w] + v)\nprint(dp[W])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "coin_change",
+      "title": "Coin Change",
+      "title_ru": "Размен монет",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Дан набор номиналов монет и сумма.\nНайдите минимальное количество монет для размена.\nЕсли размен невозможен, выведите -1.",
+      "input_format": "Первая строка: номиналы монет.\nВторая строка: сумма.",
+      "output_format": "Минимальное количество монет или -1.",
+      "examples": [
+        {
+          "input": "1 2 5\n11",
+          "output": "3",
+          "explanation": "5+5+1"
+        },
+        {
+          "input": "2\n3",
+          "output": "-1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 5\n11",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "2\n3",
+          "output": "-1",
+          "hidden": false
+        },
+        {
+          "input": "1\n0",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "1 5 10 25\n30",
+          "output": "2",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "dp[i] — минимум монет для суммы i",
+        "dp[i] = min(dp[i - coin] + 1) для всех coin"
+      ],
+      "solution_code": "coins = list(map(int, input().split()))\namount = int(input())\ndp = [float('inf')] * (amount + 1)\ndp[0] = 0\nfor i in range(1, amount + 1):\n    for coin in coins:\n        if coin <= i and dp[i - coin] != float('inf'):\n            dp[i] = min(dp[i], dp[i - coin] + 1)\nprint(dp[amount] if dp[amount] != float('inf') else -1)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "word_break",
+      "title": "Word Break",
+      "title_ru": "Разбиение на слова",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Определите, можно ли разбить строку s на слова из словаря.",
+      "input_format": "Первая строка: строка s.\nВторая строка: слова словаря через пробел.",
+      "output_format": "YES или NO.",
+      "examples": [
+        {
+          "input": "leetcode\nleet code",
+          "output": "YES"
+        },
+        {
+          "input": "applepenapple\napple pen",
+          "output": "YES"
+        },
+        {
+          "input": "catsandog\ncats dog sand and cat",
+          "output": "NO"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "leetcode\nleet code",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "applepenapple\napple pen",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "catsandog\ncats dog sand and cat",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "a\na",
+          "output": "YES",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "dp[i] — можно ли разбить s[:i]",
+        "Проверяйте все возможные последние слова"
+      ],
+      "solution_code": "s = input()\nwords = set(input().split())\nn = len(s)\ndp = [False] * (n + 1)\ndp[0] = True\nfor i in range(1, n + 1):\n    for j in range(i):\n        if dp[j] and s[j:i] in words:\n            dp[i] = True\n            break\nprint(\"YES\" if dp[n] else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "merge_intervals",
+      "title": "Merge Intervals",
+      "title_ru": "Слияние интервалов",
+      "difficulty": "medium",
+      "category": "sorting",
+      "description_ru": "Слейте все пересекающиеся интервалы.",
+      "input_format": "Первая строка: количество интервалов n.\nДалее n строк: start end.",
+      "output_format": "Слитые интервалы, каждый на новой строке.",
+      "examples": [
+        {
+          "input": "4\n1 3\n2 6\n8 10\n15 18",
+          "output": "1 6\n8 10\n15 18"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "4\n1 3\n2 6\n8 10\n15 18",
+          "output": "1 6\n8 10\n15 18",
+          "hidden": false
+        },
+        {
+          "input": "2\n1 4\n4 5",
+          "output": "1 5",
+          "hidden": false
+        },
+        {
+          "input": "1\n1 1",
+          "output": "1 1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Отсортируйте по началу интервала",
+        "Сравнивайте конец предыдущего с началом текущего"
+      ],
+      "solution_code": "n = int(input())\nintervals = []\nfor _ in range(n):\n    a, b = map(int, input().split())\n    intervals.append([a, b])\nintervals.sort()\nmerged = [intervals[0]]\nfor start, end in intervals[1:]:\n    if start <= merged[-1][1]:\n        merged[-1][1] = max(merged[-1][1], end)\n    else:\n        merged.append([start, end])\nfor a, b in merged:\n    print(a, b)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "quicksort",
+      "title": "Quick Sort",
+      "title_ru": "Быстрая сортировка",
+      "difficulty": "medium",
+      "category": "sorting",
+      "description_ru": "Отсортируйте массив используя алгоритм быстрой сортировки.",
+      "input_format": "Числа через пробел.",
+      "output_format": "Отсортированные числа.",
+      "examples": [
+        {
+          "input": "3 1 4 1 5 9 2 6",
+          "output": "1 1 2 3 4 5 6 9"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 1 4 1 5 9 2 6",
+          "output": "1 1 2 3 4 5 6 9",
+          "hidden": false
+        },
+        {
+          "input": "5 4 3 2 1",
+          "output": "1 2 3 4 5",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "-3 -1 -2",
+          "output": "-3 -2 -1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Выберите опорный элемент (pivot)",
+        "Разделите на элементы меньше и больше pivot",
+        "Рекурсивно отсортируйте части"
+      ],
+      "solution_code": "def quicksort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quicksort(left) + middle + quicksort(right)\n\narr = list(map(int, input().split()))\nprint(*quicksort(arr))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "num_islands",
+      "title": "Number of Islands",
+      "title_ru": "Количество островов",
+      "difficulty": "hard",
+      "category": "graphs",
+      "description_ru": "Дана карта m×n, где 1 — суша, 0 — вода.\nПосчитайте количество островов (связных компонент суши).",
+      "input_format": "Первая строка: m n.\nДалее m строк карты.",
+      "output_format": "Количество островов.",
+      "examples": [
+        {
+          "input": "4 5\n11110\n11010\n11000\n00000",
+          "output": "1"
+        },
+        {
+          "input": "4 5\n11000\n11000\n00100\n00011",
+          "output": "3"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "4 5\n11110\n11010\n11000\n00000",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "4 5\n11000\n11000\n00100\n00011",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "1 1\n1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "1 1\n0",
+          "output": "0",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте DFS или BFS",
+        "При нахождении '1' запустите обход и пометьте всю компоненту"
+      ],
+      "solution_code": "m, n = map(int, input().split())\ngrid = [list(input()) for _ in range(m)]\n\ndef dfs(i, j):\n    if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != '1':\n        return\n    grid[i][j] = '0'\n    dfs(i+1, j)\n    dfs(i-1, j)\n    dfs(i, j+1)\n    dfs(i, j-1)\n\ncount = 0\nfor i in range(m):\n    for j in range(n):\n        if grid[i][j] == '1':\n            dfs(i, j)\n            count += 1\nprint(count)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "lis",
+      "title": "Longest Increasing Subsequence",
+      "title_ru": "Наибольшая возрастающая подпоследовательность",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Найдите длину наибольшей строго возрастающей подпоследовательности.",
+      "input_format": "Массив через пробел.",
+      "output_format": "Длина LIS.",
+      "examples": [
+        {
+          "input": "10 9 2 5 3 7 101 18",
+          "output": "4",
+          "explanation": "[2,3,7,101]"
+        },
+        {
+          "input": "0 1 0 3 2 3",
+          "output": "4"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "10 9 2 5 3 7 101 18",
+          "output": "4",
+          "hidden": false
+        },
+        {
+          "input": "0 1 0 3 2 3",
+          "output": "4",
+          "hidden": false
+        },
+        {
+          "input": "7 7 7 7",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3 4 5",
+          "output": "5",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "ДП за O(n²): dp[i] = max(dp[j] + 1) для j < i и arr[j] < arr[i]",
+        "Оптимально за O(n log n) с бинарным поиском"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nn = len(arr)\ndp = [1] * n\nfor i in range(1, n):\n    for j in range(i):\n        if arr[j] < arr[i]:\n            dp[i] = max(dp[i], dp[j] + 1)\nprint(max(dp))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "median_sorted",
+      "title": "Median of Two Sorted Arrays",
+      "title_ru": "Медиана двух отсортированных массивов",
+      "difficulty": "hard",
+      "category": "searching",
+      "description_ru": "Найдите медиану двух отсортированных массивов.",
+      "input_format": "Два массива на отдельных строках.",
+      "output_format": "Медиана (с точностью до 1 знака после запятой).",
+      "examples": [
+        {
+          "input": "1 3\n2",
+          "output": "2.0"
+        },
+        {
+          "input": "1 2\n3 4",
+          "output": "2.5"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 3\n2",
+          "output": "2.0",
+          "hidden": false
+        },
+        {
+          "input": "1 2\n3 4",
+          "output": "2.5",
+          "hidden": false
+        },
+        {
+          "input": "1\n2",
+          "output": "1.5",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3\n4 5 6",
+          "output": "3.5",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Простое решение: объедините и найдите медиану",
+        "Оптимально за O(log(min(m,n))) с бинарным поиском"
+      ],
+      "solution_code": "a = list(map(int, input().split()))\nb = list(map(int, input().split()))\nmerged = sorted(a + b)\nn = len(merged)\nif n % 2 == 1:\n    print(float(merged[n // 2]))\nelse:\n    print((merged[n // 2 - 1] + merged[n // 2]) / 2)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "even_odd",
+      "title": "Even or Odd",
+      "title_ru": "Чётное или нечётное",
+      "difficulty": "easy",
+      "category": "math",
+      "description_ru": "Определите, является ли число чётным или нечётным.",
+      "input_format": "Целое число n.",
+      "output_format": "EVEN если чётное, ODD если нечётное.",
+      "examples": [
+        {
+          "input": "4",
+          "output": "EVEN"
+        },
+        {
+          "input": "7",
+          "output": "ODD"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "4",
+          "output": "EVEN",
+          "hidden": false
+        },
+        {
+          "input": "7",
+          "output": "ODD",
+          "hidden": false
+        },
+        {
+          "input": "0",
+          "output": "EVEN",
+          "hidden": false
+        },
+        {
+          "input": "-3",
+          "output": "ODD",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте оператор % для проверки остатка от деления на 2"
+      ],
+      "solution_code": "n = int(input())\nprint(\"EVEN\" if n % 2 == 0 else \"ODD\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "min_max",
+      "title": "Min and Max",
+      "title_ru": "Минимум и максимум",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Найдите минимальный и максимальный элементы массива.",
+      "input_format": "Числа через пробел.",
+      "output_format": "Минимум и максимум через пробел.",
+      "examples": [
+        {
+          "input": "3 1 4 1 5 9",
+          "output": "1 9"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 1 4 1 5 9",
+          "output": "1 9",
+          "hidden": false
+        },
+        {
+          "input": "5",
+          "output": "5 5",
+          "hidden": false
+        },
+        {
+          "input": "-1 -5 -3",
+          "output": "-5 -1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Можно использовать min() и max() или один проход"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nprint(min(arr), max(arr))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "count_words",
+      "title": "Count Words",
+      "title_ru": "Подсчёт слов",
+      "difficulty": "easy",
+      "category": "strings",
+      "description_ru": "Подсчитайте количество слов в строке.",
+      "input_format": "Строка.",
+      "output_format": "Количество слов.",
+      "examples": [
+        {
+          "input": "Hello World",
+          "output": "2"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "Hello World",
+          "output": "2",
+          "hidden": false
+        },
+        {
+          "input": "One",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "   multiple   spaces   here   ",
+          "output": "3",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Метод split() разбивает строку по пробелам"
+      ],
+      "solution_code": "s = input()\nprint(len(s.split()))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "gcd",
+      "title": "GCD",
+      "title_ru": "НОД двух чисел",
+      "difficulty": "easy",
+      "category": "math",
+      "description_ru": "Найдите наибольший общий делитель двух чисел.",
+      "input_format": "Два числа a и b через пробел.",
+      "output_format": "НОД(a, b).",
+      "examples": [
+        {
+          "input": "12 18",
+          "output": "6"
+        },
+        {
+          "input": "7 13",
+          "output": "1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "12 18",
+          "output": "6",
+          "hidden": false
+        },
+        {
+          "input": "7 13",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "100 100",
+          "output": "100",
+          "hidden": false
+        },
+        {
+          "input": "1 1000",
+          "output": "1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте алгоритм Евклида: gcd(a, b) = gcd(b, a % b)"
+      ],
+      "solution_code": "a, b = map(int, input().split())\nwhile b:\n    a, b = b, a % b\nprint(a)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "remove_duplicates",
+      "title": "Remove Duplicates",
+      "title_ru": "Удаление дубликатов",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Удалите дубликаты из массива, сохранив порядок первого вхождения.",
+      "input_format": "Числа через пробел.",
+      "output_format": "Уникальные числа в порядке первого появления.",
+      "examples": [
+        {
+          "input": "1 2 2 3 1 4",
+          "output": "1 2 3 4"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 2 3 1 4",
+          "output": "1 2 3 4",
+          "hidden": false
+        },
+        {
+          "input": "1 1 1",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3",
+          "output": "1 2 3",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте множество для отслеживания виденных элементов"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nseen = set()\nresult = []\nfor x in arr:\n    if x not in seen:\n        seen.add(x)\n        result.append(x)\nprint(*result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "power_of_two",
+      "title": "Power of Two",
+      "title_ru": "Степень двойки",
+      "difficulty": "easy",
+      "category": "math",
+      "description_ru": "Определите, является ли число степенью двойки.",
+      "input_format": "Целое положительное число n.",
+      "output_format": "YES или NO.",
+      "examples": [
+        {
+          "input": "16",
+          "output": "YES"
+        },
+        {
+          "input": "18",
+          "output": "NO"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "16",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "18",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "1024",
+          "output": "YES",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "n & (n-1) == 0 для степеней двойки",
+        "Или делите на 2 пока можно"
+      ],
+      "solution_code": "n = int(input())\nprint(\"YES\" if n > 0 and (n & (n - 1)) == 0 else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "array_sum",
+      "title": "Array Sum",
+      "title_ru": "Сумма массива",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Найдите сумму всех элементов массива.",
+      "input_format": "Числа через пробел.",
+      "output_format": "Сумма.",
+      "examples": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "15"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "15",
+          "hidden": false
+        },
+        {
+          "input": "0",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "-1 1 -2 2",
+          "output": "0",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте sum() или цикл"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nprint(sum(arr))",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "second_largest",
+      "title": "Second Largest",
+      "title_ru": "Второй максимум",
+      "difficulty": "easy",
+      "category": "arrays",
+      "description_ru": "Найдите второй по величине элемент массива.",
+      "input_format": "Числа через пробел (минимум 2 различных).",
+      "output_format": "Второй максимум.",
+      "examples": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "4"
+        },
+        {
+          "input": "5 5 4 4 3",
+          "output": "4"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 3 4 5",
+          "output": "4",
+          "hidden": false
+        },
+        {
+          "input": "5 5 4 4 3",
+          "output": "4",
+          "hidden": false
+        },
+        {
+          "input": "1 2",
+          "output": "1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Отсортируйте и найдите уникальные значения"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nunique = sorted(set(arr), reverse=True)\nprint(unique[1])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "rotate_array",
+      "title": "Rotate Array",
+      "title_ru": "Циклический сдвиг",
+      "difficulty": "medium",
+      "category": "arrays",
+      "description_ru": "Сдвиньте массив вправо на k позиций.",
+      "input_format": "Первая строка: массив. Вторая строка: k.",
+      "output_format": "Сдвинутый массив.",
+      "examples": [
+        {
+          "input": "1 2 3 4 5\n2",
+          "output": "4 5 1 2 3"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 3 4 5\n2",
+          "output": "4 5 1 2 3",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3\n3",
+          "output": "1 2 3",
+          "hidden": false
+        },
+        {
+          "input": "1 2\n5",
+          "output": "2 1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "k = k % len(arr)",
+        "Используйте срезы: arr[-k:] + arr[:-k]"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nk = int(input()) % len(arr)\nresult = arr[-k:] + arr[:-k]\nprint(*result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "majority_element",
+      "title": "Majority Element",
+      "title_ru": "Элемент большинства",
+      "difficulty": "medium",
+      "category": "arrays",
+      "description_ru": "Найдите элемент, который встречается более n/2 раз.",
+      "input_format": "Массив через пробел.",
+      "output_format": "Элемент большинства.",
+      "examples": [
+        {
+          "input": "3 2 3",
+          "output": "3"
+        },
+        {
+          "input": "2 2 1 1 1 2 2",
+          "output": "2"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 2 3",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "2 2 1 1 1 2 2",
+          "output": "2",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "output": "1",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Алгоритм Бойера-Мура",
+        "Или Counter и проверка"
+      ],
+      "solution_code": "from collections import Counter\narr = list(map(int, input().split()))\nc = Counter(arr)\nprint(c.most_common(1)[0][0])",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "product_except_self",
+      "title": "Product Except Self",
+      "title_ru": "Произведение кроме себя",
+      "difficulty": "medium",
+      "category": "arrays",
+      "description_ru": "Для каждого элемента вычислите произведение всех остальных элементов.",
+      "input_format": "Массив через пробел.",
+      "output_format": "Массив произведений.",
+      "examples": [
+        {
+          "input": "1 2 3 4",
+          "output": "24 12 8 6"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 2 3 4",
+          "output": "24 12 8 6",
+          "hidden": false
+        },
+        {
+          "input": "2 3",
+          "output": "3 2",
+          "hidden": false
+        },
+        {
+          "input": "-1 1 0 -3 3",
+          "output": "0 0 9 0 0",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Два прохода: слева направо и справа налево",
+        "Или используйте деление (осторожно с нулями)"
+      ],
+      "solution_code": "arr = list(map(int, input().split()))\nn = len(arr)\nresult = [1] * n\nleft = 1\nfor i in range(n):\n    result[i] = left\n    left *= arr[i]\nright = 1\nfor i in range(n-1, -1, -1):\n    result[i] *= right\n    right *= arr[i]\nprint(*result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "three_sum",
+      "title": "Three Sum",
+      "title_ru": "Три числа с суммой ноль",
+      "difficulty": "medium",
+      "category": "two_pointers",
+      "description_ru": "Найдите все уникальные тройки чисел, дающие в сумме 0.",
+      "input_format": "Массив через пробел.",
+      "output_format": "Тройки чисел, каждая на новой строке (отсортированные).",
+      "examples": [
+        {
+          "input": "-1 0 1 2 -1 -4",
+          "output": "-1 -1 2\n-1 0 1"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "-1 0 1 2 -1 -4",
+          "output": "-1 -1 2\n-1 0 1",
+          "hidden": false
+        },
+        {
+          "input": "0 0 0",
+          "output": "0 0 0",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3",
+          "output": "",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Отсортируйте массив",
+        "Фиксируйте первый элемент, для остальных — два указателя"
+      ],
+      "solution_code": "arr = sorted(map(int, input().split()))\nn = len(arr)\nresults = []\nfor i in range(n - 2):\n    if i > 0 and arr[i] == arr[i-1]:\n        continue\n    left, right = i + 1, n - 1\n    while left < right:\n        s = arr[i] + arr[left] + arr[right]\n        if s == 0:\n            results.append((arr[i], arr[left], arr[right]))\n            while left < right and arr[left] == arr[left+1]:\n                left += 1\n            while left < right and arr[right] == arr[right-1]:\n                right -= 1\n            left += 1\n            right -= 1\n        elif s < 0:\n            left += 1\n        else:\n            right -= 1\nfor r in results:\n    print(*r)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "spiral_matrix",
+      "title": "Spiral Matrix",
+      "title_ru": "Спиральный обход матрицы",
+      "difficulty": "medium",
+      "category": "arrays",
+      "description_ru": "Выведите элементы матрицы в спиральном порядке.",
+      "input_format": "Первая строка: n m. Далее n строк матрицы.",
+      "output_format": "Элементы в спиральном порядке через пробел.",
+      "examples": [
+        {
+          "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+          "output": "1 2 3 6 9 8 7 4 5"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+          "output": "1 2 3 6 9 8 7 4 5",
+          "hidden": false
+        },
+        {
+          "input": "1 4\n1 2 3 4",
+          "output": "1 2 3 4",
+          "hidden": false
+        },
+        {
+          "input": "2 2\n1 2\n3 4",
+          "output": "1 2 4 3",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте 4 границы: top, bottom, left, right",
+        "Сужайте границы после каждого прохода"
+      ],
+      "solution_code": "n, m = map(int, input().split())\nmatrix = [list(map(int, input().split())) for _ in range(n)]\nresult = []\ntop, bottom, left, right = 0, n-1, 0, m-1\nwhile top <= bottom and left <= right:\n    for j in range(left, right+1):\n        result.append(matrix[top][j])\n    top += 1\n    for i in range(top, bottom+1):\n        result.append(matrix[i][right])\n    right -= 1\n    if top <= bottom:\n        for j in range(right, left-1, -1):\n            result.append(matrix[bottom][j])\n        bottom -= 1\n    if left <= right:\n        for i in range(bottom, top-1, -1):\n            result.append(matrix[i][left])\n        left += 1\nprint(*result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "longest_palindrome",
+      "title": "Longest Palindromic Substring",
+      "title_ru": "Наидлиннейший палиндром-подстрока",
+      "difficulty": "medium",
+      "category": "strings",
+      "description_ru": "Найдите самую длинную подстроку-палиндром.",
+      "input_format": "Строка.",
+      "output_format": "Длина наибольшего палиндрома.",
+      "examples": [
+        {
+          "input": "babad",
+          "output": "3"
+        },
+        {
+          "input": "cbbd",
+          "output": "2"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "babad",
+          "output": "3",
+          "hidden": false
+        },
+        {
+          "input": "cbbd",
+          "output": "2",
+          "hidden": false
+        },
+        {
+          "input": "a",
+          "output": "1",
+          "hidden": false
+        },
+        {
+          "input": "aaaa",
+          "output": "4",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Расширяйтесь из центра",
+        "Проверяйте и нечётные, и чётные палиндромы"
+      ],
+      "solution_code": "s = input()\ndef expand(l, r):\n    while l >= 0 and r < len(s) and s[l] == s[r]:\n        l -= 1\n        r += 1\n    return r - l - 1\nmax_len = 0\nfor i in range(len(s)):\n    len1 = expand(i, i)\n    len2 = expand(i, i + 1)\n    max_len = max(max_len, len1, len2)\nprint(max_len)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "subarray_sum_k",
+      "title": "Subarray Sum Equals K",
+      "title_ru": "Подмассив с суммой K",
+      "difficulty": "medium",
+      "category": "hash_table",
+      "description_ru": "Найдите количество подмассивов с суммой равной k.",
+      "input_format": "Первая строка: массив. Вторая строка: k.",
+      "output_format": "Количество подмассивов.",
+      "examples": [
+        {
+          "input": "1 1 1\n2",
+          "output": "2"
+        },
+        {
+          "input": "1 2 3\n3",
+          "output": "2"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "1 1 1\n2",
+          "output": "2",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3\n3",
+          "output": "2",
+          "hidden": false
+        },
+        {
+          "input": "1 -1 0\n0",
+          "output": "3",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте префиксные суммы",
+        "Храните счётчик префиксных сумм в словаре"
+      ],
+      "solution_code": "from collections import defaultdict\narr = list(map(int, input().split()))\nk = int(input())\ncount = 0\nprefix_sum = 0\nprefix_counts = defaultdict(int)\nprefix_counts[0] = 1\nfor num in arr:\n    prefix_sum += num\n    count += prefix_counts[prefix_sum - k]\n    prefix_counts[prefix_sum] += 1\nprint(count)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "max_histogram",
+      "title": "Largest Rectangle in Histogram",
+      "title_ru": "Максимальный прямоугольник в гистограмме",
+      "difficulty": "hard",
+      "category": "stack_queue",
+      "description_ru": "Найдите площадь наибольшего прямоугольника в гистограмме.",
+      "input_format": "Высоты столбцов через пробел.",
+      "output_format": "Максимальная площадь.",
+      "examples": [
+        {
+          "input": "2 1 5 6 2 3",
+          "output": "10"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "2 1 5 6 2 3",
+          "output": "10",
+          "hidden": false
+        },
+        {
+          "input": "2 4",
+          "output": "4",
+          "hidden": false
+        },
+        {
+          "input": "1 1 1 1",
+          "output": "4",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте стек",
+        "Храните индексы столбцов"
+      ],
+      "solution_code": "heights = list(map(int, input().split()))\nstack = []\nmax_area = 0\nfor i, h in enumerate(heights + [0]):\n    while stack and heights[stack[-1]] > h:\n        height = heights[stack.pop()]\n        width = i if not stack else i - stack[-1] - 1\n        max_area = max(max_area, height * width)\n    stack.append(i)\nprint(max_area)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "trapping_water",
+      "title": "Trapping Rain Water",
+      "title_ru": "Ловушка для воды",
+      "difficulty": "hard",
+      "category": "two_pointers",
+      "description_ru": "Сколько воды можно накопить между столбцами после дождя?",
+      "input_format": "Высоты столбцов через пробел.",
+      "output_format": "Объём воды.",
+      "examples": [
+        {
+          "input": "0 1 0 2 1 0 1 3 2 1 2 1",
+          "output": "6"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "0 1 0 2 1 0 1 3 2 1 2 1",
+          "output": "6",
+          "hidden": false
+        },
+        {
+          "input": "4 2 0 3 2 5",
+          "output": "9",
+          "hidden": false
+        },
+        {
+          "input": "1 2 3",
+          "output": "0",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Вода над позицией = min(max_left, max_right) - height",
+        "Два указателя или предвычисление"
+      ],
+      "solution_code": "height = list(map(int, input().split()))\nn = len(height)\nif n < 3:\n    print(0)\nelse:\n    left_max = [0] * n\n    right_max = [0] * n\n    left_max[0] = height[0]\n    for i in range(1, n):\n        left_max[i] = max(left_max[i-1], height[i])\n    right_max[n-1] = height[n-1]\n    for i in range(n-2, -1, -1):\n        right_max[i] = max(right_max[i+1], height[i])\n    water = sum(min(left_max[i], right_max[i]) - height[i] for i in range(n))\n    print(water)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "regex_match",
+      "title": "Regular Expression Matching",
+      "title_ru": "Регулярные выражения",
+      "difficulty": "hard",
+      "category": "dynamic_programming",
+      "description_ru": "Реализуйте простое сопоставление с '.' (любой символ) и '*' (ноль или более предыдущего).",
+      "input_format": "Строка s.\nПаттерн p.",
+      "output_format": "YES или NO.",
+      "examples": [
+        {
+          "input": "aa\na",
+          "output": "NO"
+        },
+        {
+          "input": "aa\na*",
+          "output": "YES"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "aa\na",
+          "output": "NO",
+          "hidden": false
+        },
+        {
+          "input": "aa\na*",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "ab\n.*",
+          "output": "YES",
+          "hidden": false
+        },
+        {
+          "input": "aab\nc*a*b",
+          "output": "YES",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Используйте ДП",
+        "dp[i][j] — совпадают ли s[:i] и p[:j]"
+      ],
+      "solution_code": "s = input()\np = input()\nm, n = len(s), len(p)\ndp = [[False] * (n + 1) for _ in range(m + 1)]\ndp[0][0] = True\nfor j in range(1, n + 1):\n    if p[j-1] == \"*\":\n        dp[0][j] = dp[0][j-2]\nfor i in range(1, m + 1):\n    for j in range(1, n + 1):\n        if p[j-1] == \"*\":\n            dp[i][j] = dp[i][j-2]\n            if p[j-2] == \".\" or p[j-2] == s[i-1]:\n                dp[i][j] = dp[i][j] or dp[i-1][j]\n        elif p[j-1] == \".\" or p[j-1] == s[i-1]:\n            dp[i][j] = dp[i-1][j-1]\nprint(\"YES\" if dp[m][n] else \"NO\")",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "min_window",
+      "title": "Minimum Window Substring",
+      "title_ru": "Минимальное окно с подстрокой",
+      "difficulty": "hard",
+      "category": "two_pointers",
+      "description_ru": "Найдите минимальную подстроку s, содержащую все символы t.",
+      "input_format": "Строка s.\nСтрока t.",
+      "output_format": "Минимальная подстрока или пустая строка.",
+      "examples": [
+        {
+          "input": "ADOBECODEBANC\nABC",
+          "output": "BANC"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "ADOBECODEBANC\nABC",
+          "output": "BANC",
+          "hidden": false
+        },
+        {
+          "input": "a\na",
+          "output": "a",
+          "hidden": false
+        },
+        {
+          "input": "a\naa",
+          "output": "",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "Скользящее окно",
+        "Храните счётчик нужных символов"
+      ],
+      "solution_code": "from collections import Counter\ns = input()\nt = input()\nif not t or not s:\n    print(\"\")\nelse:\n    need = Counter(t)\n    have = 0\n    required = len(need)\n    left = 0\n    min_len = float(\"inf\")\n    result = \"\"\n    window = {}\n    for right in range(len(s)):\n        c = s[right]\n        window[c] = window.get(c, 0) + 1\n        if c in need and window[c] == need[c]:\n            have += 1\n        while have == required:\n            if right - left + 1 < min_len:\n                min_len = right - left + 1\n                result = s[left:right+1]\n            lc = s[left]\n            window[lc] -= 1\n            if lc in need and window[lc] < need[lc]:\n                have -= 1\n            left += 1\n    print(result)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    },
+    {
+      "id": "word_ladder",
+      "title": "Word Ladder",
+      "title_ru": "Цепочка слов",
+      "difficulty": "hard",
+      "category": "graphs",
+      "description_ru": "Найдите длину кратчайшей цепочки слов от beginWord до endWord, меняя по одной букве.",
+      "input_format": "Начальное слово.\nКонечное слово.\nСлова словаря через пробел.",
+      "output_format": "Длина цепочки или 0.",
+      "examples": [
+        {
+          "input": "hit\ncog\nhot dot dog lot log cog",
+          "output": "5"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "hit\ncog\nhot dot dog lot log cog",
+          "output": "5",
+          "hidden": false
+        },
+        {
+          "input": "hit\ncog\nhot dot dog lot log",
+          "output": "0",
+          "hidden": false
+        },
+        {
+          "input": "a\nc\na b c",
+          "output": "2",
+          "hidden": true
+        }
+      ],
+      "constraints": [],
+      "hints": [
+        "BFS",
+        "Генерируйте все возможные следующие слова"
+      ],
+      "solution_code": "from collections import deque\nbegin = input()\nend = input()\nwords = set(input().split())\nif end not in words:\n    print(0)\nelse:\n    queue = deque([(begin, 1)])\n    visited = {begin}\n    found = False\n    while queue and not found:\n        word, length = queue.popleft()\n        for i in range(len(word)):\n            for c in \"abcdefghijklmnopqrstuvwxyz\":\n                next_word = word[:i] + c + word[i+1:]\n                if next_word == end:\n                    print(length + 1)\n                    found = True\n                    break\n                if next_word in words and next_word not in visited:\n                    visited.add(next_word)\n                    queue.append((next_word, length + 1))\n            if found:\n                break\n    if not found:\n        print(0)",
+      "solution_explanation": "",
+      "time_limit_sec": 2.0,
+      "attempts": 0,
+      "accepted": 0
+    }
+  ]
+}

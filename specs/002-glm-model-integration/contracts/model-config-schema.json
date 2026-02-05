@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ModelConfiguration",
+  "description": "Configuration schema for LLM models in MITS",
+  "type": "object",
+  "required": ["name", "backend"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique identifier for the model configuration",
+      "pattern": "^[a-z0-9-]+$",
+      "examples": ["glm-4.7-flash-reap", "deepseek-r1-8b"]
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name for UI display",
+      "examples": ["GLM-4.7-Flash-REAP (23B) - Recommended"]
+    },
+    "backend": {
+      "type": "string",
+      "enum": ["ollama", "llama.cpp", "huggingface"],
+      "description": "Inference backend to use"
+    },
+    "ollama_model": {
+      "type": "string",
+      "description": "Ollama model identifier",
+      "examples": ["glm-4.7-flash", "deepseek-r1:8b"]
+    },
+    "gguf_repo": {
+      "type": "string",
+      "description": "HuggingFace repository for GGUF files",
+      "examples": ["unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF"]
+    },
+    "gguf_file": {
+      "type": "string",
+      "description": "GGUF quantization variant",
+      "enum": ["Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0", "IQ4_XS", "IQ3_M"],
+      "default": "Q4_K_M"
+    },
+    "gpu_layers": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Number of layers to load on GPU",
+      "default": 25
+    },
+    "cpu_moe_layers": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Number of MoE expert layers to keep on CPU",
+      "default": 0
+    },
+    "context_length": {
+      "type": "integer",
+      "minimum": 512,
+      "maximum": 202752,
+      "description": "Maximum context length in tokens",
+      "default": 4096
+    },
+    "estimated_vram_gb": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Estimated VRAM usage in GB"
+    },
+    "estimated_ram_gb": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Estimated RAM usage in GB"
+    },
+    "sampling": {
+      "type": "object",
+      "properties": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 2.0,
+          "default": 0.2
+        },
+        "top_p": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.9
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 2
+        },
+        "repetition_penalty": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 1.05,
+          "default": 1.0,
+          "description": "Must be 1.0-1.05 for GLM models"
+        }
+      }
+    },
+    "kv_cache": {
+      "type": "object",
+      "properties": {
+        "k_type": {
+          "type": "string",
+          "enum": ["f16", "q8_0", "q4_0"],
+          "default": "q8_0"
+        },
+        "v_type": {
+          "type": "string",
+          "enum": ["f16", "q8_0", "q4_0"],
+          "default": "q4_0"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "supports_thinking": {
+          "type": "boolean",
+          "default": true
+        },
+        "supports_streaming": {
+          "type": "boolean",
+          "default": true
+        },
+        "is_moe": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "backend": { "const": "llama.cpp" }
+    }
+  },
+  "then": {
+    "required": ["gguf_repo", "gguf_file"]
+  }
+}

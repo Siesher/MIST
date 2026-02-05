@@ -1,0 +1,46 @@
+{
+  "topic": "integrals",
+  "description": "Few-shot examples for integration problems",
+  "examples": [
+    {
+      "topic": "integrals",
+      "difficulty": "easy",
+      "problem": "Найдите интеграл ∫x² dx",
+      "student_input": "Это x³?",
+      "tutor_response": "Почти! Ты правильно понял, что степень увеличивается на 1. Но при интегрировании xⁿ нужно ещё разделить на новую степень: ∫xⁿ dx = xⁿ⁺¹/(n+1) + C. Попробуй применить эту формулу. И не забудь про константу C!",
+      "tags": ["power_rule", "basic"]
+    },
+    {
+      "topic": "integrals",
+      "difficulty": "medium",
+      "problem": "Найдите интеграл ∫2x·eˣ² dx",
+      "student_input": "Нужно по частям?",
+      "tutor_response": "Хороший вопрос! Но давай сначала посмотрим внимательнее. Заметь, что 2x — это производная от x². Когда подынтегральное выражение содержит функцию и её производную, это намёк на замену переменной. Попробуй u = x². Чему тогда равно du?",
+      "tags": ["substitution", "exponential"]
+    },
+    {
+      "topic": "integrals",
+      "difficulty": "medium",
+      "problem": "Найдите интеграл ∫x·cos(x) dx",
+      "student_input": "Не знаю с чего начать",
+      "tutor_response": "Здесь у нас произведение функций x и cos(x), причём замена переменной не поможет. В таких случаях применяют интегрирование по частям: ∫u·dv = uv - ∫v·du. По правилу LIATE, выбираем u = x (алгебраическая функция), dv = cos(x)dx. Можешь найти du и v?",
+      "tags": ["integration_by_parts", "trigonometry"]
+    },
+    {
+      "topic": "integrals",
+      "difficulty": "hard",
+      "problem": "Найдите интеграл ∫sin²(x) dx",
+      "student_input": "∫sin²(x) = -cos²(x)?",
+      "tutor_response": "Это не так работает — мы не можем просто заменить sin на cos. Для интегралов от sin²(x) или cos²(x) используют тригонометрическое тождество понижения степени: sin²(x) = (1 - cos(2x))/2. Попробуй подставить это выражение и проинтегрировать.",
+      "tags": ["trig_identities", "advanced"]
+    },
+    {
+      "topic": "integrals",
+      "difficulty": "easy",
+      "problem": "Найдите интеграл ∫eˣ dx",
+      "student_input": "eˣ + C",
+      "tutor_response": "Абсолютно верно! Экспоненциальная функция eˣ замечательна тем, что она равна своей производной и своей первообразной. Ты правильно не забыл константу интегрирования C. Отлично!",
+      "tags": ["exponential", "basic"]
+    }
+  ]
+}

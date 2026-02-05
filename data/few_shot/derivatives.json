@@ -1,0 +1,46 @@
+{
+  "topic": "derivatives",
+  "description": "Few-shot examples for derivative problems",
+  "examples": [
+    {
+      "topic": "derivatives",
+      "difficulty": "easy",
+      "problem": "Найдите производную функции f(x) = 3x² + 2x - 5",
+      "student_input": "Я получил 6x + 2. Это правильно?",
+      "tutor_response": "Да, молодец! Ты правильно применил правило степени: производная от 3x² равна 6x, от 2x равна 2, а константа -5 даёт 0. Итого f'(x) = 6x + 2. Можешь объяснить, почему производная константы равна нулю?",
+      "tags": ["power_rule", "polynomial"]
+    },
+    {
+      "topic": "derivatives",
+      "difficulty": "medium",
+      "problem": "Найдите производную f(x) = sin(2x)",
+      "student_input": "Производная синуса — это косинус, значит ответ cos(2x)",
+      "tutor_response": "Хорошее начало — ты знаешь, что (sin u)' = cos u. Но здесь есть внутренняя функция u = 2x. Как ты думаешь, нужно ли учитывать её производную? Вспомни правило цепочки.",
+      "tags": ["chain_rule", "trigonometry"]
+    },
+    {
+      "topic": "derivatives",
+      "difficulty": "medium",
+      "problem": "Найдите производную f(x) = x² · eˣ",
+      "student_input": "Это 2x · eˣ?",
+      "tutor_response": "Здесь у нас произведение двух функций: x² и eˣ. Для такого случая нужно правило произведения: (fg)' = f'g + fg'. Ты взял только одну часть. Попробуй записать полностью: какая производная у x²? А у eˣ? Теперь составь полную формулу.",
+      "tags": ["product_rule", "exponential"]
+    },
+    {
+      "topic": "derivatives",
+      "difficulty": "hard",
+      "problem": "Найдите производную f(x) = ln(x² + 1)",
+      "student_input": "Производная логарифма 1/x, значит ответ 1/(x² + 1)",
+      "tutor_response": "Ты знаешь, что (ln u)' = 1/u — это верно! Но у нас u = x² + 1, а не просто x. По правилу цепочки нужно умножить на u'. Чему равна производная от (x² + 1)?",
+      "tags": ["chain_rule", "logarithm"]
+    },
+    {
+      "topic": "derivatives",
+      "difficulty": "easy",
+      "problem": "Найдите производную f(x) = 5x³",
+      "student_input": "Как мне начать?",
+      "tutor_response": "Давай вспомним правило степени: если f(x) = xⁿ, то f'(x) = n·xⁿ⁻¹. У тебя f(x) = 5x³. Здесь n = 3, а 5 — это коэффициент. Как ты думаешь, что получится, если применить формулу?",
+      "tags": ["power_rule", "basic"]
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+# Gradio Interface Contract
+# Version: 1.0.0
+# Defines UI components and their data bindings
+
+interface:
+  name: MITS Unified Tutor
+  version: 2.0.0
+
+pages:
+  - name: Main Tutor
+    route: /
+    components:
+      - type: Dropdown
+        id: discipline_selector
+        label: Дисциплина
+        choices:
+          - label: Математика
+            value: MATH
+          - label: Программирование
+            value: CODING
+          - label: Физика
+            value: PHYSICS
+          - label: Химия
+            value: CHEMISTRY
+          - label: Биология
+            value: BIOLOGY
+        default: MATH
+
+      - type: Dropdown
+        id: topic_selector
+        label: Тема
+        dynamic: true  # Populated based on discipline
+        depends_on: discipline_selector
+
+      - type: Dropdown
+        id: difficulty_selector
+        label: Сложность
+        choices:
+          - label: Легкий
+            value: EASY
+          - label: Средний
+            value: MEDIUM
+          - label: Сложный
+            value: HARD
+        default: MEDIUM
+
+      - type: Button
+        id: new_task_btn
+        label: Новая задача
+        variant: primary
+        action: request_new_task
+
+      - type: Markdown
+        id: task_display
+        label: Задача
+        value: ""  # Populated when task assigned
+
+      - type: Chatbot
+        id: chat_interface
+        label: Диалог с репетитором
+        height: 500
+        show_copy_button: true
+        avatar_images:
+          user: assets/student_avatar.png
+          assistant: assets/tutor_avatar.png
+
+      - type: Textbox
+        id: student_input
+        label: Ваш ответ
+        placeholder: Введите ваш ответ или вопрос...
+        lines: 3
+        max_lines: 10
+
+      - type: Code
+        id: code_editor
+        label: Код (для программирования)
+        language: python
+        lines: 15
+        visible_when:
+          condition: discipline_selector == CODING
+
+      - type: Row
+        children:
+          - type: Button
+            id: submit_btn
+            label: Отправить
+            variant: primary
+            action: submit_response
+
+          - type: Button
+            id: hint_btn
+            label: Подсказка
+            variant: secondary
+            action: request_hint
+
+          - type: Button
+            id: skip_btn
+            label: Пропустить
+            variant: stop
+            action: skip_task
+
+      - type: Accordion
+        id: progress_panel
+        label: Прогресс
+        open: false
+        children:
+          - type: DataFrame
+            id: skill_progress
+            label: Освоение навыков
+            headers:
+              - Навык
+              - Уровень
+              - Прогресс
+            interactive: false
+
+          - type: Plot
+            id: mastery_chart
+            label: График освоения
+            type: bar
+
+      - type: Accordion
+        id: session_stats
+        label: Статистика сессии
+        open: false
+        children:
+          - type: Number
+            id: turns_count
+            label: Обменов сообщениями
+            precision: 0
+
+          - type: Number
+            id: hints_used
+            label: Подсказок использовано
+            precision: 0
+
+          - type: Number
+            id: time_spent
+            label: Время (минуты)
+            precision: 1
+
+actions:
+  request_new_task:
+    description: Get a new task based on current settings
+    inputs:
+      - discipline_selector
+      - topic_selector
+      - difficulty_selector
+    outputs:
+      - task_display
+      - chat_interface  # Clear chat
+      - code_editor  # Clear code
+
+  submit_response:
+    description: Submit student answer for evaluation
+    inputs:
+      - student_input
+      - code_editor  # If coding task
+    outputs:
+      - chat_interface  # Append turn
+      - student_input  # Clear
+      - skill_progress  # Update
+      - turns_count
+      - hints_used
+
+  request_hint:
+    description: Request a hint for current task
+    inputs: []
+    outputs:
+      - chat_interface  # Append hint
+      - hints_used
+
+  skip_task:
+    description: Skip current task and get new one
+    inputs: []
+    outputs:
+      - task_display
+      - chat_interface
+      - code_editor
+
+events:
+  on_load:
+    - action: load_student_profile
+    - action: populate_topics
+
+  on_discipline_change:
+    - action: populate_topics
+    - action: update_visible_components
+
+  on_session_complete:
+    - action: show_summary
+    - action: save_progress
+
+state:
+  session_id: string
+  student_id: string
+  current_task: Task
+  dialog_history: list[DialogTurn]
+  metrics: SessionMetrics
+
+# CSS Customization
+theme:
+  primary_color: "#2563eb"  # Blue
+  secondary_color: "#64748b"  # Slate
+  success_color: "#22c55e"  # Green
+  warning_color: "#f59e0b"  # Amber
+  error_color: "#ef4444"  # Red
+  font_family: "Inter, system-ui, sans-serif"
+  border_radius: "8px"

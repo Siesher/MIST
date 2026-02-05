@@ -1,0 +1,652 @@
+openapi: 3.0.3
+info:
+  title: MITS Tutoring API
+  description: REST API for Math Intelligent Tutoring System
+  version: 1.0.0
+  contact:
+    name: MITS Development
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+
+tags:
+  - name: sessions
+    description: Session management
+  - name: chat
+    description: Chat and messaging
+  - name: tasks
+    description: Task generation and retrieval
+  - name: students
+    description: Student profiles and analytics
+  - name: health
+    description: System health checks
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: System status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /sessions:
+    post:
+      tags: [sessions]
+      summary: Create new tutoring session
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionWithTask'
+
+    get:
+      tags: [sessions]
+      summary: List all sessions
+      operationId: listSessions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/SessionStatus'
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+
+  /sessions/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [sessions]
+      summary: Get session details
+      operationId: getSession
+      responses:
+        '200':
+          description: Session details with messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [sessions]
+      summary: Delete session
+      operationId: deleteSession
+      responses:
+        '204':
+          description: Session deleted
+        '404':
+          description: Session not found
+
+  /chat/{sessionId}/message:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      tags: [chat]
+      summary: Send message (non-streaming)
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: Tutor response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '404':
+          description: Session not found
+
+  /chat/{sessionId}/hint:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [chat]
+      summary: Get next hint
+      operationId: getHint
+      responses:
+        '200':
+          description: Hint response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HintResponse'
+        '400':
+          description: No hints available
+        '404':
+          description: Session not found
+
+  /chat/{sessionId}/solution:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      tags: [chat]
+      summary: Reveal solution (penalized)
+      operationId: revealSolution
+      responses:
+        '200':
+          description: Solution revealed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolutionResponse'
+        '404':
+          description: Session not found
+
+  /tasks/topics:
+    get:
+      tags: [tasks]
+      summary: List available topics
+      operationId: listTopics
+      responses:
+        '200':
+          description: Topics list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicsList'
+
+  /tasks/generate:
+    post:
+      tags: [tasks]
+      summary: Generate new task
+      operationId: generateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateTaskRequest'
+      responses:
+        '200':
+          description: Generated task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /tasks/recommended:
+    get:
+      tags: [tasks]
+      summary: Get recommended tasks
+      operationId: getRecommendedTasks
+      parameters:
+        - name: count
+          in: query
+          schema:
+            type: integer
+            default: 5
+            maximum: 10
+      responses:
+        '200':
+          description: Recommended tasks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendedTasks'
+
+  /students/me/profile:
+    get:
+      tags: [students]
+      summary: Get current student profile
+      operationId: getProfile
+      responses:
+        '200':
+          description: Student profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+
+  /students/me/analytics:
+    get:
+      tags: [students]
+      summary: Get analytics data
+      operationId: getAnalytics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, all]
+            default: week
+      responses:
+        '200':
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+
+  /students/me/knowledge:
+    get:
+      tags: [students]
+      summary: Get knowledge state
+      operationId: getKnowledgeState
+      responses:
+        '200':
+          description: Knowledge state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeState'
+
+components:
+  schemas:
+    # Enums
+    Difficulty:
+      type: string
+      enum: [easy, medium, hard, olympiad]
+
+    SessionStatus:
+      type: string
+      enum: [active, completed, abandoned]
+
+    MessageRole:
+      type: string
+      enum: [user, tutor, system]
+
+    TutorMoveType:
+      type: string
+      enum: [scaffolding, problematize, rectify, encourage, hint, tell, clarify]
+
+    # Request schemas
+    CreateSessionRequest:
+      type: object
+      properties:
+        topic:
+          type: string
+          example: derivatives
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        custom_problem:
+          type: string
+          description: Optional custom problem text
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+
+    GenerateTaskRequest:
+      type: object
+      required: [topic, difficulty]
+      properties:
+        topic:
+          type: string
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        avoid_recent:
+          type: boolean
+          default: true
+
+    # Response schemas
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        topic:
+          type: string
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        message_count:
+          type: integer
+        is_solved:
+          type: boolean
+        hints_used:
+          type: integer
+
+    SessionWithTask:
+      allOf:
+        - $ref: '#/components/schemas/Session'
+        - type: object
+          properties:
+            task:
+              $ref: '#/components/schemas/Task'
+            welcome_message:
+              type: string
+
+    SessionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Session'
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+            task:
+              $ref: '#/components/schemas/Task'
+
+    SessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        total:
+          type: integer
+        page:
+          type: integer
+        pages:
+          type: integer
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        session_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/MessageRole'
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        move_type:
+          $ref: '#/components/schemas/TutorMoveType'
+        is_correct:
+          type: boolean
+
+    ChatResponse:
+      type: object
+      properties:
+        message_id:
+          type: string
+        tutor_response:
+          type: object
+          properties:
+            content:
+              type: string
+            move_type:
+              $ref: '#/components/schemas/TutorMoveType'
+            is_correct:
+              type: boolean
+            thinking:
+              type: string
+        session_state:
+          type: object
+          properties:
+            is_solved:
+              type: boolean
+            hints_used:
+              type: integer
+            attempts:
+              type: integer
+        knowledge_update:
+          type: object
+          additionalProperties:
+            type: number
+
+    HintResponse:
+      type: object
+      properties:
+        hint_number:
+          type: integer
+        hint_text:
+          type: string
+        hints_remaining:
+          type: integer
+
+    SolutionResponse:
+      type: object
+      properties:
+        solution:
+          type: string
+        answer:
+          type: string
+        penalty_applied:
+          type: boolean
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        problem:
+          type: string
+        hints:
+          type: array
+          items:
+            type: string
+          maxItems: 3
+        skills:
+          type: array
+          items:
+            type: string
+
+    TopicsList:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              name_ru:
+                type: string
+              difficulties:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Difficulty'
+
+    RecommendedTasks:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        reasoning:
+          type: string
+
+    StudentProfile:
+      type: object
+      properties:
+        student_id:
+          type: string
+        total_sessions:
+          type: integer
+        success_rate:
+          type: number
+          format: float
+        total_time_minutes:
+          type: integer
+        streak_days:
+          type: integer
+        mastery_by_topic:
+          type: object
+          additionalProperties:
+            type: number
+        weak_skills:
+          type: array
+          items:
+            type: string
+        strong_skills:
+          type: array
+          items:
+            type: string
+        recommended_topic:
+          type: string
+
+    Analytics:
+      type: object
+      properties:
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        sessions_count:
+          type: integer
+        tasks_attempted:
+          type: integer
+        tasks_solved:
+          type: integer
+        avg_session_minutes:
+          type: number
+        avg_hints_per_task:
+          type: number
+        progress_by_day:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              sessions:
+                type: integer
+              solved:
+                type: integer
+
+    KnowledgeState:
+      type: object
+      properties:
+        mastery_by_skill:
+          type: object
+          additionalProperties:
+            type: number
+        skill_dependencies:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        recommended_next:
+          type: array
+          items:
+            type: string
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        components:
+          type: object
+          properties:
+            llm:
+              type: object
+              properties:
+                status:
+                  type: string
+                model:
+                  type: string
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+            rag:
+              type: object
+              properties:
+                status:
+                  type: string
+        version:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object

@@ -1,0 +1,48 @@
+# GLM-4.7-Flash Optimized Modelfile
+# Hardware: Ryzen 9 9950x + 32GB RAM + RTX 2080 8GB
+#
+# Usage:
+#   ollama create glm-optimized -f glm-optimized.Modelfile
+
+FROM glm-4.7-flash
+
+# ─────────────────────────────────────────────────────────────
+# GPU Offload (RTX 2080 8GB)
+# ─────────────────────────────────────────────────────────────
+# 32 слоя на GPU, остальные на CPU
+# При 8GB VRAM + quantized KV cache это оптимально
+PARAMETER num_gpu 32
+
+# ─────────────────────────────────────────────────────────────
+# Context & Memory
+# ─────────────────────────────────────────────────────────────
+# 8K контекст - баланс между функциональностью и памятью
+PARAMETER num_ctx 8192
+
+# Batch size для лучшей GPU утилизации
+PARAMETER num_batch 512
+
+# ─────────────────────────────────────────────────────────────
+# Sampling (GLM-4 optimized)
+# ─────────────────────────────────────────────────────────────
+# Низкая температура для точных ответов
+PARAMETER temperature 0.3
+
+# Top-p для разнообразия
+PARAMETER top_p 0.85
+
+# Top-k для стабильности
+PARAMETER top_k 3
+
+# Без repetition penalty (GLM не любит > 1.0)
+PARAMETER repeat_penalty 1.0
+
+# Длинные ответы для объяснений
+PARAMETER num_predict 4096
+
+# ─────────────────────────────────────────────────────────────
+# Stop tokens
+# ─────────────────────────────────────────────────────────────
+PARAMETER stop "<|endoftext|>"
+PARAMETER stop "<|user|>"
+PARAMETER stop "<|observation|>"
