@@ -1,5 +1,19 @@
-fastapi>=0.109.0
-uvicorn[standard]>=0.27.0
-websockets>=12.0
-pydantic>=2.0
-pydantic-settings>=2.0
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+websockets==13.1
+pydantic==2.10.0
+pydantic-settings==2.6.0
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# Authentication
+PyJWT==2.10.0
+argon2-cffi==23.1.0
+
+# Export & Visualization
+weasyprint==62.3
+matplotlib==3.9.0
+jinja2==3.1.4

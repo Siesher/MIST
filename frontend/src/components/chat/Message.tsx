@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { MathRenderer } from "./MathRenderer";
 import type { MessageRole, TutorMoveType } from "@/types/api";
@@ -7,6 +8,7 @@ import type { MessageRole, TutorMoveType } from "@/types/api";
 interface MessageProps {
   role: MessageRole;
   content: string;
+  thinking?: string | null;
   moveType?: TutorMoveType;
   isCorrect?: boolean;
   isStreaming?: boolean;
@@ -27,10 +29,15 @@ const moveTypeLabels: Record<TutorMoveType, string> = {
 export function Message({
   role,
   content,
+  thinking,
   moveType,
   isStreaming,
 }: MessageProps) {
   const isTutor = role === "tutor" || role === "system";
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
+
+  // Count thinking tokens for display
+  const thinkingTokens = thinking ? thinking.split(/\s+/).length : 0;
 
   return (
     <div
@@ -63,6 +70,39 @@ export function Message({
             </span>
           )}
         </div>
+
+        {/* Thinking block (collapsible) */}
+        {thinking && isTutor && (
+          <div className="mb-2">
+            <button
+              onClick={() => setThinkingExpanded(!thinkingExpanded)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg
+                className={cn(
+                  "w-3 h-3 transition-transform",
+                  thinkingExpanded ? "rotate-90" : ""
+                )}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <span>
+                {thinkingExpanded ? "Скрыть размышления" : "Показать размышления"}
+              </span>
+              <span className="text-muted-foreground/60">
+                ({thinkingTokens} токенов)
+              </span>
+            </button>
+            {thinkingExpanded && (
+              <div className="mt-1.5 pl-4 border-l-2 border-amber-500/30 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {thinking}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="text-sm leading-relaxed text-foreground/90 prose prose-sm dark:prose-invert max-w-none">
           <MathRenderer content={content} />

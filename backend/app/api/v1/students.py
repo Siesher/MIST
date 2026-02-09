@@ -1,8 +1,10 @@
 """Student profile and analytics endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
+from backend.app.models.database import get_db
 from backend.app.schemas.chat import (
     StudentProfileResponse,
     AnalyticsResponse,
@@ -15,18 +17,18 @@ router = APIRouter(prefix="/students", tags=["students"])
 
 
 @router.get("/me/profile", response_model=StudentProfileResponse)
-async def get_profile():
+async def get_profile(db: AsyncSession = Depends(get_db)):
     """Get current student profile."""
     service = await get_orchestrator_service()
-    data = service.get_student_profile()
+    data = await service.get_student_profile(db)
     return StudentProfileResponse(**data)
 
 
 @router.get("/me/analytics", response_model=AnalyticsResponse)
-async def get_analytics(period: str = Query("week", regex="^(day|week|month|all)$")):
+async def get_analytics(period: str = Query("week", regex="^(day|week|month|all)$"), db: AsyncSession = Depends(get_db)):
     """Get analytics data for a time period."""
     service = await get_orchestrator_service()
-    data = service.get_analytics(period=period)
+    data = await service.get_analytics(db, period=period)
 
     progress = [ProgressByDay(**p) for p in data.get("progress_by_day", [])]
 

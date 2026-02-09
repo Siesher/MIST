@@ -154,28 +154,40 @@ MITS/
 
 ## 🛠 Технологии
 
-- **Backend:** Python 3.11+
+- **Backend:** Python 3.11+ / FastAPI + WebSocket
+- **Frontend:** Next.js 14 + Tailwind CSS + TypeScript
 - **LLM:** Ollama + GLM-STEM-42exp (REAP-pruned, ~5.5GB VRAM)
 - **Fallback:** GLM-4.7-Flash (64 experts, ~7.5GB VRAM)
-- **UI:** Gradio 4.x
-- **Math:** SymPy
-- **Analysis:** AST
+- **Auth:** JWT (PyJWT + Argon2)
+- **DB:** SQLite + SQLAlchemy (async)
+- **Math:** SymPy, KaTeX
+- **ML:** PyTorch, Transformers, Unsloth (QLoRA)
+- **Deploy:** Docker Compose
+- **Legacy UI:** Gradio 4.x
 
 ## 📈 Roadmap
 
-### Курсовая (сделано ✅)
+### Курсовая (сделано)
 - [x] Code Executor с песочницей
 - [x] 50+ алгоритмических задач
 - [x] Автоматическая проверка на тестах
 - [x] Code Analyzer (AST)
 - [x] Единый интерфейс
 
-### Диплом (планируется)
-- [ ] Fine-tuning на Colab A100
-- [ ] RAG с документацией
-- [ ] Визуализация алгоритмов
-- [ ] Мультимодальность (OCR)
-- [ ] Self-improvement loop
+### Диплом (сделано)
+- [x] Next.js + FastAPI frontend migration
+- [x] JWT authentication with user isolation
+- [x] Session persistence (SQLite)
+- [x] Three chat modes (chat, guided learning, task generator)
+- [x] QLoRA fine-tuning pipeline (Colab A100)
+- [x] DKT knowledge tracing (pre-trained on ASSISTments)
+- [x] RuBERT emotion detection (5-class affective states)
+- [x] Evaluation pipeline with benchmarks
+- [x] Handwritten solution OCR (Qwen2.5-VL)
+- [x] A/B experiment framework
+- [x] Analytics dashboard
+- [x] PDF progress export
+- [x] Docker Compose deployment
 
 ## 📄 Лицензия
 

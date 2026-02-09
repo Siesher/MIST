@@ -1,8 +1,10 @@
 """Session management endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
+from backend.app.models.database import get_db
 from backend.app.schemas.chat import (
     CreateSessionRequest,
     ChangeModeRequest,
@@ -25,10 +27,11 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 @router.post("", response_model=SessionWithTaskResponse, status_code=201)
-async def create_session(request: CreateSessionRequest):
+async def create_session(request: CreateSessionRequest, db: AsyncSession = Depends(get_db)):
     """Create a new tutoring session."""
     service = await get_orchestrator_service()
     session = await service.create_session(
+        db=db,
         topic=request.topic,
         difficulty=request.difficulty.value if request.difficulty else None,
         custom_problem=request.custom_problem,
@@ -69,10 +72,11 @@ async def list_sessions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
 ):
     """List all sessions."""
     service = await get_orchestrator_service()
-    result = await service.list_sessions(page=page, limit=limit, status=status)
+    result = await service.list_sessions(db=db, page=page, limit=limit, status=status)
 
     sessions = []
     for s in result["sessions"]:
@@ -98,10 +102,10 @@ async def list_sessions(
 
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)
-async def get_session(session_id: str):
+async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """Get session details with messages."""
     service = await get_orchestrator_service()
-    session = await service.get_session(session_id)
+    session = await service.get_session(db, session_id)
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -146,10 +150,10 @@ async def get_session(session_id: str):
 
 
 @router.patch("/{session_id}/mode", response_model=ChangeModeResponse)
-async def change_session_mode(session_id: str, request: ChangeModeRequest):
+async def change_session_mode(session_id: str, request: ChangeModeRequest, db: AsyncSession = Depends(get_db)):
     """Change the mode of an existing session."""
     service = await get_orchestrator_service()
-    result = await service.change_mode(session_id, request.mode.value)
+    result = await service.change_mode(db, session_id, request.mode.value)
     if not result:
         raise HTTPException(status_code=404, detail="Session not found")
     return ChangeModeResponse(
@@ -161,9 +165,9 @@ async def change_session_mode(session_id: str, request: ChangeModeRequest):
 
 
 @router.delete("/{session_id}", status_code=204)
-async def delete_session(session_id: str):
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a session."""
     service = await get_orchestrator_service()
-    deleted = await service.delete_session(session_id)
+    deleted = await service.delete_session(db, session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")

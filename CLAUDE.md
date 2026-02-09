@@ -22,8 +22,10 @@ Auto-generated from all feature plans. Last updated: 2026-01-30
 - SQLite (existing), browser localStorage (preferences) (011-nextjs-ui-migration)
 - Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, Next.js 14, Zustand, Ollama (012-chat-modes)
 - In-memory sessions (StoredSession dataclass), SQLite for persistence (012-chat-modes)
-
-- Python 3.11+ + Gradio 4.x, Ollama, ChromaDB, sentence-transformers, Unsloth, TRL (001-its-integration)
+- Python 3.11+ (backend), TypeScript 5.x (frontend) + PyTorch, Transformers, Unsloth, PEFT, Colab Pro+ (013-comprehensive-improvements)
+- SQLite (sessions, auth), Docker, WeasyPrint (PDF export) (013-comprehensive-improvements)
+- Python 3.11+ (backend, ML), TypeScript 5.x (frontend) + FastAPI, Next.js 14, PyTorch, Transformers, Unsloth, PEFT, TRL, SQLAlchemy, Recharts (013-comprehensive-improvements)
+- SQLite (sessions, auth, analytics), filesystem (model weights, training data) (013-comprehensive-improvements)
 
 ## Project Structure
 
@@ -41,9 +43,9 @@ cd src; pytest; ruff check .
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- 013-comprehensive-improvements: Added Python 3.11+ (backend, ML), TypeScript 5.x (frontend) + FastAPI, Next.js 14, PyTorch, Transformers, Unsloth, PEFT, TRL, SQLAlchemy, Recharts
+- 013-comprehensive-improvements: ML training (QLoRA, DKT, RuBERT), evaluation pipeline, analytics dashboard, Docker, JWT auth, session persistence
 - 012-chat-modes: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, Next.js 14, Zustand, Ollama
-- 011-nextjs-ui-migration: Added Python 3.11+ (backend), TypeScript 5.x (frontend)
-- 010-performance-optimization: Added Python 3.11+ + Ollama, Gradio 4.x, ChromaDB, sentence-transformers, pydantic, structlog, SQLite
 
 
 <!-- MANUAL ADDITIONS START -->

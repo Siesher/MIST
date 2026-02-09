@@ -2,6 +2,7 @@
 Service layer wrapping existing MITS AgentOrchestrator.
 
 Provides async-friendly interface for FastAPI endpoints.
+Sessions and messages are persisted to SQLite via SQLAlchemy.
 """
 
 import sys
@@ -13,12 +14,71 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from sqlalchemy import select, func as sa_func, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 # Add project root to path for src/ imports
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from backend.app.models.tables import SessionTable, MessageTable  # noqa: E402
+
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Thinking tag utilities (supports GLM and Qwen3 formats)
+# ---------------------------------------------------------------------------
+
+def parse_thinking_tags(text: str) -> tuple:
+    """Parse thinking tags from model response.
+
+    Supports both GLM and Qwen3 formats:
+    - Qwen3: <think>...</think>
+    - GLM: <|思考|>...</|思考|> or similar
+
+    Returns:
+        (visible_content, thinking_content) tuple.
+        If no thinking tags found, thinking_content is None.
+    """
+    import re
+
+    # Qwen3 format: <think>...</think>
+    think_match = re.search(r'<think>(.*?)</think>', text, re.DOTALL)
+    if think_match:
+        thinking = think_match.group(1).strip()
+        visible = text[think_match.end():].strip()
+        return visible, thinking
+
+    # GLM format: various thinking markers
+    for pattern in [
+        r'<\|思考\|>(.*?)<\|/思考\|>',
+        r'<thinking>(.*?)</thinking>',
+        r'<thought>(.*?)</thought>',
+    ]:
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            thinking = match.group(1).strip()
+            visible = text[match.end():].strip()
+            return visible, thinking
+
+    return text, None
+
+
+def strip_thinking(text: str, show_thinking: bool = False) -> str:
+    """Strip thinking tags from response unless debug mode.
+
+    Args:
+        text: Raw model response
+        show_thinking: If True, keep thinking content (debug mode)
+    """
+    if show_thinking:
+        return text
+
+    visible, _ = parse_thinking_tags(text)
+    return visible
 
 
 # Mode-specific configuration
@@ -66,7 +126,7 @@ MODE_DISPLAY_NAMES = {
 
 @dataclass
 class StoredMessage:
-    """Message stored in session."""
+    """Message DTO (maps to/from MessageTable)."""
     id: str
     role: str  # user, tutor, system
     content: str
@@ -78,7 +138,7 @@ class StoredMessage:
 
 @dataclass
 class StoredSession:
-    """Session with conversation history."""
+    """Session DTO (maps to/from SessionTable)."""
     id: str
     created_at: datetime
     updated_at: datetime
@@ -92,6 +152,29 @@ class StoredSession:
     attempts: int = 0
     messages: List[StoredMessage] = field(default_factory=list)
     task: Optional[Dict[str, Any]] = None
+    user_id: Optional[str] = None
+
+
+def _row_to_session(row: SessionTable) -> StoredSession:
+    """Convert ORM row to DTO."""
+    messages = [
+        StoredMessage(
+            id=m.id, role=m.role, content=m.content,
+            timestamp=m.timestamp, move_type=m.move_type,
+            is_correct=m.is_correct, thinking=m.thinking,
+        )
+        for m in (row.messages or [])
+    ]
+    return StoredSession(
+        id=row.id, created_at=row.created_at, updated_at=row.updated_at,
+        topic=row.topic, difficulty=row.difficulty,
+        status=row.status, mode=row.mode,
+        is_solved=row.is_solved, hints_used=row.hints_used,
+        attempts=row.attempts, messages=messages,
+        task=json.loads(row.task_json) if row.task_json else None,
+        task_id=json.loads(row.task_json).get("id") if row.task_json else None,
+        user_id=row.user_id,
+    )
 
 
 class OrchestratorService:
@@ -103,7 +186,6 @@ class OrchestratorService:
     """
 
     def __init__(self):
-        self._sessions: Dict[str, StoredSession] = {}
         self._orchestrator = None
         self._llm_client = None
         self._task_generator = None
@@ -116,7 +198,31 @@ class OrchestratorService:
 
         try:
             from src.models.llm_client import LLMClient
-            self._llm_client = LLMClient()
+            from backend.app.config import backend_settings
+
+            # Select model: auto-detect, fine-tuned, or base
+            model_name = None
+            if backend_settings.AUTO_SELECT_MODEL:
+                try:
+                    from backend.app.services.hardware_detector import detect_hardware, select_model
+                    hw = detect_hardware(backend_settings.OLLAMA_HOST)
+                    selection = select_model(hw)
+                    if selection["available"]:
+                        model_name = selection["name"]
+                        logger.info(f"Auto-selected model: {model_name} ({selection['reason']})")
+                    else:
+                        logger.info(f"Auto-selected model {selection['name']} not available, falling back to config")
+                except Exception as e:
+                    logger.warning(f"Hardware auto-detection failed: {e}")
+
+            if model_name is None and backend_settings.USE_FINETUNED and backend_settings.MODEL_FINETUNED:
+                model_name = backend_settings.MODEL_FINETUNED
+                logger.info(f"Using fine-tuned model: {model_name}")
+            elif model_name is None and backend_settings.MODEL_NAME:
+                model_name = backend_settings.MODEL_NAME
+                logger.info(f"Using base model: {model_name}")
+
+            self._llm_client = LLMClient(model=model_name) if model_name else LLMClient()
 
             from src.agents.orchestrator import AgentOrchestrator, OrchestratorMode
             from src.agents.profiler import ProfilerAgent
@@ -172,15 +278,16 @@ class OrchestratorService:
         except Exception:
             return ""
 
-    async def change_mode(self, session_id: str, new_mode: str) -> Optional[Dict[str, Any]]:
+    async def change_mode(self, db: AsyncSession, session_id: str, new_mode: str) -> Optional[Dict[str, Any]]:
         """Change the mode of an existing session."""
-        session = self._sessions.get(session_id)
-        if not session:
+        row = await db.get(SessionTable, session_id)
+        if not row:
             return None
 
-        previous_mode = session.mode
-        session.mode = new_mode
-        session.updated_at = datetime.utcnow()
+        previous_mode = row.mode
+        row.mode = new_mode
+        row.updated_at = datetime.utcnow()
+        await db.commit()
 
         display_name = MODE_DISPLAY_NAMES.get(new_mode, new_mode)
         return {
@@ -203,24 +310,32 @@ class OrchestratorService:
 
     async def create_session(
         self,
+        db: AsyncSession,
         topic: Optional[str] = None,
         difficulty: Optional[str] = None,
         custom_problem: Optional[str] = None,
         mode: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> StoredSession:
         """Create a new tutoring session."""
         session_id = str(uuid.uuid4())
         now = datetime.utcnow()
         session_mode = mode or "guided_learning"
 
-        session = StoredSession(
-            id=session_id,
-            created_at=now,
-            updated_at=now,
-            topic=topic,
-            difficulty=difficulty,
-            mode=session_mode,
-        )
+        # Override mode if user is enrolled in an active experiment
+        if user_id:
+            try:
+                from backend.app.services.experiment_service import get_experiment_service
+                exp_service = await get_experiment_service()
+                group_info = await exp_service.get_user_group(db, user_id)
+                if group_info:
+                    session_mode = group_info["forced_mode"]
+                    logger.info(
+                        f"Experiment override: user={user_id}, "
+                        f"group={group_info['group']}, mode={session_mode}"
+                    )
+            except Exception as e:
+                logger.debug(f"Experiment group check skipped: {e}")
 
         # Generate or use custom task
         task_data = None
@@ -251,30 +366,68 @@ class OrchestratorService:
             except Exception as e:
                 logger.warning(f"Task generation failed: {e}")
 
-        if task_data:
-            session.task = task_data
-            session.task_id = task_data["id"]
-
-        # Create orchestrator session
+        # Create orchestrator session (in-memory, for agent pipeline)
         if self._orchestrator:
             self._orchestrator.create_session(
                 session_id=session_id,
-                student_id="student_default",
+                student_id=user_id or "student_default",
                 problem=task_data["problem"] if task_data else None,
                 topic=topic,
             )
 
+        # Trigger background hint prefetch for the new task
+        if task_data and topic:
+            try:
+                from src.inference.hint_prefetcher import get_hint_prefetcher
+                prefetcher = get_hint_prefetcher()
+                if not prefetcher._running:
+                    prefetcher.start()
+                prefetcher.prefetch_for_problem(
+                    problem=task_data.get("problem", ""),
+                    topic=topic,
+                    hints=task_data.get("hints", []),
+                )
+            except Exception as e:
+                logger.debug(f"Hint prefetch skipped: {e}")
+
+        # Persist to DB
+        row = SessionTable(
+            id=session_id,
+            user_id=user_id,
+            mode=session_mode,
+            topic=topic,
+            difficulty=difficulty,
+            task_json=json.dumps(task_data, ensure_ascii=False) if task_data else None,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+
         # Add welcome message
         welcome = self._generate_welcome(topic, task_data, session_mode)
-        session.messages.append(StoredMessage(
+        welcome_msg = MessageTable(
             id=str(uuid.uuid4()),
+            session_id=session_id,
             role="tutor",
             content=welcome,
-            timestamp=now,
             move_type="encourage",
-        ))
+            timestamp=now,
+        )
+        db.add(welcome_msg)
+        await db.commit()
 
-        self._sessions[session_id] = session
+        # Return DTO
+        session = StoredSession(
+            id=session_id, created_at=now, updated_at=now,
+            topic=topic, difficulty=difficulty, mode=session_mode,
+            task=task_data,
+            task_id=task_data["id"] if task_data else None,
+            user_id=user_id,
+            messages=[StoredMessage(
+                id=welcome_msg.id, role="tutor", content=welcome,
+                timestamp=now, move_type="encourage",
+            )],
+        )
         return session
 
     def _generate_welcome(self, topic: Optional[str], task: Optional[Dict], mode: str = "guided_learning") -> str:
@@ -300,47 +453,100 @@ class OrchestratorService:
         return "Привет! Я твой математический репетитор. С какой задачей поможем сегодня?"
 
     async def list_sessions(
-        self, page: int = 1, limit: int = 20, status: Optional[str] = None
+        self, db: AsyncSession, page: int = 1, limit: int = 20,
+        status: Optional[str] = None, user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """List all sessions with pagination."""
-        sessions = list(self._sessions.values())
+        """List sessions with pagination."""
+        query = select(SessionTable)
+        count_query = select(sa_func.count(SessionTable.id))
 
+        if user_id:
+            query = query.where(SessionTable.user_id == user_id)
+            count_query = count_query.where(SessionTable.user_id == user_id)
         if status:
-            sessions = [s for s in sessions if s.status == status]
+            query = query.where(SessionTable.status == status)
+            count_query = count_query.where(SessionTable.status == status)
 
-        sessions.sort(key=lambda s: s.updated_at, reverse=True)
-        total = len(sessions)
+        total = (await db.execute(count_query)).scalar() or 0
         pages = max(1, (total + limit - 1) // limit)
-        start = (page - 1) * limit
-        end = start + limit
+
+        query = (
+            query
+            .options(selectinload(SessionTable.messages))
+            .order_by(SessionTable.updated_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+        )
+        result = await db.execute(query)
+        rows = result.scalars().all()
 
         return {
-            "sessions": sessions[start:end],
+            "sessions": [_row_to_session(r) for r in rows],
             "total": total,
             "page": page,
             "pages": pages,
         }
 
-    async def get_session(self, session_id: str) -> Optional[StoredSession]:
-        """Get session by ID."""
-        return self._sessions.get(session_id)
+    async def get_session(self, db: AsyncSession, session_id: str) -> Optional[StoredSession]:
+        """Get session by ID with messages."""
+        query = (
+            select(SessionTable)
+            .options(selectinload(SessionTable.messages))
+            .where(SessionTable.id == session_id)
+        )
+        result = await db.execute(query)
+        row = result.scalar_one_or_none()
+        if not row:
+            return None
+        return _row_to_session(row)
 
-    async def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, db: AsyncSession, session_id: str) -> bool:
         """Delete a session."""
-        if session_id in self._sessions:
-            del self._sessions[session_id]
-            if self._orchestrator:
+        row = await db.get(SessionTable, session_id)
+        if not row:
+            return False
+        await db.delete(row)
+        await db.commit()
+        if self._orchestrator:
+            try:
                 self._orchestrator.close_session(session_id)
-            return True
-        return False
+            except Exception:
+                pass
+        return True
 
     # --- Chat ---
 
+    async def _save_message(self, db: AsyncSession, session_id: str, msg: StoredMessage) -> None:
+        """Persist a message to DB."""
+        db.add(MessageTable(
+            id=msg.id, session_id=session_id, role=msg.role,
+            content=msg.content, move_type=msg.move_type,
+            is_correct=msg.is_correct, thinking=msg.thinking,
+            timestamp=msg.timestamp,
+        ))
+
+    async def _update_session_state(
+        self, db: AsyncSession, session_id: str,
+        attempts: Optional[int] = None, hints_used: Optional[int] = None,
+        is_solved: Optional[bool] = None,
+    ) -> None:
+        """Update session counters in DB."""
+        values: Dict[str, Any] = {"updated_at": datetime.utcnow()}
+        if attempts is not None:
+            values["attempts"] = attempts
+        if hints_used is not None:
+            values["hints_used"] = hints_used
+        if is_solved is not None:
+            values["is_solved"] = is_solved
+        await db.execute(
+            update(SessionTable).where(SessionTable.id == session_id).values(**values)
+        )
+
     async def process_message(
-        self, session_id: str, content: str
+        self, db: AsyncSession, session_id: str, content: str
     ) -> Optional[Dict[str, Any]]:
         """Process a student message and return tutor response."""
-        session = self._sessions.get(session_id)
+        session = await self.get_session(db, session_id)
         if not session:
             return None
 
@@ -348,14 +554,13 @@ class OrchestratorService:
 
         # Add student message
         student_msg = StoredMessage(
-            id=str(uuid.uuid4()),
-            role="user",
-            content=content,
-            timestamp=now,
+            id=str(uuid.uuid4()), role="user", content=content, timestamp=now,
         )
         session.messages.append(student_msg)
         session.attempts += 1
-        session.updated_at = now
+
+        await self._save_message(db, session_id, student_msg)
+        await self._update_session_state(db, session_id, attempts=session.attempts)
 
         # Process through orchestrator
         tutor_content = ""
@@ -384,7 +589,6 @@ class OrchestratorService:
                 tutor_content = result.response
                 move_type = result.move_type
 
-                # Check if answer is correct based on move_type
                 if move_type == "encourage" and session.task:
                     is_correct = True
                     session.is_solved = True
@@ -400,22 +604,28 @@ class OrchestratorService:
             tutor_content = "Хороший вопрос! Давай подумаем вместе. Какие формулы ты знаешь по этой теме?"
             move_type = "scaffolding"
 
+        # Parse thinking tags from response (Qwen3 / GLM)
+        from backend.app.config import backend_settings
+        visible_content, parsed_thinking = parse_thinking_tags(tutor_content)
+        if parsed_thinking and not thinking:
+            thinking = parsed_thinking
+        display_content = visible_content if not backend_settings.SHOW_THINKING else tutor_content
+
         # Add tutor response
         tutor_msg = StoredMessage(
-            id=str(uuid.uuid4()),
-            role="tutor",
-            content=tutor_content,
-            timestamp=datetime.utcnow(),
-            move_type=move_type,
-            is_correct=is_correct,
-            thinking=thinking,
+            id=str(uuid.uuid4()), role="tutor", content=display_content,
+            timestamp=datetime.utcnow(), move_type=move_type,
+            is_correct=is_correct, thinking=thinking,
         )
-        session.messages.append(tutor_msg)
+        await self._save_message(db, session_id, tutor_msg)
+        if session.is_solved:
+            await self._update_session_state(db, session_id, is_solved=True)
+        await db.commit()
 
         return {
             "message_id": tutor_msg.id,
             "tutor_response": {
-                "content": tutor_content,
+                "content": display_content,
                 "move_type": move_type,
                 "is_correct": is_correct,
                 "thinking": thinking,
@@ -428,9 +638,9 @@ class OrchestratorService:
             "knowledge_update": None,
         }
 
-    async def get_hint(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_hint(self, db: AsyncSession, session_id: str) -> Optional[Dict[str, Any]]:
         """Get next hint for session."""
-        session = self._sessions.get(session_id)
+        session = await self.get_session(db, session_id)
         if not session or not session.task:
             return None
 
@@ -440,16 +650,16 @@ class OrchestratorService:
 
         hint_text = hints[session.hints_used]
         session.hints_used += 1
-        session.updated_at = datetime.utcnow()
 
-        # Add hint as tutor message
-        session.messages.append(StoredMessage(
-            id=str(uuid.uuid4()),
-            role="tutor",
+        # Save hint message
+        hint_msg = StoredMessage(
+            id=str(uuid.uuid4()), role="tutor",
             content=f"Подсказка {session.hints_used}: {hint_text}",
-            timestamp=datetime.utcnow(),
-            move_type="hint",
-        ))
+            timestamp=datetime.utcnow(), move_type="hint",
+        )
+        await self._save_message(db, session_id, hint_msg)
+        await self._update_session_state(db, session_id, hints_used=session.hints_used)
+        await db.commit()
 
         return {
             "hint_number": session.hints_used,
@@ -457,23 +667,23 @@ class OrchestratorService:
             "hints_remaining": len(hints) - session.hints_used,
         }
 
-    async def reveal_solution(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def reveal_solution(self, db: AsyncSession, session_id: str) -> Optional[Dict[str, Any]]:
         """Reveal solution for session task."""
-        session = self._sessions.get(session_id)
+        session = await self.get_session(db, session_id)
         if not session or not session.task:
             return None
 
         solution = session.task.get("solution", "Решение недоступно")
         answer = session.task.get("answer", "Ответ недоступен")
-        session.updated_at = datetime.utcnow()
 
-        session.messages.append(StoredMessage(
-            id=str(uuid.uuid4()),
-            role="tutor",
+        sol_msg = StoredMessage(
+            id=str(uuid.uuid4()), role="tutor",
             content=f"Решение:\n{solution}\n\nОтвет: {answer}",
-            timestamp=datetime.utcnow(),
-            move_type="tell",
-        ))
+            timestamp=datetime.utcnow(), move_type="tell",
+        )
+        await self._save_message(db, session_id, sol_msg)
+        await self._update_session_state(db, session_id)
+        await db.commit()
 
         return {
             "solution": solution,
@@ -484,7 +694,7 @@ class OrchestratorService:
     # --- Streaming ---
 
     async def process_message_stream(
-        self, session_id: str, content: str
+        self, db: AsyncSession, session_id: str, content: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process message with real token-by-token streaming.
@@ -493,7 +703,7 @@ class OrchestratorService:
         """
         import asyncio
 
-        session = self._sessions.get(session_id)
+        session = await self.get_session(db, session_id)
         if not session:
             yield {"type": "error", "code": "SESSION_NOT_FOUND", "message": "Сессия не найдена"}
             return
@@ -502,14 +712,49 @@ class OrchestratorService:
 
         # Add student message
         student_msg = StoredMessage(
-            id=str(uuid.uuid4()),
-            role="user",
-            content=content,
-            timestamp=now,
+            id=str(uuid.uuid4()), role="user", content=content, timestamp=now,
         )
         session.messages.append(student_msg)
         session.attempts += 1
-        session.updated_at = now
+
+        await self._save_message(db, session_id, student_msg)
+        await self._update_session_state(db, session_id, attempts=session.attempts)
+        await db.commit()
+
+        # Check LLM response cache before calling LLM
+        try:
+            from backend.app.services.cache_service import get_cache_service
+            cache = get_cache_service()
+            cached_response = cache.get(content, session.mode)
+        except Exception:
+            cache = None
+            cached_response = None
+
+        if cached_response:
+            message_id = str(uuid.uuid4())
+            move_type = "scaffolding"
+
+            yield {"type": "token", "content": cached_response, "is_thinking": False}
+
+            # Persist cached response
+            tutor_msg = StoredMessage(
+                id=message_id, role="tutor", content=cached_response,
+                timestamp=datetime.utcnow(), move_type=move_type,
+            )
+            await self._save_message(db, session_id, tutor_msg)
+            await db.commit()
+
+            yield {
+                "type": "response_complete",
+                "message_id": message_id,
+                "response": {"content": cached_response, "move_type": move_type, "is_correct": None},
+                "session_state": {
+                    "is_solved": session.is_solved,
+                    "hints_used": session.hints_used,
+                    "attempts": session.attempts,
+                },
+            }
+            return
 
         # Determine mode and config
         mode = session.mode
@@ -521,7 +766,7 @@ class OrchestratorService:
         if mode_config.use_pipeline and self._orchestrator:
             # GUIDED LEARNING: Full agent pipeline (profiler → planner → tutor → verifier)
             try:
-                from src.agents.orchestrator import TurnContext, PipelineTrace, AgentStage
+                from src.agents.orchestrator import TurnContext
                 from src.agents.planner import SessionContext as PlannerSessionContext
                 from src.agents.profiler import StudentProfile
 
@@ -529,6 +774,24 @@ class OrchestratorService:
                     {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
                     for m in session.messages[-10:]
                 ]
+
+                # Compress context if conversation is long
+                if len(session.messages) > 10:
+                    try:
+                        from src.inference.context_compressor import compress_if_needed
+                        full_history = [
+                            {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
+                            for m in session.messages
+                        ]
+                        compressed_msgs, compression_info = compress_if_needed(session_id, full_history)
+                        if compression_info:
+                            history = compressed_msgs
+                            logger.info(
+                                f"Context compressed: {compression_info.original_turns} -> "
+                                f"{compression_info.compressed_turns} turns"
+                            )
+                    except Exception as e:
+                        logger.debug(f"Context compression skipped: {e}")
 
                 context = TurnContext(
                     problem=session.task["problem"] if session.task else "",
@@ -718,8 +981,11 @@ class OrchestratorService:
                 "is_thinking": False,
             }
 
-        # Plain text response (no JSON parsing needed)
+        # Parse thinking tags from streamed response (Qwen3 / GLM)
         tutor_content = full_response.strip()
+        visible_content, stream_thinking = parse_thinking_tags(tutor_content)
+        from backend.app.config import backend_settings
+        display_content = visible_content if not backend_settings.SHOW_THINKING else tutor_content
         extracted_move = move_type  # Use planner's move type
 
         # Check correctness
@@ -728,23 +994,31 @@ class OrchestratorService:
             is_correct = True
             session.is_solved = True
 
-        # Add tutor response to session
+        # Store response in cache for future reuse
+        if cache and tutor_content:
+            try:
+                cache.put(content, session.mode, tutor_content, move_type=extracted_move)
+            except Exception as e:
+                logger.debug(f"Cache store skipped: {e}")
+
+        # Persist tutor response (store visible content, thinking separately)
         tutor_msg = StoredMessage(
-            id=message_id,
-            role="tutor",
-            content=tutor_content,
-            timestamp=datetime.utcnow(),
-            move_type=extracted_move,
+            id=message_id, role="tutor", content=display_content,
+            timestamp=datetime.utcnow(), move_type=extracted_move,
             is_correct=is_correct,
+            thinking=stream_thinking,
         )
-        session.messages.append(tutor_msg)
+        await self._save_message(db, session_id, tutor_msg)
+        if session.is_solved:
+            await self._update_session_state(db, session_id, is_solved=True)
+        await db.commit()
 
         # Send completion
         yield {
             "type": "response_complete",
             "message_id": message_id,
             "response": {
-                "content": tutor_content,
+                "content": display_content,
                 "move_type": extracted_move,
                 "is_correct": is_correct,
             },
@@ -754,62 +1028,6 @@ class OrchestratorService:
                 "attempts": session.attempts,
             },
         }
-
-    def _extract_json_from_text(self, response: str) -> Optional[Dict[str, Any]]:
-        """Try multiple strategies to extract JSON from LLM response."""
-        import json as json_module
-        import re
-
-        text = response.strip()
-
-        # Strategy 1: Direct JSON parse
-        try:
-            if text.startswith('{'):
-                return json_module.loads(text)
-        except json_module.JSONDecodeError:
-            pass
-
-        # Strategy 2: Extract from markdown code blocks
-        for pattern in [
-            r'```json\s*(.*?)\s*```',
-            r'```\s*(\{.*?\})\s*```',
-        ]:
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
-                try:
-                    return json_module.loads(match.group(1).strip())
-                except json_module.JSONDecodeError:
-                    pass
-
-        # Strategy 3: Find first { ... } in text
-        start = text.find('{')
-        end = text.rfind('}')
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json_module.loads(text[start:end + 1])
-            except json_module.JSONDecodeError:
-                pass
-
-        return None
-
-    def _extract_message_content(self, response: str) -> str:
-        """Extract message text from JSON response."""
-        logger.debug(f"Extracting message from response (len={len(response)}): {response[:200]}...")
-
-        data = self._extract_json_from_text(response)
-        if data and "message" in data:
-            logger.debug(f"Extracted message: {data['message'][:100]}...")
-            return data["message"]
-
-        logger.warning(f"Could not extract message from response, returning raw")
-        return response
-
-    def _extract_move_type(self, response: str, default: str) -> str:
-        """Extract move type from JSON response."""
-        data = self._extract_json_from_text(response)
-        if data and "move" in data:
-            return data["move"]
-        return default
 
     # --- Tasks ---
 
@@ -866,7 +1084,6 @@ class OrchestratorService:
 
     def get_recommended_tasks(self, count: int = 5) -> Dict[str, Any]:
         """Get recommended tasks based on student profile."""
-        # Default recommendations
         return {
             "tasks": [],
             "reasoning": "Рекомендации основаны на вашем текущем уровне знаний.",
@@ -874,14 +1091,21 @@ class OrchestratorService:
 
     # --- Student Profile ---
 
-    def get_student_profile(self) -> Dict[str, Any]:
-        """Get student profile data."""
-        total_sessions = len(self._sessions)
-        solved_count = sum(1 for s in self._sessions.values() if s.is_solved)
-        total_hints = sum(s.hints_used for s in self._sessions.values())
+    async def get_student_profile(self, db: AsyncSession, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get student profile data from DB."""
+        query = select(SessionTable)
+        if user_id:
+            query = query.where(SessionTable.user_id == user_id)
+
+        result = await db.execute(query)
+        sessions = result.scalars().all()
+
+        total_sessions = len(sessions)
+        solved_count = sum(1 for s in sessions if s.is_solved)
+        total_hints = sum(s.hints_used for s in sessions)
 
         return {
-            "student_id": "student_default",
+            "student_id": user_id or "student_default",
             "total_sessions": total_sessions,
             "success_rate": solved_count / total_sessions if total_sessions > 0 else 0.0,
             "total_time_minutes": 0,
@@ -892,15 +1116,22 @@ class OrchestratorService:
             "recommended_topic": "derivatives",
         }
 
-    def get_analytics(self, period: str = "week") -> Dict[str, Any]:
-        """Get analytics data."""
+    async def get_analytics(self, db: AsyncSession, period: str = "week", user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get analytics data from DB."""
+        query = select(SessionTable)
+        if user_id:
+            query = query.where(SessionTable.user_id == user_id)
+
+        result = await db.execute(query)
+        sessions = result.scalars().all()
+
         now = datetime.utcnow()
         return {
             "period_start": now.isoformat(),
             "period_end": now.isoformat(),
-            "sessions_count": len(self._sessions),
-            "tasks_attempted": sum(s.attempts for s in self._sessions.values()),
-            "tasks_solved": sum(1 for s in self._sessions.values() if s.is_solved),
+            "sessions_count": len(sessions),
+            "tasks_attempted": sum(s.attempts for s in sessions),
+            "tasks_solved": sum(1 for s in sessions if s.is_solved),
             "avg_session_minutes": 0.0,
             "avg_hints_per_task": 0.0,
             "progress_by_day": [],

@@ -1,0 +1,228 @@
+# API Contracts: MITS Comprehensive Improvements
+# OpenAPI 3.0 style (abbreviated for clarity)
+
+# ============================================
+# Authentication Endpoints
+# ============================================
+
+POST /api/v1/auth/register:
+  request:
+    email: string (required)
+    password: string (required, min 8 chars)
+    display_name: string (required)
+  response: 201
+    id: uuid
+    email: string
+    display_name: string
+    access_token: string
+    refresh_token: string
+
+POST /api/v1/auth/login:
+  request:
+    email: string (required)
+    password: string (required)
+  response: 200
+    access_token: string
+    refresh_token: string
+    user:
+      id: uuid
+      email: string
+      display_name: string
+  errors:
+    401: Invalid credentials
+
+POST /api/v1/auth/refresh:
+  request:
+    refresh_token: string (required)
+  response: 200
+    access_token: string
+    refresh_token: string
+  errors:
+    401: Token expired or revoked
+
+POST /api/v1/auth/logout:
+  headers:
+    Authorization: Bearer <access_token>
+  response: 204
+
+# ============================================
+# Analytics Endpoints (NEW)
+# ============================================
+
+GET /api/v1/analytics/activity:
+  headers:
+    Authorization: Bearer <access_token>
+  params:
+    days: int (default 365)
+  response: 200
+    data:
+      - date: string (YYYY-MM-DD)
+        count: int (sessions that day)
+        level: int (0-4, activity intensity)
+
+GET /api/v1/analytics/performance:
+  headers:
+    Authorization: Bearer <access_token>
+  params:
+    period: string (week|month|year, default month)
+  response: 200
+    data:
+      - date: string
+        sessions: int
+        success_rate: float
+        avg_response_time: float
+    summary:
+      total_sessions: int
+      avg_success_rate: float
+      streak_days: int
+      topics_mastered: int
+
+GET /api/v1/analytics/mastery:
+  headers:
+    Authorization: Bearer <access_token>
+  response: 200
+    topics:
+      - topic: string
+        mastery: float (0-1)
+        trend: string (up|down|stable)
+        last_practiced: string (datetime)
+
+GET /api/v1/analytics/errors:
+  headers:
+    Authorization: Bearer <access_token>
+  response: 200
+    distribution:
+      - error_type: string
+        count: int
+        percentage: float
+    recommendations:
+      - topic: string
+        reason: string
+        priority: float (0-1)
+
+# ============================================
+# Export Endpoints (NEW)
+# ============================================
+
+GET /api/v1/export/report.pdf:
+  headers:
+    Authorization: Bearer <access_token>
+  params:
+    period: string (optional, default all)
+  response: 200
+    content-type: application/pdf
+    content-disposition: attachment; filename=mits_report_{user_id}.pdf
+
+# ============================================
+# Evaluation Endpoints (NEW)
+# ============================================
+
+POST /api/v1/evaluation/run:
+  request:
+    benchmark_type: string (tutoring_quality|knowledge_tracing|affect_detection|model_comparison)
+    config: object (benchmark-specific parameters)
+  response: 202
+    run_id: uuid
+    status: running
+
+GET /api/v1/evaluation/{run_id}:
+  response: 200
+    run_id: uuid
+    status: string (running|completed|failed)
+    metrics: object (benchmark results)
+    comparisons: object[] (if model_comparison)
+
+GET /api/v1/evaluation/reports:
+  response: 200
+    reports:
+      - id: uuid
+        report_type: string
+        created_at: string
+        summary: string
+
+# ============================================
+# Experiment Endpoints (NEW — A/B Testing)
+# ============================================
+
+POST /api/v1/experiments:
+  request:
+    name: string
+    description: string
+    groups:
+      - name: string
+        mode: string (chat|guided_learning)
+        allocation_pct: float
+  response: 201
+    id: uuid
+    status: draft
+
+POST /api/v1/experiments/{id}/enroll:
+  request:
+    user_id: uuid
+  response: 200
+    group_name: string
+    participant_id: uuid
+
+POST /api/v1/experiments/{id}/pre-test:
+  request:
+    user_id: uuid
+    score: float
+  response: 200
+
+POST /api/v1/experiments/{id}/post-test:
+  request:
+    user_id: uuid
+    score: float
+  response: 200
+
+GET /api/v1/experiments/{id}/results:
+  response: 200
+    groups:
+      - name: string
+        n: int
+        pre_mean: float
+        post_mean: float
+        improvement: float
+    statistical_tests:
+      t_statistic: float
+      p_value: float
+      cohens_d: float
+      significant: boolean
+
+# ============================================
+# Vision Endpoints (NEW — Handwriting OCR)
+# ============================================
+
+POST /api/v1/vision/recognize:
+  request:
+    image: binary (multipart/form-data)
+    session_id: uuid (optional)
+  response: 200
+    latex: string
+    confidence: float
+    rendered_preview: string (base64 PNG of rendered LaTeX)
+
+POST /api/v1/vision/verify:
+  request:
+    latex: string
+    expected_answer: string (optional)
+  response: 200
+    steps:
+      - step_number: int
+        latex: string
+        is_correct: boolean
+        error_description: string (nullable)
+    overall_correct: boolean
+
+# ============================================
+# WebSocket Additions
+# ============================================
+
+# New WS message types:
+
+# Client → Server:
+# { type: "image_upload", image: "<base64>", session_id: "..." }
+
+# Server → Client:
+# { type: "ocr_result", latex: "...", confidence: 0.95 }
+# { type: "verification_result", steps: [...], overall_correct: true }

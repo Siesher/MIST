@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 
 from backend.app.config import backend_settings
 from backend.app.api.v1.router import router as api_router
+from backend.app.models.database import init_db, close_db
 from backend.app.services.orchestrator_service import get_orchestrator_service
 
 # Configure logging
@@ -78,8 +79,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def startup():
     """Initialize services on startup."""
     logger.info("Starting MITS API server...")
+    await init_db()
+    logger.info("Database initialized")
     service = await get_orchestrator_service()
     logger.info("MITS API server ready")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Cleanup on shutdown."""
+    await close_db()
+    logger.info("MITS API server shut down")
 
 
 if __name__ == "__main__":

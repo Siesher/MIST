@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ModeSelector } from "./ModeSelector";
+import { ImageUpload } from "./ImageUpload";
 import type { ChatMode } from "@/types/api";
 import { CHAT_MODES } from "@/types/api";
 
@@ -10,6 +11,7 @@ interface ChatInputProps {
   onSend: (content: string) => void;
   onHintRequest?: () => void;
   onModeChange?: (mode: ChatMode) => void;
+  onImageUpload?: (file: File) => void;
   disabled?: boolean;
   hasTask?: boolean;
   hintsRemaining?: number;
@@ -20,6 +22,7 @@ export function ChatInput({
   onSend,
   onHintRequest,
   onModeChange,
+  onImageUpload,
   disabled = false,
   hasTask = false,
   hintsRemaining = 0,
@@ -91,6 +94,11 @@ export function ChatInput({
 
         {/* Input area */}
         <div className="flex items-end gap-2">
+          {onImageUpload && (
+            <div className="shrink-0">
+              <ImageUpload onUpload={onImageUpload} disabled={disabled} />
+            </div>
+          )}
           <div className="relative flex-1">
             <textarea
               ref={textareaRef}

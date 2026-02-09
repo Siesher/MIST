@@ -394,6 +394,14 @@ class Settings(BaseSettings):
         ge=1,
         description="Number of recent messages to analyze for affective state"
     )
+    AFFECT_DETECTOR_TYPE: str = Field(
+        default="rules",
+        description="Affect detector type: 'rules' (rule-based) or 'ml' (RuBERT)"
+    )
+    AFFECT_ML_MODEL_PATH: str = Field(
+        default="data/models/rubert_affect",
+        description="Path to fine-tuned RuBERT affect model"
+    )
 
     # Generative Task Synthesis
     TASK_SYNTHESIS_ENABLED: bool = Field(
@@ -444,8 +452,8 @@ class Settings(BaseSettings):
         description="Enable vision-based math OCR"
     )
     VISION_MODEL: str = Field(
-        default="minicpm-v",
-        description="Ollama vision model for OCR"
+        default="qwen2.5-vl:7b",
+        description="Ollama vision model for OCR (Qwen2.5-VL-7B recommended)"
     )
     VISION_CONFIDENCE_THRESHOLD: float = Field(
         default=0.7,

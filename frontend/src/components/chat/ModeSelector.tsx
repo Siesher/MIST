@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { ChatMode, ModeInfo } from "@/types/api";
+import type { ChatMode } from "@/types/api";
 import { CHAT_MODES } from "@/types/api";
 
 interface ModeSelectorProps {

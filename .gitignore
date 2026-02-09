@@ -38,6 +38,7 @@ env/
 
 # Environment
 .env
+.env.*
 .env.local
 
 # Data
@@ -45,6 +46,8 @@ data/datasets/*
 !data/datasets/.gitkeep
 data/chromadb/*
 !data/chromadb/.gitkeep
+data/training/*
+!data/training/.gitkeep
 training/calibration_data/*
 !training/calibration_data/.gitkeep
 *.db
@@ -52,10 +55,15 @@ training/calibration_data/*
 
 # Models & Checkpoints
 models/
+!models/Modelfile.*
 checkpoints/
 *.gguf
 *.bin
 *.safetensors
+
+# Training data (large files)
+training/data/*.jsonl
+training/data/curriculum/
 
 # Logs
 logs/
@@ -64,6 +72,7 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Testing
 .pytest_cache/

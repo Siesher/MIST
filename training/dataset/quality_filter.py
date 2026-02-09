@@ -109,11 +109,12 @@ class DialogQualityFilter:
 
     def __init__(
         self,
-        min_turns: int = 4,
-        max_turns: int = 20,
+        min_turns: int = 10,
+        max_turns: int = 30,
         require_latex: bool = True,
         min_russian_ratio: float = 0.3,
-        min_move_diversity: int = 2
+        min_move_diversity: int = 2,
+        min_speaker_ratio: float = 0.3
     ):
         """
         Initialize filter.
@@ -130,6 +131,7 @@ class DialogQualityFilter:
         self.require_latex = require_latex
         self.min_russian_ratio = min_russian_ratio
         self.min_move_diversity = min_move_diversity
+        self.min_speaker_ratio = min_speaker_ratio
 
         # Compile regex patterns
         self.leak_patterns = [
@@ -283,9 +285,19 @@ class DialogQualityFilter:
         return True
 
     def _check_length(self, dialog: SyntheticDialog) -> bool:
-        """Check if dialog has appropriate length."""
+        """Check if dialog has appropriate length and balanced speakers."""
         num_turns = len(dialog.turns)
-        return self.min_turns <= num_turns <= self.max_turns
+        if not (self.min_turns <= num_turns <= self.max_turns):
+            return False
+
+        # Balanced speaker ratio
+        student = sum(1 for t in dialog.turns if t.role == "student")
+        tutor = sum(1 for t in dialog.turns if t.role == "tutor")
+        total = student + tutor
+        if total == 0:
+            return False
+        ratio = min(student, tutor) / total
+        return ratio >= self.min_speaker_ratio
 
     def _check_diversity(self, turns: List[DialogTurn]) -> bool:
         """Check if dialog uses diverse teaching moves."""
