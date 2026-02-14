@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отчёт о прогрессе — {{ student_name }}</title>
+    <style>
+        @page { size: A4; margin: 2cm; }
+        body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11pt; color: #222; line-height: 1.5; }
+        h1 { font-size: 18pt; color: #1a1a2e; border-bottom: 2px solid #e2725b; padding-bottom: 6px; }
+        h2 { font-size: 14pt; color: #16213e; margin-top: 24px; }
+        .meta { color: #666; font-size: 10pt; margin-bottom: 16px; }
+        .stats-grid { display: flex; gap: 12px; margin: 16px 0; }
+        .stat-card { flex: 1; background: #f5f5f5; border-radius: 8px; padding: 12px; text-align: center; }
+        .stat-value { font-size: 20pt; font-weight: bold; color: #1a1a2e; }
+        .stat-label { font-size: 9pt; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th { background: #1a1a2e; color: #fff; padding: 8px 10px; text-align: left; font-size: 10pt; }
+        td { padding: 6px 10px; border-bottom: 1px solid #e0e0e0; font-size: 10pt; }
+        tr:nth-child(even) { background: #fafafa; }
+        .mastery-bar { height: 12px; border-radius: 6px; background: #e0e0e0; position: relative; }
+        .mastery-fill { height: 100%; border-radius: 6px; background: #e2725b; }
+        .priority-high { color: #d32f2f; font-weight: bold; }
+        .priority-medium { color: #1976d2; }
+        .priority-low { color: #388e3c; }
+        .chart-img { max-width: 100%; margin: 8px 0; }
+        .footer { margin-top: 32px; border-top: 1px solid #ccc; padding-top: 8px; font-size: 9pt; color: #999; text-align: center; }
+    </style>
+</head>
+<body>
+
+<h1>Отчёт о прогрессе</h1>
+<p class="meta">Студент: <strong>{{ student_name }}</strong> | Дата: {{ report_date }}</p>
+
+<h2>Общая статистика</h2>
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_sessions }}</div>
+        <div class="stat-label">Сессий</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ solved_sessions }}</div>
+        <div class="stat-label">Решено</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ solve_rate }}%</div>
+        <div class="stat-label">Процент решения</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_hints }}</div>
+        <div class="stat-label">Подсказок</div>
+    </div>
+</div>
+
+{% if mastery_chart_img %}
+<h2>Освоение по темам</h2>
+<img class="chart-img" src="data:image/png;base64,{{ mastery_chart_img }}" alt="Mastery Chart">
+{% endif %}
+
+{% if mastery_data %}
+<table>
+    <tr><th>Тема</th><th>Уровень</th><th>Визуализация</th></tr>
+    {% for item in mastery_data %}
+    <tr>
+        <td>{{ item.topic }}</td>
+        <td>{{ item.mastery }}%</td>
+        <td>
+            <div class="mastery-bar">
+                <div class="mastery-fill" style="width: {{ item.mastery }}%;"></div>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+{% if error_data %}
+<h2>Типы взаимодействий</h2>
+<table>
+    <tr><th>Тип</th><th>Количество</th><th>Доля</th></tr>
+    {% for item in error_data %}
+    <tr>
+        <td>{{ item.type }}</td>
+        <td>{{ item.count }}</td>
+        <td>{{ item.percentage }}%</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+{% if sessions %}
+<h2>Последние сессии</h2>
+<table>
+    <tr><th>Дата</th><th>Тема</th><th>Режим</th><th>Решено</th><th>Подсказки</th></tr>
+    {% for s in sessions %}
+    <tr>
+        <td>{{ s.date }}</td>
+        <td>{{ s.topic or '—' }}</td>
+        <td>{{ s.mode }}</td>
+        <td>{{ 'Да' if s.is_solved else 'Нет' }}</td>
+        <td>{{ s.hints_used }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+{% if recommendations %}
+<h2>Рекомендации</h2>
+<table>
+    <tr><th>Тема</th><th>Приоритет</th><th>Причина</th></tr>
+    {% for rec in recommendations %}
+    <tr>
+        <td>{{ rec.topic }}</td>
+        <td class="priority-{{ rec.priority }}">
+            {% if rec.priority == 'high' %}Высокий{% elif rec.priority == 'medium' %}Средний{% else %}Низкий{% endif %}
+        </td>
+        <td>{{ rec.reason }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+<div class="footer">
+    Отчёт сгенерирован системой MITS — Математический Интеллектуальный Тьютор
+</div>
+
+</body>
+</html>

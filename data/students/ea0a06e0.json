@@ -1,0 +1,56 @@
+{
+  "student_id": "ea0a06e0",
+  "skills": {
+    "power_rule": {
+      "mastery": 0.6905866302864939,
+      "attempts": 3,
+      "successes": 2,
+      "last_practice": "2026-02-03T13:02:57.827208",
+      "dkt_mastery": null,
+      "use_dkt": false
+    },
+    "derivatives_basic": {
+      "mastery": 0.6905866302864939,
+      "attempts": 3,
+      "successes": 2,
+      "last_practice": "2026-02-03T13:02:57.827208",
+      "dkt_mastery": null,
+      "use_dkt": false
+    }
+  },
+  "total_sessions": 0,
+  "total_problems_solved": 2,
+  "created_at": "2026-02-03T12:58:31.467025",
+  "interaction_history": [
+    [
+      0,
+      true
+    ],
+    [
+      1,
+      true
+    ],
+    [
+      0,
+      false
+    ],
+    [
+      1,
+      false
+    ],
+    [
+      0,
+      true
+    ],
+    [
+      1,
+      true
+    ]
+  ],
+  "use_dkt_globally": false,
+  "skill_to_id": {
+    "power_rule": 0,
+    "derivatives_basic": 1
+  },
+  "next_skill_id": 2
+}

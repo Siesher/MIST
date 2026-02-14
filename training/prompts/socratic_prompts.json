@@ -1,0 +1,118 @@
+{
+  "domain": "socratic",
+  "description": "Socratic tutoring - hints, guided questions, misconception handling",
+  "prompts": [
+    {
+      "instruction_template": "A student is trying to solve: '{problem}'. They say: '{student_response}'. Generate a Socratic hint that guides them without giving the answer.",
+      "subtopic": "hints",
+      "difficulty": "intermediate",
+      "variables": {
+        "problem": [
+          "Find the derivative of f(x) = x^3 + 2x",
+          "Balance the equation: Fe + O2 -> Fe2O3",
+          "Write a function to reverse a string in Python",
+          "Calculate the force on a 5kg object accelerating at 3 m/s^2"
+        ],
+        "student_response": [
+          "I'm not sure where to start",
+          "I think the answer is 3x^2 but I'm not confident",
+          "I tried using a loop but it's not working",
+          "Is it just 5 + 3 = 8?"
+        ]
+      }
+    },
+    {
+      "instruction_template": "A student has the misconception that '{misconception}'. Create a series of guiding questions to help them discover the correct understanding.",
+      "subtopic": "misconceptions",
+      "difficulty": "advanced",
+      "variables": {
+        "misconception": [
+          "heavier objects fall faster than lighter ones",
+          "multiplication always makes numbers bigger",
+          "electrons orbit the nucleus like planets orbit the sun",
+          "evolution means humans evolved from monkeys",
+          "the equals sign means 'the answer is'"
+        ]
+      }
+    },
+    {
+      "instruction_template": "Generate a scaffolded sequence of questions to help a student understand {concept}, starting from basic intuition to formal understanding.",
+      "subtopic": "scaffolding",
+      "difficulty": "advanced",
+      "variables": {
+        "concept": [
+          "why negative times negative equals positive",
+          "how vaccines work",
+          "the concept of limits in calculus",
+          "recursion in programming",
+          "why the sky is blue"
+        ]
+      }
+    },
+    {
+      "instruction_template": "A student asks: '{question}'. Instead of answering directly, formulate 2-3 guiding questions that will help them discover the answer themselves.",
+      "subtopic": "questions",
+      "difficulty": "intermediate",
+      "variables": {
+        "question": [
+          "What is the Pythagorean theorem?",
+          "How do I find the area of a circle?",
+          "Why do we need to balance chemical equations?",
+          "What's the difference between == and = in Python?",
+          "How does photosynthesis work?"
+        ]
+      }
+    },
+    {
+      "instruction_template": "A student got the answer '{wrong_answer}' for the problem '{problem}'. The correct answer is '{correct_answer}'. Generate hints that help them find their mistake.",
+      "subtopic": "hints",
+      "difficulty": "intermediate",
+      "variables": {
+        "problem": ["Solve 2x + 4 = 10", "Find the derivative of x^2", "What is 3/4 + 1/2?"],
+        "wrong_answer": ["x = 7", "2x", "4/6"],
+        "correct_answer": ["x = 3", "2x", "5/4"]
+      }
+    },
+    {
+      "instruction_template": "Create a think-aloud demonstration for solving: '{problem}'. Show the thought process a tutor would use, including self-questioning.",
+      "subtopic": "scaffolding",
+      "difficulty": "intermediate",
+      "variables": {
+        "problem": [
+          "Find all solutions to x^2 - 5x + 6 = 0",
+          "Predict the products of NaOH + HCl",
+          "Trace through this recursive function: factorial(4)",
+          "Calculate the momentum of a 2kg ball moving at 5 m/s"
+        ]
+      }
+    },
+    {
+      "instruction_template": "A student is stuck on step {step_number} of solving '{problem}'. They've correctly done the previous steps. Generate a minimal hint for just this step.",
+      "subtopic": "hints",
+      "difficulty": "basic",
+      "variables": {
+        "step_number": ["2", "3", "4"],
+        "problem": [
+          "integrating x*e^x using integration by parts",
+          "proving two triangles are congruent",
+          "implementing binary search",
+          "balancing a redox equation"
+        ]
+      }
+    },
+    {
+      "instruction_template": "Design a series of progressively harder questions about {topic} that could be used in a Socratic dialogue.",
+      "subtopic": "questions",
+      "difficulty": "advanced",
+      "variables": {
+        "topic": [
+          "the concept of functions in mathematics",
+          "Newton's laws of motion",
+          "object-oriented programming",
+          "chemical bonding",
+          "natural selection"
+        ]
+      }
+    }
+  ]
+}

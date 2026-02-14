@@ -1,0 +1,219 @@
+# MITS QLoRA Training Configuration
+# Оптимизировано для RTX 2080 (8GB VRAM) + 32GB RAM
+#
+# РЕКОМЕНДУЕМАЯ МОДЕЛЬ: Qwen3-4B-Instruct
+# Источник: HuggingFace benchmark comparison 2025
+# - Лучшая точность после fine-tuning среди моделей 3-4B класса
+# - MATH-500: 97.0% (лучший в классе для математики)
+# - Поддержка 119 языков включая русский
+# - Apache 2.0 лицензия
+# - С 4-bit квантованием: ~2.5GB VRAM для модели
+
+# ======================
+# Модель
+# ======================
+model:
+  # ОСНОВНАЯ: Qwen3-4B - лучший баланс качества и эффективности
+  name: "Qwen/Qwen3-4B-Instruct"
+  trust_remote_code: true
+  torch_dtype: "bfloat16"
+
+  # АЛЬТЕРНАТИВЫ (по убыванию качества):
+  #
+  # 1. Qwen3-1.7B - если нужно максимально сэкономить VRAM
+  #    name: "Qwen/Qwen3-1.7B-Instruct"  # ~1.2GB VRAM
+  #    Плюсы: очень быстрый, 119 языков, хорошая математика
+  #
+  # 2. microsoft/Phi-4-mini-instruct - сильный reasoning
+  #    name: "microsoft/Phi-4-mini-instruct"  # 3.8B, ~2.5GB VRAM
+  #    Плюсы: GSM8K 85.31%, MATH-500 88.6%
+  #    Минусы: хуже поддержка русского
+  #
+  # 3. SmolLM3-3B - полностью открытая модель от HuggingFace
+  #    name: "HuggingFaceTB/SmolLM3-3B-Instruct"
+  #    Плюсы: dual-mode reasoning, Apache 2.0
+  #    Минусы: только 6 европейских языков
+  #
+  # НЕ РЕКОМЕНДУЕТСЯ для русского STEM:
+  # - Gemma-3-4B: хорошее качество, но сложнее fine-tune
+  # - Llama-3.2-3B: слабее на математике
+
+# ======================
+# Квантование (4-bit для экономии VRAM)
+# ======================
+quantization:
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+  # С этими настройками Qwen-7B занимает ~4-5GB VRAM
+
+# ======================
+# LoRA конфигурация
+# ======================
+lora:
+  # Параметры адаптера
+  r: 32                     # Ранг LoRA (меньше = меньше памяти)
+  lora_alpha: 64            # Альфа = 2 * r (рекомендуется)
+  lora_dropout: 0.05        # Dropout для регуляризации
+  bias: "none"              # Не обучать bias
+
+  # Целевые модули для адаптации
+  target_modules:
+    - "q_proj"      # Query projection
+    - "k_proj"      # Key projection
+    - "v_proj"      # Value projection
+    - "o_proj"      # Output projection
+    - "gate_proj"   # MLP gate
+    - "up_proj"     # MLP up
+    - "down_proj"   # MLP down
+
+  # Модули без градиентов (экономия памяти)
+  modules_to_save: null
+
+  # Тип задачи
+  task_type: "CAUSAL_LM"
+
+# ======================
+# Параметры обучения
+# ======================
+training:
+  # Batch size (минимум для 8GB)
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+
+  # Градиентное накопление (эффективный batch = 16)
+  gradient_accumulation_steps: 16
+
+  # Оптимизатор
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+
+  # Эпохи и шаги
+  num_train_epochs: 3
+  max_steps: -1  # -1 = определяется эпохами
+
+  # Длина последовательности (ограничена для экономии памяти)
+  max_seq_length: 1024
+
+  # Оптимизация памяти
+  gradient_checkpointing: true  # Экономит ~40% VRAM
+  optim: "paged_adamw_8bit"     # 8-bit оптимизатор
+
+  # Precision
+  fp16: false
+  bf16: true
+
+  # Логирование
+  logging_steps: 10
+  logging_first_step: true
+
+  # Сохранение
+  save_steps: 500
+  save_total_limit: 3
+
+  # Оценка
+  eval_strategy: "steps"
+  eval_steps: 500
+
+  # Seed для воспроизводимости
+  seed: 42
+
+# ======================
+# Данные
+# ======================
+data:
+  # Путь к обучающим данным
+  train_file: "data/training/filtered_dialogs.jsonl"
+
+  # Разделение на train/eval
+  test_split: 0.1
+
+  # Формат данных
+  # Ожидается JSONL с полем "conversations"
+  # [{"role": "system", "content": "..."}, {"role": "user", ...}, {"role": "assistant", ...}]
+
+  # Обучение только на ответах ассистента
+  completion_only: true
+
+  # Токен для разделения (для DataCollatorForCompletionOnlyLM)
+  # Qwen3 формат: <|im_start|>assistant
+  # Для других моделей: <|assistant|>
+  response_template: "<|im_start|>assistant"
+
+  # Препроцессинг
+  preprocessing:
+    # Максимум примеров (для отладки)
+    max_train_samples: null
+    max_eval_samples: null
+
+    # Shuffle
+    shuffle: true
+
+# ======================
+# Выходные пути
+# ======================
+output:
+  output_dir: "outputs/mits-qwen-tutor"
+  hub_model_id: null  # Не загружаем на HuggingFace Hub
+  push_to_hub: false
+
+# ======================
+# Интеграции
+# ======================
+integrations:
+  # Weights & Biases (опционально)
+  wandb:
+    enabled: false
+    project: "mits-training"
+    entity: null
+    name: null
+
+  # TensorBoard
+  tensorboard:
+    enabled: true
+    log_dir: "outputs/logs"
+
+# ======================
+# Аппаратные ограничения
+# ======================
+hardware:
+  # Целевое устройство
+  device: "cuda:0"
+
+  # Лимиты памяти
+  max_memory: "7GB"  # Оставляем 1GB для системы
+
+  # CPU offload (если не хватает VRAM)
+  cpu_offload: false
+
+  # Количество воркеров для данных
+  dataloader_num_workers: 2
+
+# ======================
+# Расчёт потребления VRAM (Qwen3-4B)
+# ======================
+# Qwen3-4B 4-bit: ~2.5GB
+# LoRA адаптеры (r=32): ~0.15GB
+# Градиенты (с checkpointing): ~1.2GB
+# Оптимизатор (8-bit): ~0.4GB
+# Буферы: ~0.5GB
+# ----------------------------
+# Итого: ~4.8GB (комфортно в 8GB!)
+#
+# Это позволяет увеличить max_seq_length до 2048
+# или использовать batch_size = 2
+
+# ======================
+# Альтернативные настройки
+# ======================
+# Для максимальной производительности:
+# 1. Qwen3-1.7B + batch_size=4 + max_seq_length=2048
+# 2. Qwen3-4B + batch_size=2 + max_seq_length=1024 (текущая)
+#
+# Если не хватает памяти:
+# 1. Уменьшить r до 16
+# 2. Уменьшить max_seq_length до 512
+# 3. Включить cpu_offload: true

@@ -2,11 +2,18 @@
 MITS Task Generator Agent
 
 Generates mathematical and programming tasks with solutions, hints, and common mistakes.
+Supports adaptive difficulty selection based on student knowledge state.
+
+Based on research:
+- RL-DKT (2025) - adaptive task selection improves learning outcomes by 12.5%
+- GenMentor (WWW 2025) - multi-agent task selection
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 import json
 import uuid
+import random
+import logging
 
 from src.agents.base_agent import BaseAgent
 from src.models.llm_client import LLMClient
@@ -14,43 +21,92 @@ from src.models.prompts import TASK_GENERATOR_SYSTEM, TASK_GENERATOR_PROMPT
 from src.data.schemas import Task, Difficulty, Subject
 from src.config import settings
 
+if TYPE_CHECKING:
+    from src.models.knowledge_tracing import KnowledgeTracker, StudentModel
+
+logger = logging.getLogger(__name__)
+
 
 class TaskGeneratorAgent(BaseAgent):
     """
-    Agent for generating educational tasks.
-    
+    Agent for generating educational tasks with adaptive difficulty selection.
+
     Features:
     - Topic-based task generation
-    - Difficulty scaling
+    - Adaptive difficulty scaling based on knowledge state
     - Automatic hint generation
     - Common mistake identification
+    - Zone of Proximal Development (ZPD) targeting
+    - Cognitive load-aware task selection
     """
-    
-    def __init__(self, llm_client: LLMClient):
+
+    # Optimal mastery range for learning (Zone of Proximal Development)
+    ZPD_MIN = 0.3  # Below this, task too hard
+    ZPD_MAX = 0.8  # Above this, task too easy
+
+    # Difficulty mapping for adaptive selection
+    DIFFICULTY_ORDER = [
+        Difficulty.EASY,
+        Difficulty.MEDIUM,
+        Difficulty.HARD,
+        Difficulty.OLYMPIAD
+    ]
+
+    # Mastery thresholds for difficulty recommendation
+    MASTERY_TO_DIFFICULTY = {
+        (0.0, 0.3): Difficulty.EASY,
+        (0.3, 0.5): Difficulty.MEDIUM,
+        (0.5, 0.7): Difficulty.HARD,
+        (0.7, 1.0): Difficulty.OLYMPIAD
+    }
+
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        knowledge_tracker: Optional["KnowledgeTracker"] = None
+    ):
         super().__init__(
             name="TaskGenerator",
             llm_client=llm_client,
             system_prompt=TASK_GENERATOR_SYSTEM
         )
-        
+
+        self.knowledge_tracker = knowledge_tracker
+
         # Skill taxonomy for math
         self.math_skills = {
             "algebra": [
-                "linear_equations", "quadratic_equations", 
+                "linear_equations", "quadratic_equations",
                 "systems", "inequalities", "factoring"
             ],
             "calculus": [
-                "limits", "derivatives", "chain_rule", 
+                "limits", "derivatives", "chain_rule",
                 "product_rule", "quotient_rule", "integrals"
             ],
             "geometry": [
-                "triangles", "circles", "vectors", 
+                "triangles", "circles", "vectors",
                 "coordinate_geometry", "trigonometry"
             ],
             "number_theory": [
                 "divisibility", "primes", "modular_arithmetic", "gcd_lcm"
             ],
         }
+
+        # Skill prerequisites (for ZPD-aware selection)
+        self.skill_prerequisites = {
+            "quadratic_equations": ["linear_equations", "factoring"],
+            "systems": ["linear_equations"],
+            "derivatives": ["limits"],
+            "chain_rule": ["derivatives"],
+            "product_rule": ["derivatives"],
+            "quotient_rule": ["derivatives"],
+            "integrals": ["derivatives"],
+            "trigonometry": ["triangles", "algebra"],
+        }
+
+    def set_knowledge_tracker(self, tracker: "KnowledgeTracker"):
+        """Set or update the knowledge tracker."""
+        self.knowledge_tracker = tracker
     
     def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -126,15 +182,28 @@ class TaskGeneratorAgent(BaseAgent):
         try:
             task_data = json.loads(response)
             
+            # Normalize fields - LLM may return lists instead of strings
+            solution = task_data.get("solution", "")
+            if isinstance(solution, list):
+                solution = "\n".join(solution)
+            
+            answer = task_data.get("answer", "")
+            if isinstance(answer, list):
+                answer = ", ".join(str(a) for a in answer)
+            
+            problem = task_data.get("problem", "")
+            if isinstance(problem, list):
+                problem = "\n".join(problem)
+            
             task = Task(
                 id=str(uuid.uuid4()),
                 subject=subject,
                 topic=topic,
                 difficulty=difficulty,
                 skills=task_data.get("skills", skills or [topic]),
-                problem=task_data["problem"],
-                solution=task_data["solution"],
-                answer=task_data["answer"],
+                problem=problem,
+                solution=solution,
+                answer=str(answer),
                 hints=task_data.get("hints", [])[:3],
                 common_mistakes=task_data.get("common_mistakes", []),
                 estimated_time_minutes=self._estimate_time(difficulty)
@@ -201,3 +270,294 @@ class TaskGeneratorAgent(BaseAgent):
                 topics.extend(skills)
             return topics
         return []
+
+    def select_adaptive_difficulty(
+        self,
+        student_id: str,
+        topic: str,
+        cognitive_load_level: str = "optimal"
+    ) -> Difficulty:
+        """
+        Select appropriate difficulty based on student's knowledge state.
+
+        Uses Zone of Proximal Development (ZPD) principle:
+        - Tasks should be challenging but achievable
+        - Considers mastery level for the specific topic
+        - Adjusts for cognitive load
+
+        Args:
+            student_id: Student identifier
+            topic: Topic for the task
+            cognitive_load_level: Current cognitive load (low/optimal/high/overload)
+
+        Returns:
+            Recommended Difficulty level
+        """
+        # Default difficulty
+        recommended = Difficulty.MEDIUM
+
+        if self.knowledge_tracker:
+            try:
+                student = self.knowledge_tracker.get_student(student_id)
+                mastery = student.get_mastery(topic)
+
+                # Map mastery to difficulty
+                for (min_m, max_m), difficulty in self.MASTERY_TO_DIFFICULTY.items():
+                    if min_m <= mastery < max_m:
+                        recommended = difficulty
+                        break
+
+                logger.debug(
+                    f"Adaptive difficulty for {topic}: mastery={mastery:.2f} -> {recommended.value}"
+                )
+
+            except Exception as e:
+                logger.warning(f"Error getting student mastery: {e}")
+
+        # Adjust for cognitive load
+        recommended = self._adjust_for_cognitive_load(recommended, cognitive_load_level)
+
+        return recommended
+
+    def _adjust_for_cognitive_load(
+        self,
+        difficulty: Difficulty,
+        cognitive_load: str
+    ) -> Difficulty:
+        """
+        Adjust difficulty based on cognitive load.
+
+        If student is overloaded, reduce difficulty.
+        If load is low, can increase difficulty.
+        """
+        diff_index = self.DIFFICULTY_ORDER.index(difficulty)
+
+        if cognitive_load == "overload":
+            # Reduce by 2 levels
+            diff_index = max(0, diff_index - 2)
+        elif cognitive_load == "high":
+            # Reduce by 1 level
+            diff_index = max(0, diff_index - 1)
+        elif cognitive_load == "low":
+            # Can increase by 1 level
+            diff_index = min(len(self.DIFFICULTY_ORDER) - 1, diff_index + 1)
+        # "optimal" - no change
+
+        adjusted = self.DIFFICULTY_ORDER[diff_index]
+
+        if adjusted != difficulty:
+            logger.debug(
+                f"Difficulty adjusted for cognitive load {cognitive_load}: "
+                f"{difficulty.value} -> {adjusted.value}"
+            )
+
+        return adjusted
+
+    def select_adaptive_topic(
+        self,
+        student_id: str,
+        subject: Subject = Subject.MATH,
+        prefer_weak: bool = True
+    ) -> str:
+        """
+        Select topic based on student's knowledge state.
+
+        Uses ZPD principle to find topics where:
+        - Prerequisites are mastered (>0.6)
+        - Topic itself has room for improvement (<0.8)
+
+        Args:
+            student_id: Student identifier
+            subject: Subject area
+            prefer_weak: Prioritize weaker skills
+
+        Returns:
+            Recommended topic
+        """
+        available_topics = self.get_available_topics(subject)
+
+        if not self.knowledge_tracker:
+            return random.choice(available_topics)
+
+        try:
+            student = self.knowledge_tracker.get_student(student_id)
+
+            # Find topics in ZPD
+            zpd_topics = []
+            for topic in available_topics:
+                mastery = student.get_mastery(topic)
+
+                # Check if in ZPD range
+                if self.ZPD_MIN <= mastery <= self.ZPD_MAX:
+                    # Check prerequisites
+                    prereqs = self.skill_prerequisites.get(topic, [])
+                    prereqs_met = all(
+                        student.get_mastery(p) > 0.6 for p in prereqs
+                    )
+
+                    if prereqs_met or not prereqs:
+                        zpd_topics.append((topic, mastery))
+
+            if not zpd_topics:
+                # Fallback: use KT recommendation
+                recommended = student.recommend_next_skill()
+                if recommended:
+                    return recommended
+                return random.choice(available_topics)
+
+            # Sort by mastery (weakest first if prefer_weak)
+            zpd_topics.sort(key=lambda x: x[1], reverse=not prefer_weak)
+
+            # Add some randomization among top candidates
+            top_candidates = zpd_topics[:3]
+            selected = random.choice(top_candidates)[0]
+
+            logger.debug(f"Adaptive topic selected: {selected} from {len(zpd_topics)} ZPD candidates")
+
+            return selected
+
+        except Exception as e:
+            logger.warning(f"Error in adaptive topic selection: {e}")
+            return random.choice(available_topics)
+
+    def generate_adaptive_task(
+        self,
+        student_id: str,
+        topic: Optional[str] = None,
+        subject: Subject = Subject.MATH,
+        cognitive_load_level: str = "optimal"
+    ) -> Task:
+        """
+        Generate a task with adaptive difficulty and topic selection.
+
+        This is the main entry point for adaptive task generation.
+
+        Args:
+            student_id: Student identifier
+            topic: Optional topic (if None, selects adaptively)
+            subject: Subject area
+            cognitive_load_level: Current cognitive load level
+
+        Returns:
+            Generated Task with appropriate difficulty
+        """
+        # Select topic if not provided
+        if topic is None:
+            topic = self.select_adaptive_topic(student_id, subject)
+
+        # Select difficulty based on knowledge state
+        difficulty = self.select_adaptive_difficulty(
+            student_id, topic, cognitive_load_level
+        )
+
+        # Get student level for context
+        student_level = {}
+        if self.knowledge_tracker:
+            try:
+                summary = self.knowledge_tracker.get_knowledge_state_summary(student_id)
+                student_level = {
+                    skill: data["mastery"]
+                    for skill, data in summary.get("mastery_by_skill", {}).items()
+                }
+            except Exception as e:
+                logger.warning(f"Could not get student level: {e}")
+
+        # Generate task
+        task = self.generate_task(
+            topic=topic,
+            difficulty=difficulty,
+            subject=subject,
+            student_level=student_level
+        )
+
+        logger.info(
+            f"Adaptive task generated: topic={topic}, difficulty={difficulty.value}, "
+            f"student={student_id}"
+        )
+
+        return task
+
+    def get_recommended_practice(
+        self,
+        student_id: str,
+        count: int = 3,
+        subject: Subject = Subject.MATH
+    ) -> List[Dict[str, Any]]:
+        """
+        Get recommended practice tasks based on student's knowledge state.
+
+        Returns a mix of:
+        - Weak skill reinforcement (60%)
+        - Strong skill maintenance (20%)
+        - New skill introduction (20%)
+
+        Args:
+            student_id: Student identifier
+            count: Number of recommendations
+            subject: Subject area
+
+        Returns:
+            List of recommended task specifications
+        """
+        recommendations = []
+
+        if not self.knowledge_tracker:
+            # Fallback: random topics
+            topics = self.get_available_topics(subject)
+            for _ in range(count):
+                recommendations.append({
+                    "topic": random.choice(topics),
+                    "difficulty": Difficulty.MEDIUM,
+                    "reason": "general_practice"
+                })
+            return recommendations
+
+        try:
+            student = self.knowledge_tracker.get_student(student_id)
+
+            # Get weak skills (60% of recommendations)
+            weak_count = max(1, int(count * 0.6))
+            weak_skills = student.get_weakest_skills(weak_count)
+            for skill, mastery in weak_skills:
+                difficulty = self.select_adaptive_difficulty(student_id, skill)
+                recommendations.append({
+                    "topic": skill,
+                    "difficulty": difficulty,
+                    "mastery": mastery,
+                    "reason": "weak_skill_reinforcement"
+                })
+
+            # Get ready-to-learn skills (20% new skills)
+            new_count = max(1, int(count * 0.2))
+            ready_skills = student.get_ready_skills()
+            for skill in ready_skills[:new_count]:
+                if skill not in [r["topic"] for r in recommendations]:
+                    recommendations.append({
+                        "topic": skill,
+                        "difficulty": Difficulty.EASY,  # Start easy for new skills
+                        "mastery": student.get_mastery(skill),
+                        "reason": "new_skill_introduction"
+                    })
+
+            # Strong skill maintenance (remaining)
+            strong_count = count - len(recommendations)
+            if strong_count > 0:
+                strong_skills = student.get_strongest_skills(strong_count)
+                for skill, mastery in strong_skills:
+                    if skill not in [r["topic"] for r in recommendations]:
+                        recommendations.append({
+                            "topic": skill,
+                            "difficulty": Difficulty.HARD,  # Challenge on strong skills
+                            "mastery": mastery,
+                            "reason": "strong_skill_maintenance"
+                        })
+
+            # Trim to requested count
+            recommendations = recommendations[:count]
+
+            logger.debug(f"Generated {len(recommendations)} practice recommendations")
+
+        except Exception as e:
+            logger.warning(f"Error generating recommendations: {e}")
+
+        return recommendations

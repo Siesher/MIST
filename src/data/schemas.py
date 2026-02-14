@@ -208,15 +208,823 @@ class StudentProfile(BaseModel):
 
 class VerificationResult(BaseModel):
     """Result of verifying a student's answer."""
-    
+
     is_correct: bool
     is_partial: bool = False  # Partially correct
     confidence: float = 1.0   # Confidence in verification
-    
+
     # Error analysis
     has_error: bool = False
     error_type: Optional[str] = None  # "arithmetic", "conceptual", "notation"
     error_location: Optional[str] = None
-    
+
     # Feedback
     feedback: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COGNITIVE LOAD MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CognitiveLoadLevel(str, Enum):
+    """Cognitive load levels for adaptive difficulty."""
+    LOW = "low"           # Can increase difficulty
+    OPTIMAL = "optimal"   # Ideal learning zone
+    HIGH = "high"         # Signs of struggle
+    OVERLOAD = "overload" # Simplify immediately
+
+
+class CognitiveLoad(BaseModel):
+    """Real-time cognitive load estimation."""
+
+    level: CognitiveLoadLevel = CognitiveLoadLevel.OPTIMAL
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Contributing signals
+    response_time_ratio: float = Field(default=1.0, description="Actual/expected time")
+    consecutive_errors: int = Field(default=0)
+    hint_requests: int = Field(default=0)
+    task_complexity: float = Field(default=0.5, description="0-1 scale")
+
+    # Computed score
+    score: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TOPIC AND KNOWLEDGE STATE MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Topic(BaseModel):
+    """Educational topic with skill graph connections."""
+
+    topic_id: str
+    name: str
+    name_ru: str  # Russian name
+
+    # Classification
+    subject: Subject
+    category: str  # e.g., "algebra", "calculus", "algorithms"
+    difficulty: Difficulty
+
+    # Skill Graph
+    prerequisites: List[str] = Field(default_factory=list, description="Topic IDs")
+    related_topics: List[str] = Field(default_factory=list)
+
+    # Educational Content
+    description: str = ""
+    description_ru: str = ""
+    key_concepts: List[str] = Field(default_factory=list)
+    common_misconceptions: List[str] = Field(default_factory=list, description="Misconception IDs")
+
+    # BKT Defaults
+    default_p_learn: float = 0.1
+    default_p_forget: float = 0.05
+
+
+class TopicMastery(BaseModel):
+    """Mastery state for a single topic."""
+
+    topic_id: str
+    mastery: float = Field(default=0.3, ge=0.0, le=1.0)
+
+    # BKT Parameters (per-topic tunable)
+    p_learn: float = Field(default=0.1, description="Learning rate")
+    p_forget: float = Field(default=0.05, description="Forgetting rate")
+    p_guess: float = Field(default=0.2, description="Guessing probability")
+    p_slip: float = Field(default=0.1, description="Slip probability")
+
+    # Temporal tracking
+    last_practiced: Optional[datetime] = None
+    practice_count: int = 0
+    correct_count: int = 0
+
+    # DKT-specific
+    learning_velocity: float = Field(default=0.0, description="Rate of improvement")
+
+
+class KnowledgeState(BaseModel):
+    """Complete knowledge state for a student."""
+
+    student_id: str
+    topics: Dict[str, TopicMastery] = Field(default_factory=dict)
+
+    # DKT Model State (after 10+ interactions)
+    use_dkt: bool = Field(default=False)
+    dkt_hidden_state: Optional[List[float]] = None  # LSTM hidden state
+    interaction_count: int = Field(default=0)
+
+    # Aggregate metrics
+    overall_mastery: float = Field(default=0.3)
+    strongest_topics: List[str] = Field(default_factory=list)
+    weakest_topics: List[str] = Field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SESSION SUMMARY MODELS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SessionStatus(str, Enum):
+    """Session status."""
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+
+
+class SessionSummary(BaseModel):
+    """Summary of completed session for long-term storage."""
+
+    session_id: str
+    student_id: str
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
+
+    # Performance
+    tasks_attempted: int = 0
+    tasks_solved: int = 0
+    success_rate: float = 0.0
+    avg_hints_per_task: float = 0.0
+    telling_rate: float = 0.0
+
+    # Topics covered
+    topics_practiced: List[str] = Field(default_factory=list)
+    topics_mastered: List[str] = Field(default_factory=list)  # New mastery > 0.7
+    topics_struggled: List[str] = Field(default_factory=list)  # Errors without resolution
+
+    # Cognitive metrics
+    avg_cognitive_load: CognitiveLoadLevel = CognitiveLoadLevel.OPTIMAL
+    frustration_events: int = 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HINT AND MISCONCEPTION MODELS (RAG)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class HintLevel(str, Enum):
+    """Progressive hint levels."""
+    CONCEPTUAL = "conceptual"   # High-level, theoretical
+    PROCEDURAL = "procedural"   # Step-by-step guidance
+    SPECIFIC = "specific"       # Detailed, near-answer
+
+
+class HintType(str, Enum):
+    """Types of hints."""
+    QUESTION = "question"       # Socratic question
+    EXAMPLE = "example"         # Worked example reference
+    REMINDER = "reminder"       # Concept reminder
+    VISUALIZATION = "visualization"  # Suggest diagram
+
+
+class Hint(BaseModel):
+    """Educational hint for RAG retrieval."""
+
+    hint_id: str
+    content: str
+    content_ru: str
+
+    # Classification
+    topic_id: str
+    hint_level: HintLevel
+    hint_type: HintType
+
+    # RAG
+    keywords: List[str] = Field(default_factory=list)
+
+    # Usage tracking
+    retrieval_count: int = 0
+    effectiveness_score: float = 0.5
+
+
+class Misconception(BaseModel):
+    """Common error pattern for targeted correction."""
+
+    misconception_id: str
+    name: str
+    name_ru: str
+    description: str
+    description_ru: str
+
+    # Detection
+    topic_id: str
+    error_patterns: List[str] = Field(default_factory=list)  # Regex or keywords
+    triggers: List[str] = Field(default_factory=list)
+
+    # Correction
+    correction_question: str     # Socratic question to address
+    correction_question_ru: str
+    correction_hints: List[str] = Field(default_factory=list)  # Hint IDs
+
+    # Statistics
+    occurrence_count: int = 0
+    correction_success_rate: float = 0.5
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEARNING STYLE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LearningStyle(str, Enum):
+    """Student learning style preferences."""
+    VISUAL = "visual"         # Prefers diagrams, step-by-step
+    CONCEPTUAL = "conceptual" # Prefers theory first
+    PRACTICAL = "practical"   # Prefers examples first
+    BALANCED = "balanced"     # No strong preference
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AFFECTIVE STATE MODELS (Innovation: Affective Detection)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AffectiveStateType(str, Enum):
+    """Types of affective states detected from text."""
+    FRUSTRATED = "frustrated"   # Short msgs, typos, "!!!", errors
+    BORED = "bored"             # Fast correct answers, minimal engagement
+    CONFUSED = "confused"       # "?", long pauses, "не понимаю"
+    ENGAGED = "engaged"         # Questions, detailed answers, follow-ups
+    NEUTRAL = "neutral"         # Normal patterns
+
+
+class AffectiveSignals(BaseModel):
+    """Raw signals used for affective state detection."""
+
+    # Text-based signals
+    message_length: int = 0
+    response_time_ms: int = 0
+    punctuation_ratio: float = 0.0  # !, ?, ... per character
+    typo_density: float = 0.0       # Estimated typos per word
+    question_marks: int = 0
+    exclamation_marks: int = 0
+    ellipsis_count: int = 0
+
+    # Pattern signals
+    consecutive_short_messages: int = 0
+    consecutive_errors: int = 0
+
+    # Semantic signals (from LLM)
+    expressed_confusion: bool = False
+    expressed_frustration: bool = False
+    expressed_interest: bool = False
+
+
+class AffectiveState(BaseModel):
+    """Detected affective state."""
+
+    state_type: AffectiveStateType = AffectiveStateType.NEUTRAL
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Contributing signals
+    signals: AffectiveSignals = Field(default_factory=AffectiveSignals)
+
+    # Adaptation recommendations
+    should_simplify: bool = False
+    should_encourage: bool = False
+    should_challenge: bool = False
+    should_offer_break: bool = False
+
+    # Timestamps
+    detected_at: datetime = Field(default_factory=datetime.now)
+
+    # History tracking
+    previous_state: Optional[AffectiveStateType] = None
+    state_duration_seconds: int = 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GENERATIVE TASK MODELS (Innovation: Task Synthesis)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class VerificationStatus(str, Enum):
+    """Task verification status."""
+    PENDING = "pending"
+    VERIFIED = "verified"
+    FAILED = "failed"
+    MANUAL_REVIEW = "manual_review"
+
+
+class GeneratedTask(BaseModel):
+    """Auto-generated mathematical task with verified solution."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+    # Task content
+    topic: str
+    subtopic: Optional[str] = None
+    difficulty: Difficulty = Difficulty.MEDIUM
+
+    problem: str                    # Natural language problem
+    problem_latex: Optional[str] = None  # LaTeX version if applicable
+
+    # Solution (SymPy-verified)
+    solution_steps: List[str] = Field(default_factory=list)
+    answer: str
+    answer_latex: Optional[str] = None
+    answer_sympy: Optional[str] = None  # SymPy expression string
+
+    # Verification
+    verification_status: VerificationStatus = VerificationStatus.PENDING
+    sympy_verified: bool = False
+    verification_details: Optional[str] = None
+
+    # Teaching aids (auto-generated)
+    hints: List[str] = Field(default_factory=list)
+    common_mistakes: List[str] = Field(default_factory=list)
+    required_skills: List[str] = Field(default_factory=list)
+
+    # Metadata
+    generation_prompt: Optional[str] = None
+    generated_at: datetime = Field(default_factory=datetime.now)
+
+    # Variations
+    parent_task_id: Optional[str] = None  # If this is a variation
+    variation_count: int = 0              # Number of variations generated
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COUNTERFACTUAL EXPLANATION MODELS (Innovation: XAI)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CounterfactualExplanation(BaseModel):
+    """Counterfactual explanation for an error."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+    # Context
+    task_id: str
+    student_id: str
+    session_id: str
+
+    # Error analysis
+    student_answer: str
+    correct_answer: str
+    divergence_step: int = 0  # Step where student diverged
+
+    # Counterfactual
+    missing_skill: str              # Skill that was not applied
+    missing_skill_name_ru: str = ""  # Russian name
+
+    counterfactual_statement: str = ""   # "If you had... then..."
+    counterfactual_statement_ru: str = ""  # Russian version
+
+    # Comparison
+    student_path: List[str] = Field(default_factory=list)   # Student's steps
+    correct_path: List[str] = Field(default_factory=list)   # Correct steps
+
+    # Recommendations
+    prerequisite_topics: List[str] = Field(default_factory=list)
+    recommended_practice: List[str] = Field(default_factory=list)  # Task IDs
+
+    # Effectiveness tracking
+    was_helpful: Optional[bool] = None  # Student feedback
+    led_to_success: bool = False        # Did student solve after explanation?
+
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# METACOGNITIVE MODELS (Innovation: Metacognitive Scaffolding)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class MetacognitiveLevel(str, Enum):
+    """Metacognitive development levels."""
+    EMERGING = "emerging"       # Needs external prompts to recognize issues
+    DEVELOPING = "developing"   # Sometimes self-monitors
+    PROFICIENT = "proficient"   # Regular self-monitoring
+    ADVANCED = "advanced"       # Autonomous, self-directed learning
+
+
+class StuckPointType(str, Enum):
+    """Types of stuck points in metacognitive scaffolding."""
+    CONCEPTUAL = "conceptual"        # Doesn't understand concepts
+    PROCEDURAL = "procedural"        # Doesn't know which method/procedure
+    MONITORING = "monitoring"        # Needs help checking work
+    MOTIVATION = "motivation"        # Frustrated or giving up
+
+
+class StuckPoint(BaseModel):
+    """Record of where student got stuck."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    student_id: str = ""
+    session_id: str = ""
+
+    type: StuckPointType = StuckPointType.CONCEPTUAL
+    trigger_message: str = ""
+    trigger_phrase: str = ""
+    confidence: float = 0.5
+    context_messages: List[Dict[str, str]] = Field(default_factory=list)
+
+    # Intervention
+    intervention_type: Optional[str] = None
+    intervention_message: Optional[str] = None
+
+    # Resolution
+    resolved: bool = False
+    resolution_message: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+
+    created_at: datetime = Field(default_factory=datetime.now)
+    time_to_resolution_seconds: Optional[int] = None
+
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class MetacognitiveProfile(BaseModel):
+    """Student's metacognitive profile."""
+
+    student_id: str
+
+    # Current levels (per dimension)
+    overall_level: MetacognitiveLevel = MetacognitiveLevel.EMERGING
+    awareness_level: MetacognitiveLevel = MetacognitiveLevel.EMERGING
+    regulation_level: MetacognitiveLevel = MetacognitiveLevel.EMERGING
+    evaluation_level: MetacognitiveLevel = MetacognitiveLevel.EMERGING
+
+    # Stuck point stats
+    stuck_points_count: int = 0
+    successful_recoveries: int = 0
+    intervention_effectiveness: float = 0.0
+
+    last_updated: datetime = Field(default_factory=datetime.now)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEARNING PATH MODELS (Innovation: Learning Path Optimization)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LearningPathStatus(str, Enum):
+    """Status of a learning path."""
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    PAUSED = "paused"
+    ABANDONED = "abandoned"
+
+
+class SkillNode(BaseModel):
+    """Node in a learning path."""
+
+    skill_id: str
+    skill_name_ru: str = ""  # Russian name for display
+
+    # Graph structure
+    prerequisites: List[str] = Field(default_factory=list)
+
+    # Properties
+    difficulty: float = Field(default=0.5, ge=0.0, le=1.0)
+    current_mastery: float = 0.0
+    target_mastery: float = 0.7
+    estimated_tasks: int = 5
+    order: int = 0  # Position in path
+
+
+class LearningPath(BaseModel):
+    """Personalized learning path."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    student_id: str
+
+    # Target
+    target_skill: str
+    target_skill_name_ru: str = ""
+
+    # Path
+    skills: List[SkillNode] = Field(default_factory=list)
+    current_skill_index: int = 0
+    estimated_hours: float = 0.0
+
+    # Progress
+    skills_mastered: List[str] = Field(default_factory=list)
+    skills_in_progress: List[str] = Field(default_factory=list)
+
+    # Metrics
+    estimated_total_hours: float = 0.0
+    actual_hours_spent: float = 0.0
+    progress_percentage: float = Field(default=0.0, ge=0.0, le=100.0)
+
+    # Status
+    status: LearningPathStatus = LearningPathStatus.NOT_STARTED
+
+    # Adaptation
+    personalization_factors: Dict[str, float] = Field(default_factory=dict)
+    # e.g., {"learning_speed": 1.2, "preferred_difficulty": 0.6}
+
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MULTI-MODAL INPUT MODELS (Innovation: Vision OCR)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class RecognitionConfidence(str, Enum):
+    """OCR confidence levels."""
+    HIGH = "high"       # >90%
+    MEDIUM = "medium"   # 70-90%
+    LOW = "low"         # <70%
+
+
+class SolutionStep(BaseModel):
+    """Single step in a handwritten solution."""
+
+    step_number: int
+    original_latex: str = ""
+    recognized_latex: str = ""
+    confidence: RecognitionConfidence = RecognitionConfidence.MEDIUM
+
+    # SymPy verification
+    sympy_expression: Optional[str] = None
+    is_correct: Optional[bool] = None
+    error_description: Optional[str] = None
+
+
+class HandwrittenSolution(BaseModel):
+    """Recognized handwritten solution."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+    # Source
+    image_path: str
+    image_hash: str = ""  # For deduplication
+
+    # Recognition
+    steps: List[SolutionStep] = Field(default_factory=list)
+    overall_confidence: RecognitionConfidence = RecognitionConfidence.MEDIUM
+
+    # Analysis
+    final_answer_latex: Optional[str] = None
+    expected_answer_latex: Optional[str] = None
+    is_correct: Optional[bool] = None
+
+    # Errors found
+    error_steps: List[int] = Field(default_factory=list)  # Step indices with errors
+    error_explanations: List[str] = Field(default_factory=list)
+
+    # Unclear regions
+    unclear_regions: List[Dict[str, Any]] = Field(default_factory=list)
+    # [{"line": 3, "reason": "illegible", "bbox": [...]}]
+
+    # Metadata
+    task_id: Optional[str] = None
+    student_id: Optional[str] = None
+
+    processed_at: datetime = Field(default_factory=datetime.now)
+    processing_time_ms: int = 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PERFORMANCE OPTIMIZATION MODELS (Feature 010)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CacheHitType(str, Enum):
+    """Type of cache hit."""
+    EXACT = "exact"
+    SEMANTIC = "semantic"
+    MISS = "miss"
+
+
+class CacheEntry(BaseModel):
+    """Extended cache entry with context awareness."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+    # Core data
+    query: str
+    response: str
+    embedding: List[float] = Field(default_factory=list)
+
+    # Context for matching
+    topic: Optional[str] = None
+    difficulty: Optional[str] = None
+    student_level: Optional[str] = None
+    context_hash: str = ""  # MD5 hash of topic+difficulty+student_level
+
+    # Teaching context
+    teaching_strategy: Optional[str] = None
+    variant_id: Optional[str] = None  # A/B testing variant
+
+    # Performance tracking
+    response_time_ms: int = 0
+    access_count: int = 0
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    last_accessed: datetime = Field(default_factory=datetime.now)
+
+
+class SessionMetricsExtended(BaseModel):
+    """Extended session metrics for performance analysis."""
+
+    session_id: str
+    student_id: str
+
+    # Basic metrics (existing)
+    task_id: Optional[str] = None
+    topic: Optional[str] = None
+    difficulty: Optional[str] = None
+    outcome: Optional[str] = None  # solved/told_answer/abandoned
+    hints_used: int = 0
+    attempts: int = 0
+    duration_seconds: int = 0
+
+    # Performance metrics (new)
+    avg_response_time_ms: float = 0.0
+    cache_hit_count: int = 0
+    cache_miss_count: int = 0
+    total_tokens_in: int = 0
+    total_tokens_out: int = 0
+    peak_vram_mb: int = 0
+    context_compressions: int = 0
+
+    # A/B testing
+    ab_variant: Optional[str] = None
+
+    # Feature flags
+    few_shot_used: bool = False
+    cot_used: bool = False
+
+    # Timestamps
+    started_at: datetime = Field(default_factory=datetime.now)
+    ended_at: Optional[datetime] = None
+
+
+class ExperimentStatus(str, Enum):
+    """A/B experiment status."""
+    DRAFT = "draft"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+
+class ABVariant(BaseModel):
+    """Variant configuration for A/B testing."""
+
+    variant_id: str
+    name: str
+    config: Dict[str, Any] = Field(default_factory=dict)
+    # Expected keys: use_cot, use_few_shot, few_shot_count, temperature, system_prompt_variant
+
+    # Statistics
+    sessions_count: int = 0
+    metrics_summary: Dict[str, float] = Field(default_factory=dict)
+
+
+class ABExperiment(BaseModel):
+    """A/B experiment configuration."""
+
+    experiment_id: str
+    name: str
+    description: str = ""
+
+    # Variants
+    variants: List[ABVariant] = Field(default_factory=list)
+    allocation_weights: List[float] = Field(default_factory=list)  # Must sum to 1.0
+
+    # Configuration
+    target_metric: str = "success_rate"
+    min_sessions: int = 100
+    status: ExperimentStatus = ExperimentStatus.DRAFT
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+
+
+class KeyEventType(str, Enum):
+    """Types of key events in conversation."""
+    ERROR = "error"
+    HINT_GIVEN = "hint_given"
+    PROGRESS = "progress"
+    STUCK_POINT = "stuck_point"
+
+
+class KeyEvent(BaseModel):
+    """Key event extracted from conversation for compression."""
+
+    turn_index: int
+    event_type: KeyEventType
+    content: str
+    importance_score: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class CompressionMethod(str, Enum):
+    """Context compression methods."""
+    SLIDING_WINDOW = "sliding_window"
+    LLM_SUMMARY = "llm_summary"
+    HYBRID = "hybrid"
+
+
+class CompressedContext(BaseModel):
+    """Compressed conversation context."""
+
+    session_id: str
+
+    # Size metrics
+    original_turns: int = 0
+    compressed_turns: int = 0
+    original_tokens: int = 0
+    compressed_tokens: int = 0
+
+    # Compressed data
+    key_events: List[KeyEvent] = Field(default_factory=list)
+    recent_messages: List[Dict[str, Any]] = Field(default_factory=list)  # Last N messages
+    summary: Optional[str] = None  # LLM-generated if used
+
+    # Method used
+    compression_method: CompressionMethod = CompressionMethod.SLIDING_WINDOW
+
+    # Computed
+    compression_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class FewShotExample(BaseModel):
+    """Few-shot example for prompting."""
+
+    example_id: str
+    topic: str
+    subtopic: Optional[str] = None
+    difficulty: str = "medium"
+
+    # Content
+    problem: str
+    student_answer: str
+    student_error_type: Optional[str] = None
+    tutor_response: str
+    teaching_strategy: str = "HINT"
+
+    # Retrieval
+    embedding: List[float] = Field(default_factory=list)
+    relevance_score: float = 0.0
+
+    # Usage tracking
+    usage_count: int = 0
+    effectiveness_score: Optional[float] = None
+
+
+class ReportType(str, Enum):
+    """Types of generated reports."""
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    EXPERIMENT = "experiment"
+    CUSTOM = "custom"
+
+
+class ChartData(BaseModel):
+    """Data for a single chart."""
+
+    chart_type: str = "line"  # line, bar, histogram, pie
+    title: str
+    x_label: str = ""
+    y_label: str = ""
+    data: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class MetricsReport(BaseModel):
+    """Generated metrics report."""
+
+    report_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    report_type: ReportType = ReportType.DAILY
+
+    # Period
+    period_start: datetime
+    period_end: datetime
+    generated_at: datetime = Field(default_factory=datetime.now)
+
+    # Aggregated metrics
+    metrics: Dict[str, Any] = Field(default_factory=dict)
+    # Expected keys: total_sessions, avg_response_time_ms, cache_hit_rate,
+    # success_rate, telling_rate, avg_hints_per_session, peak_vram_mb, total_tokens
+
+    # Charts
+    charts: List[ChartData] = Field(default_factory=list)
+
+    # Export paths
+    export_paths: Dict[str, str] = Field(default_factory=dict)
+    # Expected keys: json, csv, png_charts
+
+
+class ResourceSample(BaseModel):
+    """Point-in-time resource usage sample."""
+
+    sample_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+    # Memory
+    ram_used_mb: int = 0
+    ram_available_mb: int = 0
+    vram_used_mb: int = 0
+    vram_total_mb: int = 0
+
+    # Utilization
+    gpu_utilization_percent: float = 0.0
+    cpu_percent: float = 0.0
+
+    # Context
+    active_sessions: int = 0
+
+    # Alerts
+    alert_triggered: bool = False
+    alert_type: Optional[str] = None  # "vram_high", "ram_high", "gpu_overload"

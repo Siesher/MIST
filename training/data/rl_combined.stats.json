@@ -1,0 +1,66 @@
+{
+  "total": 14203,
+  "sources": {
+    "gsm8k": 7400,
+    "math_hendrycks": 4985,
+    "rummlu": 1495,
+    "olympiad_bench": 232,
+    "current_filtered": 91
+  },
+  "domains": {
+    "math": 12931,
+    "biology": 307,
+    "physics": 545,
+    "cs": 258,
+    "chemistry": 162
+  },
+  "domain_pcts": {
+    "math": 91.0,
+    "biology": 2.2,
+    "physics": 3.8,
+    "cs": 1.8,
+    "chemistry": 1.1
+  },
+  "difficulty": {
+    "easy": 5673,
+    "hard": 3584,
+    "medium": 4946
+  },
+  "difficulty_pcts": {
+    "easy": 39.9,
+    "hard": 25.2,
+    "medium": 34.8
+  },
+  "answer_types": {
+    "numeric": 7491,
+    "latex_boxed": 4985,
+    "mc_letter": 1495,
+    "numeric_with_unit": 232
+  },
+  "domain_x_difficulty": {
+    "math": {
+      "easy": 5566,
+      "hard": 3016,
+      "medium": 4349
+    },
+    "biology": {
+      "medium": 229,
+      "hard": 78
+    },
+    "physics": {
+      "hard": 279,
+      "medium": 159,
+      "easy": 107
+    },
+    "cs": {
+      "hard": 163,
+      "medium": 95
+    },
+    "chemistry": {
+      "medium": 114,
+      "hard": 48
+    }
+  },
+  "empty_answers": 0,
+  "output_path": "training\\data\\rl_combined.jsonl"
+}

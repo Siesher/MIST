@@ -1,7 +1,7 @@
 """
-MITS Gradio Interface
+MITS Gradio Interface - Русская версия
 
-Web interface for the Socratic tutoring system.
+Веб-интерфейс для системы сократического репетиторства.
 """
 
 import gradio as gr
@@ -16,49 +16,210 @@ from src.data.schemas import (
     Task, TutoringSession, Difficulty, Subject,
     ConversationTurn, TutorMove
 )
-from src.models.prompts import WELCOME_MESSAGE, SUCCESS_MESSAGE
 from src.config import settings
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Чёрно-жёлтая тема CSS
+# ═══════════════════════════════════════════════════════════════════════════
+
+CUSTOM_CSS = """
+/* Основной фон */
+.gradio-container {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important;
+}
+
+/* Заголовки */
+h1, h2, h3, h4, h5, h6 {
+    color: #FFD700 !important;
+}
+
+/* Текст */
+.prose p, .prose li, label, .label-wrap span {
+    color: #e0e0e0 !important;
+}
+
+/* Кнопки primary */
+.primary {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+    color: #1a1a1a !important;
+    border: none !important;
+    font-weight: bold !important;
+}
+
+.primary:hover {
+    background: linear-gradient(135deg, #FFE44D 0%, #FFB732 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important;
+}
+
+/* Кнопки secondary */
+.secondary {
+    background: #3a3a3a !important;
+    color: #FFD700 !important;
+    border: 2px solid #FFD700 !important;
+}
+
+.secondary:hover {
+    background: #4a4a4a !important;
+}
+
+/* Текстовые поля */
+textarea, input[type="text"] {
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+    border: 2px solid #444 !important;
+}
+
+textarea:focus, input[type="text"]:focus {
+    border-color: #FFD700 !important;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3) !important;
+}
+
+/* Dropdown */
+.wrap select, .wrap input {
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+    border: 2px solid #444 !important;
+}
+
+/* Чат */
+.chatbot {
+    background: #1e1e1e !important;
+    border: 2px solid #FFD700 !important;
+    border-radius: 10px !important;
+}
+
+.message {
+    border-radius: 10px !important;
+}
+
+.user {
+    background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%) !important;
+    border: 1px solid #FFD700 !important;
+}
+
+.bot {
+    background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%) !important;
+    border: 1px solid #666 !important;
+}
+
+/* Панели */
+.panel {
+    background: #252525 !important;
+    border: 1px solid #444 !important;
+    border-radius: 10px !important;
+}
+
+/* Markdown блоки */
+.prose {
+    color: #e0e0e0 !important;
+}
+
+.prose code {
+    background: #3a3a3a !important;
+    color: #FFD700 !important;
+}
+
+/* Статус */
+.status-success {
+    color: #4CAF50 !important;
+}
+
+.status-error {
+    color: #f44336 !important;
+}
+
+/* Разделители */
+hr {
+    border-color: #FFD700 !important;
+    opacity: 0.3;
+}
+
+/* Скроллбар */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #FFD700;
+    border-radius: 4px;
+}
+
+/* Акцентные элементы */
+.accent {
+    color: #FFD700 !important;
+}
+
+/* Блок с информацией о задаче */
+.task-info {
+    background: #2a2a2a !important;
+    border-left: 4px solid #FFD700 !important;
+    padding: 10px !important;
+    border-radius: 5px !important;
+}
+"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Русские сообщения
+# ═══════════════════════════════════════════════════════════════════════════
+
+WELCOME_MESSAGE_RU = """🎓 **Добро пожаловать!** Давайте решим эту задачу вместе.
+
+**📝 Задача:**
+
+{problem}
+
+---
+
+Подумайте над задачей. Какой у вас первый подход к решению?"""
+
+SUCCESS_MESSAGE_RU = """🎉 **Отлично! Вы решили задачу!**
+
+**Ваш ответ:** {student_answer}
+
+Правильно! Вы показали отличные навыки решения задач. 
+
+Хотите попробовать ещё одну задачу?"""
+
+
 class TutoringApp:
-    """
-    Main application managing tutoring sessions.
-    """
+    """Основное приложение для управления сессиями репетиторства."""
     
     def __init__(self):
-        """Initialize the tutoring application."""
         self.llm_client: Optional[LLMClient] = None
         self.tutor: Optional[SocraticTutorAgent] = None
         self.task_generator: Optional[TaskGeneratorAgent] = None
         self.verifier: Optional[ResponseVerifierAgent] = None
-        
         self.current_session: Optional[TutoringSession] = None
         self.is_initialized = False
     
     def initialize(self) -> str:
-        """Initialize LLM client and agents."""
+        """Инициализация LLM клиента и агентов."""
         try:
             self.llm_client = LLMClient()
             
-            # Check connection
             if not self.llm_client.check_connection():
-                return "❌ Cannot connect to Ollama. Please run: ollama serve"
+                return "❌ Не удалось подключиться к Ollama. Запустите: ollama serve"
             
-            # Check if model is available
             models = self.llm_client.list_models()
             if not any(settings.MODEL_NAME.split(':')[0] in m for m in models):
-                return f"❌ Model {settings.MODEL_NAME} not found. Run: ollama pull {settings.MODEL_NAME}"
+                return f"❌ Модель {settings.MODEL_NAME} не найдена. Выполните: ollama pull {settings.MODEL_NAME}"
             
-            # Initialize agents
             self.tutor = SocraticTutorAgent(self.llm_client)
             self.task_generator = TaskGeneratorAgent(self.llm_client)
             self.verifier = ResponseVerifierAgent(self.llm_client)
             
             self.is_initialized = True
-            return f"✅ System initialized with {settings.MODEL_NAME}"
+            return f"✅ Система инициализирована! Модель: {settings.MODEL_NAME}"
             
         except Exception as e:
-            return f"❌ Initialization failed: {str(e)}"
+            return f"❌ Ошибка инициализации: {str(e)}"
     
     def start_session(
         self,
@@ -66,22 +227,21 @@ class TutoringApp:
         difficulty: str,
         custom_problem: str = ""
     ) -> Tuple[str, str, List]:
-        """Start a new tutoring session."""
+        """Начать новую сессию репетиторства."""
         if not self.is_initialized:
-            return "Please initialize the system first!", "", []
+            return "⚠️ Сначала инициализируйте систему!", "", []
         
         try:
             difficulty_enum = Difficulty(difficulty)
             
-            # Generate or use custom task
             if custom_problem.strip():
                 task = Task(
                     id=str(uuid.uuid4()),
                     topic=topic,
                     difficulty=difficulty_enum,
                     problem=custom_problem,
-                    solution="Custom problem - solution not provided",
-                    answer="[Custom]",
+                    solution="Пользовательская задача - решение не предоставлено",
+                    answer="[Пользовательская]",
                     skills=[topic]
                 )
             else:
@@ -90,66 +250,75 @@ class TutoringApp:
                     difficulty=difficulty_enum
                 )
             
-            # Create session
             self.current_session = TutoringSession(
                 id=str(uuid.uuid4()),
                 student_id="gradio_user",
                 task=task
             )
             
-            # Welcome message
-            welcome = WELCOME_MESSAGE.format(problem=task.problem)
+            welcome = WELCOME_MESSAGE_RU.format(problem=task.problem)
             
-            task_info = f"""**Topic:** {topic}
-**Difficulty:** {difficulty}
-**Skills:** {', '.join(task.skills)}
-**Hints available:** {len(task.hints)}"""
+            # Перевод сложности
+            diff_ru = {
+                "easy": "Лёгкий", "medium": "Средний", 
+                "hard": "Сложный", "olympiad": "Олимпиадный"
+            }
             
-            return welcome, task_info, [(None, welcome)]
+            # Перевод темы
+            topic_ru = {
+                "derivatives": "Производные", "integrals": "Интегралы",
+                "limits": "Пределы", "linear_equations": "Линейные уравнения",
+                "quadratic_equations": "Квадратные уравнения",
+                "chain_rule": "Цепное правило", "product_rule": "Правило произведения",
+                "quotient_rule": "Правило частного", "trigonometry": "Тригонометрия",
+                "vectors": "Векторы"
+            }
+            
+            task_info = f"""**📚 Тема:** {topic_ru.get(topic, topic)}
+**📊 Сложность:** {diff_ru.get(difficulty, difficulty)}
+**🎯 Навыки:** {', '.join(task.skills)}
+**💡 Подсказок доступно:** {len(task.hints)}"""
+            
+            return "", task_info, [{"role": "assistant", "content": welcome}]
             
         except Exception as e:
-            return f"❌ Error starting session: {str(e)}", "", []
+            return f"❌ Ошибка создания сессии: {str(e)}", "", []
     
     def process_message(
         self,
         message: str,
         history: List
     ) -> Tuple[str, List]:
-        """Process student message and get tutor response."""
+        """Обработать сообщение студента."""
         if not self.current_session:
-            return "Please start a session first!", history
+            return "⚠️ Сначала начните сессию!", history
         
         if not message.strip():
             return "", history
         
         try:
-            # Add student message to session
             self.current_session.add_student_message(message)
             
-            # Verify student's answer
             verification = self.verifier.verify(
                 self.current_session.task,
                 message
             )
             
-            # Check if solved
             if verification.is_correct:
                 self.current_session.is_solved = True
-                success_msg = SUCCESS_MESSAGE.format(student_answer=message)
-                history.append((message, success_msg))
+                success_msg = SUCCESS_MESSAGE_RU.format(student_answer=message)
+                history.append({"role": "user", "content": message})
+                history.append({"role": "assistant", "content": success_msg})
                 return "", history
             
-            # Generate tutor response
             response = self.tutor.generate_response(
                 session=self.current_session,
                 student_message=message,
                 verification_result=verification
             )
             
-            # Add tutor response to session
             self.current_session.add_tutor_response(response)
             
-            # Format response with move indicator
             move_emoji = {
                 TutorMove.SCAFFOLDING: "🎯",
                 TutorMove.PROBLEMATIZE: "🤔",
@@ -162,165 +331,188 @@ class TutoringApp:
             emoji = move_emoji.get(response.move, "")
             formatted_response = f"{emoji} {response.message}"
             
-            history.append((message, formatted_response))
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": formatted_response})
             return "", history
             
         except Exception as e:
-            error_msg = f"❌ Error: {str(e)}"
-            history.append((message, error_msg))
+            error_msg = f"❌ Ошибка: {str(e)}"
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": error_msg})
             return "", history
     
     def get_hint(self) -> str:
-        """Get next available hint."""
+        """Получить подсказку."""
         if not self.current_session:
-            return "Start a session first!"
+            return "⚠️ Сначала начните сессию!"
         
         task = self.current_session.task
         hints_used = self.current_session.hints_used
         
         if hints_used >= len(task.hints):
-            return "❌ No more hints available!"
+            return "❌ Подсказки закончились!"
         
         hint = task.hints[hints_used]
         self.current_session.hints_used += 1
         
-        return f"💡 **Hint {hints_used + 1}/{len(task.hints)}:** {hint}"
+        return f"💡 **Подсказка {hints_used + 1}/{len(task.hints)}:** {hint}"
     
     def show_solution(self) -> str:
-        """Show the solution (for learning purposes)."""
+        """Показать решение."""
         if not self.current_session:
-            return "Start a session first!"
+            return "⚠️ Сначала начните сессию!"
         
         task = self.current_session.task
         self.current_session.told_answer = True
         
-        return f"""## Solution
+        return f"""## 📖 Решение
 
 {task.solution}
 
-**Answer:** {task.answer}
+**✅ Ответ:** {task.answer}
 
 ---
-⚠️ *This session is now marked as "answer revealed" for analytics.*"""
+⚠️ *Эта сессия помечена как "ответ показан" для статистики.*"""
     
     def get_session_stats(self) -> str:
-        """Get current session statistics."""
+        """Получить статистику сессии."""
         if not self.current_session:
-            return "No active session"
+            return "📊 Нет активной сессии"
         
         session = self.current_session
         
-        return f"""## Session Statistics
+        status = '✅ Решено!' if session.is_solved else '🔄 В процессе'
+        revealed = '⚠️ Да' if session.told_answer else '✅ Нет'
+        
+        return f"""## 📊 Статистика сессии
 
-- **Attempts:** {session.attempts}
-- **Hints used:** {session.hints_used}/{len(session.task.hints)}
-- **Turns:** {len(session.conversation)}
-- **Status:** {'✅ Solved!' if session.is_solved else '🔄 In progress'}
-- **Answer revealed:** {'⚠️ Yes' if session.told_answer else '✅ No'}"""
+| Параметр | Значение |
+|----------|----------|
+| **Попыток** | {session.attempts} |
+| **Подсказок использовано** | {session.hints_used}/{len(session.task.hints)} |
+| **Сообщений** | {len(session.conversation)} |
+| **Статус** | {status} |
+| **Ответ показан** | {revealed} |"""
 
 
-# Create application instance
+# Создаём экземпляр приложения
 app = TutoringApp()
 
 
 def create_interface() -> gr.Blocks:
-    """Create the Gradio interface."""
+    """Создать интерфейс Gradio."""
     
-    with gr.Blocks(
-        title="🎓 MITS - Socratic Math Tutor",
-        theme=gr.themes.Soft()
-    ) as interface:
+    with gr.Blocks() as interface:
         
         gr.Markdown("""
-# 🎓 MITS - Mathematics Intelligent Tutoring System
+# 🐝 MITS — Интеллектуальный Репетитор по Математике
 
-An AI tutor that guides you to discover solutions through the **Socratic method** — asking questions, not giving answers!
+**Сократический метод обучения:** Я не даю готовые ответы, а помогаю вам 
+самостоятельно прийти к решению через наводящие вопросы!
         """)
         
-        # System status
+        # Статус системы
         with gr.Row():
             status_text = gr.Textbox(
-                label="System Status",
-                value="Click 'Initialize' to start",
+                label="🔌 Статус системы",
+                value="Нажмите 'Запустить систему' для начала",
                 interactive=False
             )
-            init_btn = gr.Button("🚀 Initialize System", variant="primary")
+            init_btn = gr.Button("🚀 Запустить систему", variant="primary")
         
         with gr.Row():
-            # Left column - Controls
+            # Левая колонка - Управление
             with gr.Column(scale=1):
-                gr.Markdown("### 📚 New Session")
+                gr.Markdown("### 📚 Новая задача")
                 
                 topic_dropdown = gr.Dropdown(
                     choices=[
-                        "derivatives", "integrals", "limits",
-                        "linear_equations", "quadratic_equations",
-                        "chain_rule", "product_rule", "quotient_rule",
-                        "trigonometry", "vectors"
+                        ("Производные", "derivatives"),
+                        ("Интегралы", "integrals"),
+                        ("Пределы", "limits"),
+                        ("Линейные уравнения", "linear_equations"),
+                        ("Квадратные уравнения", "quadratic_equations"),
+                        ("Цепное правило", "chain_rule"),
+                        ("Правило произведения", "product_rule"),
+                        ("Правило частного", "quotient_rule"),
+                        ("Тригонометрия", "trigonometry"),
+                        ("Векторы", "vectors")
                     ],
                     value="derivatives",
-                    label="Topic"
+                    label="Тема"
                 )
                 
                 difficulty_dropdown = gr.Dropdown(
-                    choices=["easy", "medium", "hard", "olympiad"],
+                    choices=[
+                        ("Лёгкий", "easy"),
+                        ("Средний", "medium"),
+                        ("Сложный", "hard"),
+                        ("Олимпиадный", "olympiad")
+                    ],
                     value="medium",
-                    label="Difficulty"
+                    label="Сложность"
                 )
                 
                 custom_problem = gr.Textbox(
-                    label="Custom Problem (optional)",
-                    placeholder="Enter your own problem or leave empty for auto-generation",
+                    label="Своя задача (опционально)",
+                    placeholder="Введите свою задачу или оставьте пустым для автогенерации...",
                     lines=2
                 )
                 
-                start_btn = gr.Button("▶️ Start New Problem", variant="primary")
+                start_btn = gr.Button("▶️ Начать задачу", variant="primary")
                 
-                gr.Markdown("### 📋 Current Task")
-                task_info = gr.Markdown("*No active task*")
+                gr.Markdown("### 📋 Текущая задача")
+                task_info = gr.Markdown("*Задача не выбрана*")
                 
-                gr.Markdown("### 🛠️ Tools")
-                hint_btn = gr.Button("💡 Get Hint")
+                gr.Markdown("### 🛠️ Инструменты")
+                hint_btn = gr.Button("💡 Подсказка", variant="secondary")
                 hint_output = gr.Markdown()
                 
-                solution_btn = gr.Button("📖 Show Solution")
+                solution_btn = gr.Button("📖 Показать решение", variant="secondary")
                 solution_output = gr.Markdown()
                 
-                stats_btn = gr.Button("📊 Session Stats")
+                stats_btn = gr.Button("📊 Статистика", variant="secondary")
                 stats_output = gr.Markdown()
             
-            # Right column - Chat
+            # Правая колонка - Чат
             with gr.Column(scale=2):
-                gr.Markdown("### 💬 Tutoring Session")
+                gr.Markdown("### 💬 Диалог с репетитором")
                 
                 chatbot = gr.Chatbot(
                     height=500,
-                    label="Conversation",
-                    show_label=False
+                    show_label=False,
+                    latex_delimiters=[
+                        {"left": "$$", "right": "$$", "display": True},
+                        {"left": "$", "right": "$", "display": False},
+                        {"left": "\\[", "right": "\\]", "display": True},
+                        {"left": "\\(", "right": "\\)", "display": False}
+                    ]
                 )
                 
                 with gr.Row():
                     msg_input = gr.Textbox(
-                        label="Your message",
-                        placeholder="Type your thoughts, questions, or solution...",
+                        label="Ваше сообщение",
+                        placeholder="Напишите ваши мысли, вопросы или решение...",
                         lines=2,
                         scale=4
                     )
-                    send_btn = gr.Button("Send", variant="primary", scale=1)
+                    send_btn = gr.Button("📤 Отправить", variant="primary", scale=1)
         
         gr.Markdown("""
 ---
-### 📖 How to use:
-1. Click **Initialize System** to connect to Ollama
-2. Select a **topic** and **difficulty**, then click **Start New Problem**
-3. Type your thoughts and attempts in the chat
-4. The tutor will guide you with questions, not answers!
-5. Use **Hints** if stuck, or **Show Solution** to learn
+### 📖 Как пользоваться:
 
-*The Socratic method helps you truly understand, not just memorize!*
+1. **Запустите систему** — подключение к языковой модели
+2. **Выберите тему и сложность** — затем нажмите "Начать задачу"
+3. **Пишите ваши идеи** — репетитор направит вас вопросами
+4. **Используйте подсказки** — если совсем застряли
+5. **Посмотрите решение** — для изучения после попыток
+
+---
+*🐝 Сократический метод помогает по-настоящему понять материал, а не просто запомнить!*
         """)
         
-        # Event handlers
+        # Обработчики событий
         init_btn.click(
             fn=app.initialize,
             outputs=[status_text]
@@ -351,11 +543,13 @@ An AI tutor that guides you to discover solutions through the **Socratic method*
     return interface
 
 
-# Main entry point
+# Точка входа
 if __name__ == "__main__":
-    print("🎓 Starting MITS - Socratic Math Tutor...")
-    print(f"📡 Ollama host: {settings.OLLAMA_HOST}")
-    print(f"🤖 Model: {settings.MODEL_NAME}")
+    print("🐝 Запуск MITS — Сократический Репетитор по Математике...")
+    print(f"📡 Ollama: {settings.OLLAMA_HOST}")
+    print(f"🤖 Модель: {settings.MODEL_NAME}")
+    print()
+    print("🌐 Откройте в браузере: http://localhost:7860")
     print()
     
     interface = create_interface()

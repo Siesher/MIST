@@ -1,0 +1,165 @@
+# MITS QLoRA Training Configuration
+# For distilling Nemotron-3-Nano-30B-A3B into smaller model
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Model Configuration
+# ═══════════════════════════════════════════════════════════════════════════
+model:
+  # Student model to fine-tune
+  name: "Qwen/Qwen2.5-7B-Instruct"
+  # Alternative options:
+  # - "Qwen/Qwen2.5-Math-7B-Instruct"  # Better math, weaker Russian
+  # - "Qwen/Qwen2.5-3B-Instruct"       # Smaller, faster
+  # - "Qwen/Qwen2.5-14B-Instruct"      # Larger, better quality
+
+  torch_dtype: "bfloat16"
+  device_map: "auto"
+  trust_remote_code: true
+  attn_implementation: "flash_attention_2"  # or "eager" if flash_attn not available
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Quantization (4-bit QLoRA)
+# ═══════════════════════════════════════════════════════════════════════════
+quantization:
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LoRA Configuration
+# ═══════════════════════════════════════════════════════════════════════════
+lora:
+  r: 64                    # LoRA rank (higher = more capacity, more memory)
+  lora_alpha: 128          # LoRA scaling factor (usually 2*r)
+  target_modules:          # Layers to apply LoRA
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  # Estimated trainable params: ~50M (0.7% of 7B)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Training Arguments
+# ═══════════════════════════════════════════════════════════════════════════
+training:
+  output_dir: "./outputs/mits-tutor-qlora"
+
+  # Epochs and steps
+  num_train_epochs: 3
+  max_steps: -1            # -1 = use num_train_epochs
+
+  # Batch size (effective = per_device * gradient_accumulation * num_gpus)
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  # Effective batch size = 4 * 4 = 16
+
+  # Learning rate
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+
+  # Optimizer
+  optim: "paged_adamw_8bit"
+
+  # Precision
+  fp16: false
+  bf16: true
+
+  # Checkpointing
+  save_strategy: "steps"
+  save_steps: 200
+  save_total_limit: 3
+  load_best_model_at_end: true
+
+  # Evaluation
+  eval_strategy: "steps"
+  eval_steps: 200
+
+  # Logging
+  logging_steps: 10
+  logging_first_step: true
+  report_to: "wandb"       # or "tensorboard" or "none"
+  run_name: "mits-tutor-distill"
+
+  # Sequence length
+  max_seq_length: 4096
+
+  # Memory optimization
+  gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Dataset Configuration
+# ═══════════════════════════════════════════════════════════════════════════
+dataset:
+  train_path: "./data/distillation/processed/train.jsonl"
+  eval_path: "./data/distillation/processed/eval.jsonl"
+  test_size: 0.1
+
+  # Chat template settings
+  chat_template: "chatml"   # Qwen uses ChatML format
+  response_template: "<|im_start|>assistant\n"
+
+  # Data processing
+  max_samples: null         # null = use all
+  shuffle: true
+  seed: 42
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Generation Settings (for evaluation)
+# ═══════════════════════════════════════════════════════════════════════════
+generation:
+  max_new_tokens: 1024
+  temperature: 0.7
+  top_p: 0.9
+  do_sample: true
+  repetition_penalty: 1.1
+
+# ═══════════════════════════════════════════════════════════════════════════
+# W&B Settings
+# ═══════════════════════════════════════════════════════════════════════════
+wandb:
+  project: "mits-distillation"
+  entity: null              # Your W&B username/team
+  tags:
+    - "qlora"
+    - "distillation"
+    - "socratic-tutor"
+    - "math"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Hardware-specific presets
+# ═══════════════════════════════════════════════════════════════════════════
+presets:
+  colab_a100:
+    per_device_train_batch_size: 8
+    gradient_accumulation_steps: 2
+    max_seq_length: 8192
+
+  rtx_4090:
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 4
+    max_seq_length: 4096
+
+  rtx_3090:
+    per_device_train_batch_size: 2
+    gradient_accumulation_steps: 8
+    max_seq_length: 2048
+
+  rtx_2080:
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 16
+    max_seq_length: 1024
+    model:
+      name: "Qwen/Qwen2.5-3B-Instruct"  # Use smaller model

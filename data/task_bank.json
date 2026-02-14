@@ -1,0 +1,359 @@
+{
+  "tasks": [
+    {
+      "id": "deriv_001",
+      "topic": "derivatives",
+      "difficulty": "easy",
+      "problem": "Найдите производную функции $f(x) = x^3$",
+      "solution": "Используем правило степени: $(x^n)' = n \\cdot x^{n-1}$\n\n$$f'(x) = 3x^{3-1} = 3x^2$$",
+      "answer": "$3x^2$",
+      "skills": [
+        "power_rule",
+        "derivatives_basic"
+      ],
+      "hints": [
+        "Вспомните правило дифференцирования степенной функции",
+        "Для $x^n$ производная равна $n \\cdot x^{n-1}$",
+        "Здесь $n = 3$, значит производная..."
+      ],
+      "common_mistakes": [
+        "Забывают уменьшить степень на 1",
+        "Путают с интегрированием"
+      ]
+    },
+    {
+      "id": "deriv_002",
+      "topic": "derivatives",
+      "difficulty": "easy",
+      "problem": "Найдите производную: $f(x) = 5x^2 + 3x - 7$",
+      "solution": "Дифференцируем каждое слагаемое отдельно:\n\n$$(5x^2)' = 5 \\cdot 2x = 10x$$\n$$(3x)' = 3$$\n$$(-7)' = 0$$\n\nИтого: $f'(x) = 10x + 3$",
+      "answer": "$10x + 3$",
+      "skills": [
+        "power_rule",
+        "derivatives_basic"
+      ],
+      "hints": [
+        "Производная суммы равна сумме производных",
+        "Производная константы равна нулю",
+        "$(ax^n)' = a \\cdot n \\cdot x^{n-1}$"
+      ],
+      "common_mistakes": [
+        "Забывают про производную константы",
+        "Ошибки в коэффициентах"
+      ]
+    },
+    {
+      "id": "deriv_003",
+      "topic": "derivatives",
+      "difficulty": "medium",
+      "problem": "Найдите производную: $f(x) = x^2 \\cdot \\sin(x)$",
+      "solution": "Используем правило произведения: $(uv)' = u'v + uv'$\n\nПусть $u = x^2$, $v = \\sin(x)$\n\n$u' = 2x$, $v' = \\cos(x)$\n\n$$f'(x) = 2x \\cdot \\sin(x) + x^2 \\cdot \\cos(x)$$",
+      "answer": "$2x\\sin(x) + x^2\\cos(x)$",
+      "skills": [
+        "product_rule",
+        "trig_derivatives"
+      ],
+      "hints": [
+        "Здесь произведение двух функций — какое правило применить?",
+        "$(uv)' = u'v + uv'$. Что здесь $u$ и $v$?",
+        "Не забудьте, что $(\\sin x)' = \\cos x$"
+      ],
+      "common_mistakes": [
+        "Просто перемножают производные",
+        "Забывают одно из слагаемых"
+      ]
+    },
+    {
+      "id": "deriv_004",
+      "topic": "derivatives",
+      "difficulty": "medium",
+      "problem": "Найдите производную: $f(x) = \\frac{x^2}{x+1}$",
+      "solution": "Используем правило частного: $\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}$\n\n$u = x^2$, $v = x + 1$\n$u' = 2x$, $v' = 1$\n\n$$f'(x) = \\frac{2x(x+1) - x^2 \\cdot 1}{(x+1)^2} = \\frac{2x^2 + 2x - x^2}{(x+1)^2} = \\frac{x^2 + 2x}{(x+1)^2}$$",
+      "answer": "$\\frac{x^2 + 2x}{(x+1)^2}$",
+      "skills": [
+        "quotient_rule",
+        "derivatives_basic"
+      ],
+      "hints": [
+        "Это дробь — какое правило для дроби?",
+        "Формула: $\\frac{u'v - uv'}{v^2}$",
+        "Не забудьте упростить числитель"
+      ],
+      "common_mistakes": [
+        "Путают порядок в числителе (u'v - uv', не наоборот)",
+        "Забывают возвести знаменатель в квадрат"
+      ]
+    },
+    {
+      "id": "deriv_005",
+      "topic": "derivatives",
+      "difficulty": "hard",
+      "problem": "Найдите производную: $f(x) = \\ln(\\sin(x^2))$",
+      "solution": "Применяем цепное правило трижды (композиция трёх функций):\n\n$f(x) = \\ln(g(x))$, где $g(x) = \\sin(h(x))$, где $h(x) = x^2$\n\n$$f'(x) = \\frac{1}{\\sin(x^2)} \\cdot \\cos(x^2) \\cdot 2x = \\frac{2x \\cos(x^2)}{\\sin(x^2)} = 2x \\cot(x^2)$$",
+      "answer": "$2x\\cot(x^2)$ или $\\frac{2x\\cos(x^2)}{\\sin(x^2)}$",
+      "skills": [
+        "chain_rule",
+        "trig_derivatives",
+        "derivatives_advanced"
+      ],
+      "hints": [
+        "Здесь три вложенные функции — снаружи внутрь",
+        "$(\\ln u)' = \\frac{u'}{u}$, теперь найдите $u'$",
+        "Не забудьте производную внутреннего $x^2$"
+      ],
+      "common_mistakes": [
+        "Забывают про одну из вложенных функций",
+        "Не доводят цепочку до конца"
+      ]
+    },
+    {
+      "id": "integ_001",
+      "topic": "integrals",
+      "difficulty": "easy",
+      "problem": "Найдите неопределённый интеграл: $\\int x^4 \\, dx$",
+      "solution": "Используем правило: $\\int x^n \\, dx = \\frac{x^{n+1}}{n+1} + C$\n\n$$\\int x^4 \\, dx = \\frac{x^{4+1}}{4+1} + C = \\frac{x^5}{5} + C$$",
+      "answer": "$\\frac{x^5}{5} + C$",
+      "skills": [
+        "integrals_basic"
+      ],
+      "hints": [
+        "Интегрирование — обратная операция к дифференцированию",
+        "Для $x^n$ интеграл равен $\\frac{x^{n+1}}{n+1}$",
+        "Не забудьте константу $C$!"
+      ],
+      "common_mistakes": [
+        "Забывают константу интегрирования C",
+        "Ошибки в степени"
+      ]
+    },
+    {
+      "id": "limit_001",
+      "topic": "limits",
+      "difficulty": "easy",
+      "problem": "Вычислите предел: $\\lim_{x \\to 2} (x^2 + 3x - 1)$",
+      "solution": "Функция $f(x) = x^2 + 3x - 1$ непрерывна, поэтому можно подставить:\n\n$$\\lim_{x \\to 2} (x^2 + 3x - 1) = 2^2 + 3 \\cdot 2 - 1 = 4 + 6 - 1 = 9$$",
+      "answer": "$9$",
+      "skills": [
+        "limits"
+      ],
+      "hints": [
+        "Это полином — какое свойство у полиномов при вычислении пределов?",
+        "Для непрерывных функций можно просто подставить значение",
+        "Подставьте $x = 2$"
+      ],
+      "common_mistakes": [
+        "Усложняют простую задачу",
+        "Арифметические ошибки"
+      ]
+    },
+    {
+      "id": "limit_002",
+      "topic": "limits",
+      "difficulty": "medium",
+      "problem": "Вычислите предел: $\\lim_{x \\to 0} \\frac{\\sin(x)}{x}$",
+      "solution": "Это первый замечательный предел:\n\n$$\\lim_{x \\to 0} \\frac{\\sin(x)}{x} = 1$$\n\nЭто фундаментальный результат, который доказывается геометрически.",
+      "answer": "$1$",
+      "skills": [
+        "limits",
+        "trigonometry_basics"
+      ],
+      "hints": [
+        "При $x \\to 0$ и числитель и знаменатель стремятся к 0",
+        "Это называется неопределённость $\\frac{0}{0}$",
+        "Вспомните первый замечательный предел"
+      ],
+      "common_mistakes": [
+        "Думают, что 0/0 = 0 или не определено",
+        "Не знают замечательные пределы"
+      ]
+    },
+    {
+      "id": "prog_001",
+      "topic": "programming",
+      "difficulty": "easy",
+      "problem": "Напишите функцию на Python, которая возвращает сумму двух чисел.",
+      "solution": "```python\ndef add(a, b):\n    return a + b\n```\n\nИли более кратко:\n```python\nadd = lambda a, b: a + b\n```",
+      "answer": "```python\ndef add(a, b):\n    return a + b\n```",
+      "skills": [
+        "functions_prog",
+        "variables"
+      ],
+      "hints": [
+        "Функция создаётся с помощью `def`",
+        "Функция принимает два параметра",
+        "Используйте `return` для возврата результата"
+      ],
+      "common_mistakes": [
+        "Забывают return",
+        "Путают print и return"
+      ]
+    },
+    {
+      "id": "prog_002",
+      "topic": "programming",
+      "difficulty": "medium",
+      "problem": "Напишите функцию, которая определяет, является ли число простым.",
+      "solution": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return False\n    return True\n```\n\nОптимизация: проверяем делители только до $\\sqrt{n}$.",
+      "answer": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    for i in range(2, int(n**0.5) + 1):\n        if n % i == 0:\n            return False\n    return True\n```",
+      "skills": [
+        "loops",
+        "conditionals",
+        "algorithms"
+      ],
+      "hints": [
+        "Простое число делится только на 1 и себя",
+        "Достаточно проверить делители до $\\sqrt{n}$",
+        "Не забудьте особые случаи: 0, 1, отрицательные числа"
+      ],
+      "common_mistakes": [
+        "Проверяют делители до n (неэффективно)",
+        "Забывают про случай n < 2",
+        "Неправильно обрабатывают 2"
+      ]
+    },
+    {
+      "id": "prog_003",
+      "topic": "programming",
+      "difficulty": "hard",
+      "problem": "Напишите функцию для вычисления n-го числа Фибоначчи с мемоизацией.",
+      "solution": "```python\ndef fibonacci(n, memo={}):\n    if n in memo:\n        return memo[n]\n    if n <= 1:\n        return n\n    memo[n] = fibonacci(n-1, memo) + fibonacci(n-2, memo)\n    return memo[n]\n```\n\nИли с декоратором:\n```python\nfrom functools import lru_cache\n\n@lru_cache(maxsize=None)\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n```",
+      "answer": "Функция с мемоизацией через словарь или @lru_cache",
+      "skills": [
+        "recursion",
+        "algorithms",
+        "data_structures"
+      ],
+      "hints": [
+        "Обычная рекурсия для Фибоначчи очень медленная — почему?",
+        "Мемоизация сохраняет уже вычисленные значения",
+        "Используйте словарь для хранения результатов"
+      ],
+      "common_mistakes": [
+        "Пишут обычную рекурсию без мемоизации",
+        "Неправильная инициализация словаря",
+        "Забывают базовый случай"
+      ]
+    },
+    {
+      "id": "eq_001",
+      "topic": "equations",
+      "difficulty": "easy",
+      "problem": "Решите уравнение: $2x + 5 = 13$",
+      "solution": "Переносим 5 вправо:\n$$2x = 13 - 5 = 8$$\n\nДелим на 2:\n$$x = 4$$",
+      "answer": "$x = 4$",
+      "skills": [
+        "linear_equations",
+        "arithmetic"
+      ],
+      "hints": [
+        "Нужно изолировать $x$ на одной стороне",
+        "Сначала избавьтесь от +5",
+        "Потом разделите обе части на 2"
+      ],
+      "common_mistakes": [
+        "Знаковые ошибки при переносе",
+        "Забывают делить обе части"
+      ]
+    },
+    {
+      "id": "eq_002",
+      "topic": "equations",
+      "difficulty": "medium",
+      "problem": "Решите уравнение: $x^2 - 5x + 6 = 0$",
+      "solution": "Разложим на множители. Ищем числа, дающие в сумме -5, в произведении 6:\n$$-2 + (-3) = -5, \\quad (-2) \\cdot (-3) = 6$$\n\n$$(x - 2)(x - 3) = 0$$\n\n$$x_1 = 2, \\quad x_2 = 3$$",
+      "answer": "$x = 2$ или $x = 3$",
+      "skills": [
+        "quadratic_equations"
+      ],
+      "hints": [
+        "Это квадратное уравнение — какие методы знаете?",
+        "Попробуйте разложить на множители",
+        "Найдите два числа: сумма = 5, произведение = 6"
+      ],
+      "common_mistakes": [
+        "Ошибки в знаках при разложении",
+        "Дают только один корень"
+      ]
+    }
+  ],
+  "stats": {
+    "deriv_001": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "deriv_002": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "deriv_003": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "deriv_004": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "deriv_005": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "integ_001": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "limit_001": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "limit_002": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "prog_001": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "prog_002": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "prog_003": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "eq_001": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    },
+    "eq_002": {
+      "attempts": 0,
+      "successes": 0,
+      "avg_time_seconds": 0,
+      "avg_hints_used": 0
+    }
+  }
+}

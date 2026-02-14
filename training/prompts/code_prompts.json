@@ -1,0 +1,100 @@
+{
+  "domain": "code",
+  "description": "Python programming, algorithms, debugging, data structures, OOP",
+  "prompts": [
+    {
+      "instruction_template": "Write a Python function to implement {algorithm}. Include proper error handling and comments.",
+      "subtopic": "algorithms",
+      "difficulty": "intermediate",
+      "variables": {
+        "algorithm": ["binary search", "merge sort", "quick sort", "breadth-first search", "depth-first search", "dijkstra's algorithm", "dynamic programming for fibonacci", "topological sort"]
+      }
+    },
+    {
+      "instruction_template": "Implement a {data_structure} class in Python with all standard operations.",
+      "subtopic": "data_structures",
+      "difficulty": "intermediate",
+      "variables": {
+        "data_structure": ["linked list", "stack", "queue", "binary search tree", "hash table", "heap", "trie", "graph"]
+      }
+    },
+    {
+      "instruction_template": "Debug the following Python code and explain what was wrong:\n```python\n{buggy_code}\n```",
+      "subtopic": "debugging",
+      "difficulty": "intermediate",
+      "variables": {
+        "buggy_code": [
+          "def factorial(n):\n    if n == 0:\n        return 0\n    return n * factorial(n-1)",
+          "def reverse_string(s):\n    for i in range(len(s)):\n        s[i] = s[len(s)-i]\n    return s",
+          "def find_max(lst):\n    max_val = 0\n    for num in lst:\n        if num > max_val:\n            max_val = num\n    return max_val",
+          "def is_palindrome(s):\n    return s == s.reverse()"
+        ]
+      }
+    },
+    {
+      "instruction_template": "Explain the time and space complexity of {algorithm} with examples.",
+      "subtopic": "algorithms",
+      "difficulty": "advanced",
+      "variables": {
+        "algorithm": ["quicksort", "merge sort", "binary search", "hash table operations", "BFS vs DFS", "dynamic programming"]
+      }
+    },
+    {
+      "instruction_template": "Design a Python class for {concept} following OOP principles (encapsulation, inheritance, polymorphism).",
+      "subtopic": "oop",
+      "difficulty": "intermediate",
+      "variables": {
+        "concept": ["a bank account system", "a shape hierarchy (circle, rectangle, triangle)", "an employee management system", "a simple game character", "a file system navigator"]
+      }
+    },
+    {
+      "instruction_template": "Write a Python script to {task} using appropriate libraries.",
+      "subtopic": "python",
+      "difficulty": "basic",
+      "variables": {
+        "task": ["read a CSV file and calculate statistics", "scrape data from a webpage", "create a simple REST API", "process JSON data", "work with dates and times"]
+      }
+    },
+    {
+      "instruction_template": "Implement {pattern} design pattern in Python with a practical example.",
+      "subtopic": "oop",
+      "difficulty": "advanced",
+      "variables": {
+        "pattern": ["Singleton", "Factory", "Observer", "Decorator", "Strategy"]
+      }
+    },
+    {
+      "instruction_template": "Solve this coding problem: {problem}",
+      "subtopic": "algorithms",
+      "difficulty": "intermediate",
+      "variables": {
+        "problem": [
+          "Given an array of integers, find two numbers that add up to a target sum",
+          "Find the longest substring without repeating characters",
+          "Reverse a linked list iteratively and recursively",
+          "Check if a binary tree is balanced",
+          "Find the kth largest element in an unsorted array"
+        ]
+      }
+    },
+    {
+      "instruction_template": "Write unit tests for a function that {functionality}.",
+      "subtopic": "python",
+      "difficulty": "intermediate",
+      "variables": {
+        "functionality": ["validates email addresses", "calculates shopping cart totals", "parses dates", "handles user authentication", "processes payment transactions"]
+      }
+    },
+    {
+      "instruction_template": "Optimize this Python code for better performance:\n```python\n{slow_code}\n```",
+      "subtopic": "python",
+      "difficulty": "advanced",
+      "variables": {
+        "slow_code": [
+          "def find_duplicates(lst):\n    duplicates = []\n    for i in range(len(lst)):\n        for j in range(i+1, len(lst)):\n            if lst[i] == lst[j] and lst[i] not in duplicates:\n                duplicates.append(lst[i])\n    return duplicates",
+          "def sum_even_squares(n):\n    total = 0\n    for i in range(n):\n        if i % 2 == 0:\n            total += i * i\n    return total"
+        ]
+      }
+    }
+  ]
+}

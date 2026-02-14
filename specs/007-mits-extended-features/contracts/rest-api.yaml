@@ -1,0 +1,609 @@
+openapi: 3.1.0
+info:
+  title: MITS REST API
+  description: |
+    REST API for the Math Intelligent Tutoring System.
+    Provides programmatic access to tutoring, progress tracking, and profile management.
+  version: 1.0.0
+  contact:
+    name: MITS Support
+    email: support@mits.local
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: Token management
+  - name: Chat
+    description: Tutoring conversations
+  - name: Profile
+    description: Student profile management
+  - name: Progress
+    description: Learning progress and gamification
+  - name: Export
+    description: Profile export/import
+
+paths:
+  # Authentication
+  /auth/token:
+    post:
+      tags: [Authentication]
+      summary: Create access token
+      security: []  # Public endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id]
+              properties:
+                student_id:
+                  type: string
+                  description: Student identifier
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [chat:read, chat:write, profile:read, profile:write, progress:read]
+                  default: [chat:read, chat:write, profile:read, progress:read]
+      responses:
+        '200':
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/token/revoke:
+    post:
+      tags: [Authentication]
+      summary: Revoke access token
+      responses:
+        '204':
+          description: Token revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Chat
+  /chat:
+    post:
+      tags: [Chat]
+      summary: Send message to tutor
+      description: |
+        Send a message and receive a tutoring response.
+        The tutor uses the Socratic method - expect guiding questions, not direct answers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Tutor response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /chat/stream:
+    post:
+      tags: [Chat]
+      summary: Send message with streaming response
+      description: Returns Server-Sent Events for real-time token streaming
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming response
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream of tokens
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /chat/history:
+    get:
+      tags: [Chat]
+      summary: Get chat history
+      parameters:
+        - name: session_id
+          in: query
+          schema:
+            type: string
+          description: Filter by session ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Chat history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatMessage'
+                  total:
+                    type: integer
+
+  # Profile
+  /profile:
+    get:
+      tags: [Profile]
+      summary: Get student profile
+      responses:
+        '200':
+          description: Student profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+    patch:
+      tags: [Profile]
+      summary: Update profile settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+  # Progress
+  /progress/mastery:
+    get:
+      tags: [Progress]
+      summary: Get topic mastery levels
+      responses:
+        '200':
+          description: Mastery data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  topics:
+                    type: object
+                    additionalProperties:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                  overall:
+                    type: number
+
+  /progress/gamification:
+    get:
+      tags: [Progress]
+      summary: Get gamification status
+      responses:
+        '200':
+          description: XP, level, achievements, streaks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GamificationStatus'
+
+  /progress/achievements:
+    get:
+      tags: [Progress]
+      summary: List all achievements
+      parameters:
+        - name: unlocked_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Achievement list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Achievement'
+
+  /progress/activity:
+    get:
+      tags: [Progress]
+      summary: Get activity data for dashboard
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Activity data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityData'
+
+  /progress/reviews/due:
+    get:
+      tags: [Progress]
+      summary: Get topics due for review
+      responses:
+        '200':
+          description: Due review cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewCard'
+
+  /progress/reviews/{card_id}:
+    post:
+      tags: [Progress]
+      summary: Submit review result
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quality]
+              properties:
+                quality:
+                  type: integer
+                  minimum: 0
+                  maximum: 5
+                  description: SM-2 quality rating
+      responses:
+        '200':
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewCard'
+
+  # Export
+  /export/json:
+    get:
+      tags: [Export]
+      summary: Export profile as JSON
+      responses:
+        '200':
+          description: JSON profile export
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportedProfile'
+
+  /export/obsidian:
+    get:
+      tags: [Export]
+      summary: Export profile as Obsidian vault
+      responses:
+        '200':
+          description: ZIP file containing Obsidian vault
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /import:
+    post:
+      tags: [Export]
+      summary: Import profile from JSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportedProfile'
+      responses:
+        '200':
+          description: Import successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: boolean
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          default: bearer
+        expires_in:
+          type: integer
+          description: Seconds until expiration
+        scopes:
+          type: array
+          items:
+            type: string
+
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: User message
+        session_id:
+          type: string
+          description: Session ID for context continuity
+        problem_id:
+          type: string
+          description: Current problem being worked on
+        include_thinking:
+          type: boolean
+          default: false
+          description: Include reasoning in response
+
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Tutor response
+        move:
+          type: string
+          enum: [scaffolding, problematize, rectify, encourage, hint, tell]
+          description: Pedagogical move type
+        thinking:
+          type: string
+          description: Reasoning (if include_thinking was true)
+        session_id:
+          type: string
+        tokens_used:
+          type: integer
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        move:
+          type: string
+
+    Profile:
+      type: object
+      properties:
+        student_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        preferences:
+          type: object
+          properties:
+            language:
+              type: string
+              default: ru
+            voice_enabled:
+              type: boolean
+            notifications_enabled:
+              type: boolean
+
+    ProfileUpdate:
+      type: object
+      properties:
+        preferences:
+          type: object
+          additionalProperties: true
+
+    GamificationStatus:
+      type: object
+      properties:
+        xp:
+          type: integer
+        level:
+          type: integer
+        xp_to_next_level:
+          type: integer
+        streak:
+          type: object
+          properties:
+            current:
+              type: integer
+            longest:
+              type: integer
+            freeze_available:
+              type: integer
+        recent_achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Achievement'
+
+    Achievement:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        category:
+          type: string
+        rarity:
+          type: string
+        unlocked:
+          type: boolean
+        unlocked_at:
+          type: string
+          format: date-time
+
+    ActivityData:
+      type: object
+      properties:
+        heatmap:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              count:
+                type: integer
+        by_topic:
+          type: object
+          additionalProperties:
+            type: integer
+        daily_summary:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              problems_solved:
+                type: integer
+              time_spent_minutes:
+                type: integer
+              xp_earned:
+                type: integer
+
+    ReviewCard:
+      type: object
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        next_review_date:
+          type: string
+          format: date
+        interval:
+          type: integer
+        easiness_factor:
+          type: number
+
+    ExportedProfile:
+      type: object
+      required: [version, exported_at, profile]
+      properties:
+        version:
+          type: string
+        exported_at:
+          type: string
+          format: date-time
+        profile:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: array
+                items:
+                  type: string
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                default: Unauthorized
+
+    RateLimited:
+      description: Too many requests
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                default: Rate limit exceeded
+              retry_after:
+                type: integer

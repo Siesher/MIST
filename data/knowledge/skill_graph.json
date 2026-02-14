@@ -1,0 +1,198 @@
+{
+  "version": "1.0",
+  "description": "Граф навыков для математики MITS",
+  "skills": {
+    "arithmetic": {
+      "name": "Арифметика",
+      "prerequisites": [],
+      "difficulty": 0.1,
+      "description": "Базовые операции: сложение, вычитание, умножение, деление",
+      "topics": ["addition", "subtraction", "multiplication", "division"],
+      "mastery_threshold": 0.8
+    },
+    "fractions": {
+      "name": "Дроби",
+      "prerequisites": ["arithmetic"],
+      "difficulty": 0.2,
+      "description": "Операции с обыкновенными и десятичными дробями",
+      "topics": ["common_fractions", "decimal_fractions", "fraction_operations"],
+      "mastery_threshold": 0.75
+    },
+    "variables": {
+      "name": "Переменные",
+      "prerequisites": ["arithmetic"],
+      "difficulty": 0.2,
+      "description": "Понимание переменных и простых алгебраических выражений",
+      "topics": ["variable_concept", "algebraic_expressions"],
+      "mastery_threshold": 0.75
+    },
+    "powers": {
+      "name": "Степени",
+      "prerequisites": ["arithmetic"],
+      "difficulty": 0.25,
+      "description": "Свойства степеней, возведение в степень",
+      "topics": ["power_rules", "exponents"],
+      "mastery_threshold": 0.75
+    },
+    "linear_equations": {
+      "name": "Линейные уравнения",
+      "prerequisites": ["arithmetic", "variables"],
+      "difficulty": 0.35,
+      "description": "Решение линейных уравнений с одной переменной",
+      "topics": ["solving_linear", "equation_balance"],
+      "mastery_threshold": 0.8
+    },
+    "inequalities": {
+      "name": "Неравенства",
+      "prerequisites": ["linear_equations"],
+      "difficulty": 0.4,
+      "description": "Линейные и квадратные неравенства",
+      "topics": ["linear_inequalities", "quadratic_inequalities", "interval_notation"],
+      "mastery_threshold": 0.75
+    },
+    "factoring": {
+      "name": "Разложение на множители",
+      "prerequisites": ["variables", "powers"],
+      "difficulty": 0.45,
+      "description": "Разложение многочленов на множители",
+      "topics": ["common_factor", "grouping", "special_products"],
+      "mastery_threshold": 0.7
+    },
+    "quadratic_equations": {
+      "name": "Квадратные уравнения",
+      "prerequisites": ["linear_equations", "factoring", "powers"],
+      "difficulty": 0.5,
+      "description": "Решение квадратных уравнений различными методами",
+      "topics": ["discriminant", "vieta_formulas", "factoring_method", "completing_square"],
+      "mastery_threshold": 0.75
+    },
+    "systems_of_equations": {
+      "name": "Системы уравнений",
+      "prerequisites": ["linear_equations"],
+      "difficulty": 0.5,
+      "description": "Решение систем линейных уравнений",
+      "topics": ["substitution_method", "elimination_method", "graphical_method"],
+      "mastery_threshold": 0.75
+    },
+    "functions": {
+      "name": "Функции",
+      "prerequisites": ["variables", "linear_equations"],
+      "difficulty": 0.45,
+      "description": "Понятие функции, область определения, график",
+      "topics": ["function_concept", "domain_range", "graphing"],
+      "mastery_threshold": 0.7
+    },
+    "trigonometry_basics": {
+      "name": "Основы тригонометрии",
+      "prerequisites": ["functions", "geometry_triangles"],
+      "difficulty": 0.55,
+      "description": "Тригонометрические функции, основные тождества",
+      "topics": ["sin_cos_tan", "unit_circle", "basic_identities"],
+      "mastery_threshold": 0.7
+    },
+    "trigonometry_equations": {
+      "name": "Тригонометрические уравнения",
+      "prerequisites": ["trigonometry_basics", "quadratic_equations"],
+      "difficulty": 0.65,
+      "description": "Решение тригонометрических уравнений",
+      "topics": ["simple_trig_equations", "reduction_formulas"],
+      "mastery_threshold": 0.7
+    },
+    "geometry_basics": {
+      "name": "Основы геометрии",
+      "prerequisites": ["arithmetic"],
+      "difficulty": 0.2,
+      "description": "Точки, прямые, углы, базовые фигуры",
+      "topics": ["points_lines", "angles", "basic_shapes"],
+      "mastery_threshold": 0.8
+    },
+    "geometry_triangles": {
+      "name": "Треугольники",
+      "prerequisites": ["geometry_basics", "arithmetic"],
+      "difficulty": 0.35,
+      "description": "Свойства треугольников, теорема Пифагора",
+      "topics": ["triangle_types", "pythagorean_theorem", "triangle_area"],
+      "mastery_threshold": 0.75
+    },
+    "geometry_circles": {
+      "name": "Окружность и круг",
+      "prerequisites": ["geometry_basics"],
+      "difficulty": 0.35,
+      "description": "Окружность, круг, их свойства",
+      "topics": ["circle_elements", "arc_sector", "inscribed_angles"],
+      "mastery_threshold": 0.75
+    },
+    "geometry_3d": {
+      "name": "Стереометрия",
+      "prerequisites": ["geometry_triangles", "geometry_circles"],
+      "difficulty": 0.55,
+      "description": "Объёмные фигуры, объёмы и площади поверхностей",
+      "topics": ["prism", "pyramid", "cylinder", "cone", "sphere"],
+      "mastery_threshold": 0.7
+    },
+    "limits": {
+      "name": "Пределы",
+      "prerequisites": ["functions", "fractions"],
+      "difficulty": 0.6,
+      "description": "Понятие предела, вычисление пределов",
+      "topics": ["limit_concept", "limit_calculation", "indeterminate_forms"],
+      "mastery_threshold": 0.7
+    },
+    "derivatives": {
+      "name": "Производные",
+      "prerequisites": ["limits", "powers", "trigonometry_basics"],
+      "difficulty": 0.65,
+      "description": "Понятие производной, правила дифференцирования",
+      "topics": ["derivative_concept", "differentiation_rules", "chain_rule"],
+      "mastery_threshold": 0.7
+    },
+    "derivative_applications": {
+      "name": "Применение производных",
+      "prerequisites": ["derivatives", "functions"],
+      "difficulty": 0.7,
+      "description": "Исследование функций, экстремумы, касательные",
+      "topics": ["extrema", "monotonicity", "tangent_line"],
+      "mastery_threshold": 0.65
+    },
+    "integrals": {
+      "name": "Интегралы",
+      "prerequisites": ["derivatives"],
+      "difficulty": 0.7,
+      "description": "Неопределённый и определённый интеграл",
+      "topics": ["indefinite_integral", "definite_integral", "integration_methods"],
+      "mastery_threshold": 0.65
+    },
+    "integral_applications": {
+      "name": "Применение интегралов",
+      "prerequisites": ["integrals", "geometry_basics"],
+      "difficulty": 0.75,
+      "description": "Площадь, объём, длина дуги через интегралы",
+      "topics": ["area_under_curve", "volume_of_revolution", "arc_length"],
+      "mastery_threshold": 0.6
+    }
+  },
+  "edges": [
+    {"from": "arithmetic", "to": "fractions", "weight": 0.9},
+    {"from": "arithmetic", "to": "variables", "weight": 0.9},
+    {"from": "arithmetic", "to": "powers", "weight": 0.8},
+    {"from": "arithmetic", "to": "geometry_basics", "weight": 0.8},
+    {"from": "variables", "to": "linear_equations", "weight": 0.9},
+    {"from": "linear_equations", "to": "inequalities", "weight": 0.8},
+    {"from": "linear_equations", "to": "systems_of_equations", "weight": 0.8},
+    {"from": "linear_equations", "to": "quadratic_equations", "weight": 0.7},
+    {"from": "factoring", "to": "quadratic_equations", "weight": 0.8},
+    {"from": "variables", "to": "functions", "weight": 0.7},
+    {"from": "functions", "to": "trigonometry_basics", "weight": 0.7},
+    {"from": "trigonometry_basics", "to": "trigonometry_equations", "weight": 0.8},
+    {"from": "trigonometry_basics", "to": "derivatives", "weight": 0.6},
+    {"from": "geometry_basics", "to": "geometry_triangles", "weight": 0.9},
+    {"from": "geometry_basics", "to": "geometry_circles", "weight": 0.8},
+    {"from": "geometry_triangles", "to": "geometry_3d", "weight": 0.7},
+    {"from": "geometry_circles", "to": "geometry_3d", "weight": 0.7},
+    {"from": "functions", "to": "limits", "weight": 0.8},
+    {"from": "limits", "to": "derivatives", "weight": 0.9},
+    {"from": "derivatives", "to": "derivative_applications", "weight": 0.9},
+    {"from": "derivatives", "to": "integrals", "weight": 0.9},
+    {"from": "integrals", "to": "integral_applications", "weight": 0.9}
+  ]
+}

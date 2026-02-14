@@ -1,0 +1,83 @@
+{
+  "domain": "chemistry",
+  "description": "Organic, inorganic, biochemistry, stoichiometry, reactions",
+  "prompts": [
+    {
+      "instruction_template": "Balance the chemical equation: {equation}",
+      "subtopic": "stoichiometry",
+      "difficulty": "basic",
+      "variables": {
+        "equation": ["Fe + O2 -> Fe2O3", "C3H8 + O2 -> CO2 + H2O", "KMnO4 + HCl -> KCl + MnCl2 + H2O + Cl2", "Ca(OH)2 + H3PO4 -> Ca3(PO4)2 + H2O"]
+      }
+    },
+    {
+      "instruction_template": "Calculate the {quantity} when {amount} of {reactant} reacts completely with excess {other_reactant}.",
+      "subtopic": "stoichiometry",
+      "difficulty": "intermediate",
+      "variables": {
+        "quantity": ["mass of product formed", "volume of gas produced at STP", "moles of product"],
+        "amount": ["10 g", "25 g", "0.5 mol"],
+        "reactant": ["NaOH", "CaCO3", "zinc metal"],
+        "other_reactant": ["HCl", "hydrochloric acid", "sulfuric acid"]
+      }
+    },
+    {
+      "instruction_template": "Draw the structural formula and name the product of {reaction}.",
+      "subtopic": "organic",
+      "difficulty": "intermediate",
+      "variables": {
+        "reaction": ["addition of HBr to propene", "esterification of ethanol with acetic acid", "oxidation of ethanol with acidified potassium dichromate", "hydrolysis of ethyl acetate"]
+      }
+    },
+    {
+      "instruction_template": "Explain the mechanism of {reaction_type} with an example.",
+      "subtopic": "organic",
+      "difficulty": "advanced",
+      "variables": {
+        "reaction_type": ["SN1 substitution", "SN2 substitution", "E1 elimination", "electrophilic addition to alkenes", "nucleophilic addition to carbonyls"]
+      }
+    },
+    {
+      "instruction_template": "Calculate the pH of a {type} solution with {concentration}.",
+      "subtopic": "inorganic",
+      "difficulty": "intermediate",
+      "variables": {
+        "type": ["strong acid (HCl)", "weak acid (acetic acid, Ka = 1.8e-5)", "buffer (0.1 M acetic acid + 0.1 M sodium acetate)", "strong base (NaOH)"],
+        "concentration": ["0.01 M", "0.1 M", "0.001 M"]
+      }
+    },
+    {
+      "instruction_template": "Describe the structure and function of {biomolecule} in living systems.",
+      "subtopic": "biochemistry",
+      "difficulty": "intermediate",
+      "variables": {
+        "biomolecule": ["DNA", "proteins", "ATP", "enzymes", "cell membranes (phospholipids)"]
+      }
+    },
+    {
+      "instruction_template": "Predict the products and type of reaction: {reactants}",
+      "subtopic": "reactions",
+      "difficulty": "basic",
+      "variables": {
+        "reactants": ["HCl + NaOH ->", "Zn + CuSO4 ->", "AgNO3 + NaCl ->", "CH4 + O2 (combustion) ->", "Na + H2O ->"]
+      }
+    },
+    {
+      "instruction_template": "Explain why {observation} occurs in terms of {concept}.",
+      "subtopic": "inorganic",
+      "difficulty": "intermediate",
+      "variables": {
+        "observation": ["ice floats on water", "sodium chloride dissolves in water but not in oil", "metals conduct electricity", "noble gases are unreactive"],
+        "concept": ["molecular structure and bonding", "intermolecular forces", "electron configuration", "polarity"]
+      }
+    },
+    {
+      "instruction_template": "Calculate the equilibrium constant Kc for the reaction if at equilibrium {conditions}.",
+      "subtopic": "reactions",
+      "difficulty": "advanced",
+      "variables": {
+        "conditions": ["[A] = 0.1 M, [B] = 0.2 M, [C] = 0.05 M for A + B <-> C", "[N2] = 0.5 M, [H2] = 1.5 M, [NH3] = 0.2 M for N2 + 3H2 <-> 2NH3", "[PCl5] = 0.1 M, [PCl3] = 0.15 M, [Cl2] = 0.15 M for PCl5 <-> PCl3 + Cl2"]
+      }
+    }
+  ]
+}

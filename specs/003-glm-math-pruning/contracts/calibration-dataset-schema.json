@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mits.local/schemas/calibration-dataset.json",
+  "title": "CalibrationDataset",
+  "description": "Schema for REAP calibration dataset used in GLM STEM pruning",
+  "type": "object",
+  "required": ["version", "created_at", "generator_model", "total_examples", "domain_distribution", "examples"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the dataset"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of dataset creation"
+    },
+    "generator_model": {
+      "type": "string",
+      "description": "Model used to generate examples (e.g., qwen-3-235b-a22b-instruct-2507)"
+    },
+    "total_examples": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 10000,
+      "description": "Total number of examples in dataset"
+    },
+    "domain_distribution": {
+      "type": "object",
+      "required": ["code", "math", "physics", "chemistry", "biology", "socratic"],
+      "properties": {
+        "code": { "type": "integer", "minimum": 0 },
+        "math": { "type": "integer", "minimum": 0 },
+        "physics": { "type": "integer", "minimum": 0 },
+        "chemistry": { "type": "integer", "minimum": 0 },
+        "biology": { "type": "integer", "minimum": 0 },
+        "socratic": { "type": "integer", "minimum": 0 }
+      },
+      "description": "Count of examples per domain"
+    },
+    "examples": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CalibrationExample" },
+      "minItems": 100,
+      "description": "Array of calibration examples"
+    }
+  },
+  "$defs": {
+    "CalibrationExample": {
+      "type": "object",
+      "required": ["instruction", "output", "domain", "subtopic", "difficulty"],
+      "properties": {
+        "instruction": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "The task description or question"
+        },
+        "input": {
+          "type": "string",
+          "default": "",
+          "description": "Additional context (optional)"
+        },
+        "output": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 8000,
+          "description": "Expected response with step-by-step reasoning"
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["code", "math", "physics", "chemistry", "biology", "socratic"],
+          "description": "Primary domain of the example"
+        },
+        "subtopic": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Specific subtopic within domain"
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["basic", "intermediate", "advanced"],
+          "description": "Difficulty level of the example"
+        }
+      }
+    }
+  }
+}

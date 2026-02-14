@@ -1,0 +1,236 @@
+# Orchestrator Internal API Contract
+# Version: 1.0.0
+# Internal Python API (not REST)
+
+components:
+  schemas:
+    # === Request Types ===
+
+    TutoringRequest:
+      type: object
+      required:
+        - session_id
+        - student_message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: Active session identifier
+        student_message:
+          type: string
+          maxLength: 5000
+          description: Student's input text
+        student_code:
+          type: string
+          nullable: true
+          description: Code submission (for coding tasks)
+        request_hint:
+          type: boolean
+          default: false
+          description: Explicit hint request
+
+    NewSessionRequest:
+      type: object
+      required:
+        - discipline
+      properties:
+        student_id:
+          type: string
+          nullable: true
+          description: Student identifier (optional for anonymous)
+        discipline:
+          $ref: '#/components/schemas/Discipline'
+        task_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Specific task to start with
+        mode:
+          $ref: '#/components/schemas/SessionMode'
+          default: FULL
+
+    # === Response Types ===
+
+    TutoringResponse:
+      type: object
+      properties:
+        tutor_message:
+          type: string
+          description: Tutor's response text
+        session_state:
+          $ref: '#/components/schemas/SessionState'
+        hints_provided:
+          type: integer
+          description: Total hints given in session
+        task_completed:
+          type: boolean
+          description: Whether task was solved
+        latency_ms:
+          type: integer
+          description: Response generation time
+        agent_trace:
+          $ref: '#/components/schemas/AgentTrace'
+          nullable: true
+          description: Debug info (only in DIAGNOSTIC mode)
+
+    SessionState:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ACTIVE, IDLE, COMPLETED, ABANDONED]
+        turn_count:
+          type: integer
+        current_task:
+          $ref: '#/components/schemas/TaskSummary'
+          nullable: true
+        skill_updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillUpdate'
+
+    TaskSummary:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        statement:
+          type: string
+
+    SkillUpdate:
+      type: object
+      properties:
+        skill_id:
+          type: string
+        old_mastery:
+          type: number
+          minimum: 0
+          maximum: 1
+        new_mastery:
+          type: number
+          minimum: 0
+          maximum: 1
+        change_reason:
+          type: string
+          enum: [CORRECT_ATTEMPT, INCORRECT_ATTEMPT, HINT_USED]
+
+    AgentTrace:
+      type: object
+      description: Debugging information for agent pipeline
+      properties:
+        profiler:
+          type: object
+          properties:
+            error_type:
+              type: string
+              nullable: true
+            confidence:
+              type: string
+            misconceptions:
+              type: array
+              items:
+                type: string
+            latency_ms:
+              type: integer
+        planner:
+          type: object
+          properties:
+            strategy:
+              type: string
+            hint_level:
+              type: string
+            latency_ms:
+              type: integer
+        tutor:
+          type: object
+          properties:
+            rag_documents:
+              type: integer
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            latency_ms:
+              type: integer
+        verifier:
+          type: object
+          properties:
+            approved:
+              type: boolean
+            issues:
+              type: array
+              items:
+                type: string
+            latency_ms:
+              type: integer
+
+    # === Enums ===
+
+    Discipline:
+      type: string
+      enum:
+        - MATH
+        - CODING
+        - PHYSICS
+        - CHEMISTRY
+        - BIOLOGY
+
+    Difficulty:
+      type: string
+      enum:
+        - EASY
+        - MEDIUM
+        - HARD
+
+    SessionMode:
+      type: string
+      enum:
+        - FULL
+        - FAST
+        - DIAGNOSTIC
+
+    ErrorType:
+      type: string
+      enum:
+        - CONCEPTUAL
+        - PROCEDURAL
+        - CARELESS
+        - NOTATION
+        - INCOMPLETE
+        - MISCONCEPTION
+
+    TeachingStrategy:
+      type: string
+      enum:
+        - GUIDED_DISCOVERY
+        - SCAFFOLDED
+        - ERROR_CORRECTION
+        - CONCEPTUAL_REPAIR
+        - ENCOURAGEMENT
+        - REVIEW
+        - DIRECT_INSTRUCTION
+
+    HintLevel:
+      type: string
+      enum:
+        - CONCEPTUAL
+        - PROCEDURAL
+        - SPECIFIC
+        - WORKED_EXAMPLE
+
+# === Python Interface ===
+#
+# class AgentOrchestrator:
+#     async def create_session(request: NewSessionRequest) -> SessionState
+#     async def process_message(request: TutoringRequest) -> TutoringResponse
+#     async def get_session(session_id: UUID) -> SessionState
+#     async def end_session(session_id: UUID) -> SessionMetrics
+#     async def get_next_task(session_id: UUID) -> TaskSummary
