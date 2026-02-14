@@ -159,6 +159,53 @@ python training/scripts/train_qlora.py \
 | Semantic caching | 📋 | sentence-transformers |
 | Обновление UI | 📋 | Gradio app |
 
+### Фаза 7: Advanced Training Pipeline 🔄 В ПРОЦЕССЕ
+
+> **Ветка**: `014-advanced-training-pipeline`
+> **Модель**: Qwen3-4B-Instruct-2507 → SFT → GSPO → RAFT++ → AdaSTaR → DPO
+> **Оборудование**: Google Colab A100 80GB
+> **Спецификация**: `specs/014-advanced-training-pipeline/`
+
+**5-стадийный пайплайн обучения:**
+
+| Стадия | Метод | Цель | Ноутбук | Статус |
+|--------|-------|------|---------|--------|
+| 1. SFT | Light supervised fine-tuning | Базовый сократический стиль | `sft_qwen3_4b.ipynb` | ✅ Завершён |
+| 2. GSPO | Group Sequence Policy Optimization | Reasoning через verifiable rewards | `grpo_qwen3_4b.ipynb` | 🔄 Тренируется |
+| 3. RAFT++ | Rejection sampling + SFT | Self-distillation на верных решениях | `raft_plus_qwen3_4b.ipynb` | 📋 Готов |
+| 4. AdaSTaR | Adaptive Self-Taught Reasoner | Итеративная генерация rationales | `star_loop.ipynb` | 📋 Готов |
+| 5. DPO | Direct Preference Optimization | Полировка формата рассуждений | `dpo_polish_qwen3_4b.ipynb` | 📋 Готов |
+
+**Подготовка данных:**
+
+| Задача | Статус | Результат |
+|--------|--------|-----------|
+| Гибридный RL-датасет | ✅ | 14,203 задачи из 5 источников |
+| GSM8K (7,400) | ✅ | Арифметика начального уровня |
+| MATH Hendrycks (4,985) | ✅ | Олимпиадная математика (через fallback mirror) |
+| ruMMLU STEM (1,495) | ✅ | Русские MC-вопросы (через Global-MMLU) |
+| OlympiadBench (232) | ✅ | Физика олимпиадного уровня |
+| Curriculum-классификация | ✅ | easy 39.9%, medium 34.8%, hard 25.2% |
+
+**Ключевые алгоритмические оптимизации:**
+
+| Техника | Статья | Эффект |
+|---------|--------|--------|
+| Dr. GRPO | arXiv 2503.20783 | Устраняет length bias в binary rewards |
+| Clip-Higher | arXiv 2504.05118 | Асимметричный клиппинг ε=0.2/0.28 |
+| ReDit дизеринг | arXiv 2506.18631 | Гауссовский шум на наградах для 10x сходимости |
+| GDPO декаплинг | arXiv 2601.05242 | Независимая нормализация correctness и format наград |
+| GRPO-LEAD | arXiv 2504.09696 | Difficulty-aware curriculum (hard=2×, easy=0.5×) |
+| Zero-variance маскинг | arXiv 2505.22257 | Фильтрация групп с нулевой дисперсией |
+| GSPO importance sampling | arXiv 2507.18071 | Sequence-level importance ratios (Qwen3) |
+
+**Решённые технические проблемы:**
+
+- Unsloth/TRL совместимость: 11 ошибок исправлено (см. `specs/014-advanced-training-pipeline/experiments.md`)
+- `tokenizer.vocab_size` ≠ `num_embeddings`: 151,643 vs 151,936 (спец. токены Qwen3)
+- SAPO loss не поддерживается Unsloth → переключение на Dr. GRPO
+- 4-слойный idempotent monkey-patching для Qwen3 token ID issues
+
 ---
 
 ## Структура проекта
@@ -238,11 +285,12 @@ MITS/
 
 ## Следующие шаги
 
-1. **Сейчас:** Получить API ключ Cerebras (https://cloud.cerebras.ai/) и добавить в `.env`
-2. **Затем:** Запустить генерацию диалогов для всех STEM дисциплин
-3. **Далее:** Отфильтровать диалоги и запустить QLoRA дообучение
-4. **Потом:** Оценить качество дообученной модели
-5. **Финал:** Оптимизировать inference и обновить UI
+1. **Сейчас:** Завершить GSPO тренировку (Stage 1: 200 шагов + Stage 2: 400 шагов) на Colab A100 80GB
+2. **Затем:** Запустить RAFT++ с GVM-динамическим аллоцированием (`raft_plus_qwen3_4b.ipynb`)
+3. **Далее:** AdaSTaR итеративная генерация rationales (`star_loop.ipynb`)
+4. **Потом:** DPO полировка формата рассуждений (`dpo_polish_qwen3_4b.ipynb`)
+5. **Оценка:** Бенчмарк финальной модели на GSM8K, MATH, ruMMLU STEM
+6. **Интеграция:** Загрузить GGUF-версию для inference через Ollama на RTX 2080
 
 ---
 

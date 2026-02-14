@@ -6,7 +6,17 @@ Provides reward functions for TRL GRPOTrainer that combine:
 - Reasoning quality scoring (step count, coherence)
 - Socratic style scoring (guiding questions in visible answer)
 
-Combined reward: 1.0*correct + 0.2*reasoning + 0.1*socratic - 0.5*wrong
+Combined reward: 1.0*correct + 0.2*reasoning + 0.1*socratic + 0.0*wrong (no negative penalties)
+
+GDPO-compatible reward functions (arXiv 2601.05242):
+    from training.scripts.stem_rewards import make_gdpo_reward_fns
+
+    reward_fns = make_gdpo_reward_fns(problems_list, tokenizer)
+    trainer = GRPOTrainer(
+        ...,
+        reward_funcs=reward_fns,          # [correctness_fn, format_fn]
+        reward_weights=[0.8, 0.2],
+    )
 
 Usage with TRL GRPOTrainer:
     from training.scripts.stem_rewards import make_reward_fn
@@ -21,6 +31,8 @@ Usage with TRL GRPOTrainer:
 import re
 import logging
 from typing import List, Dict, Any, Optional, Callable
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -194,13 +206,13 @@ def compute_reward(
     """Compute combined reward for a single completion.
 
     Default weights:
-        correct: +1.0, wrong: -0.5, reasoning: +0.2, socratic: +0.1
+        correct: +1.0, wrong: 0.0, reasoning: +0.2, socratic: +0.1
 
     Returns: float reward value
     """
     w = weights or {
         "correct": 1.0,
-        "wrong": -0.5,
+        "wrong": 0.0,       # No negative penalties (DRPO arXiv 2510.04474, GRPO-LEAD)
         "reasoning": 0.2,
         "socratic": 0.1,
     }
@@ -316,6 +328,266 @@ def make_domain_reward_fns(
         domain: make_reward_fn(probs)
         for domain, probs in domain_problems.items()
     }
+
+
+# ---------------------------------------------------------------------------
+# GDPO-compatible reward functions (arXiv 2601.05242)
+# Each function is passed separately to TRL GRPOTrainer so that rewards
+# are normalized independently, preventing reward hacking/collapse.
+# ---------------------------------------------------------------------------
+
+def make_gdpo_correctness_fn(
+    problems: List[Dict[str, Any]],
+    tokenizer: Any,
+    system_prompt: str = "Ты — репетитор по STEM. Реши задачу пошагово и запиши финальный ответ в \\boxed{}.",
+    dithering_sigma: float = 0.0,
+) -> Callable:
+    """Create a correctness reward function for GDPO-style training.
+
+    Returns a callable matching TRL GRPOTrainer signature:
+        (completions, prompts=None, **kwargs) -> list[float]
+
+    Uses verify_answers.py for domain-specific verification.
+    Rewards: correct=1.0, wrong=0.0 (no negative penalties per DRPO/GRPO-LEAD).
+
+    When dithering_sigma > 0, applies Reward Dithering (ReDit, arXiv:2506.18631):
+    small Gaussian noise is added to binary rewards to create continuous gradient
+    landscape, preventing zero-variance groups and improving convergence ~10x.
+
+    Supports multiple answer types: problems with answer_type="mc_letter" are
+    registered with an MC-specific system prompt for correct prompt lookup.
+
+    Args:
+        problems: List of problem dicts with prompt, answer, domain, type fields.
+        tokenizer: HuggingFace tokenizer for chat template formatting.
+        system_prompt: System prompt used for calc/numeric problems.
+        dithering_sigma: Gaussian noise std for reward dithering (0.0 = disabled).
+                         Recommended: 0.05 per ReDit paper (arXiv:2506.18631).
+    """
+    MC_SYSTEM_PROMPT = "Проанализируй задачу и выбери правильный ответ (A, B, C или D)."
+
+    # Build lookup by formatted prompt text — route by answer_type
+    prompt_to_problem: Dict[str, Dict] = {}
+    for p in problems:
+        answer_type = p.get("answer_type", "numeric")
+        if answer_type == "mc_letter":
+            sys_prompt = MC_SYSTEM_PROMPT
+        else:
+            sys_prompt = system_prompt
+
+        messages = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": p.get("prompt", p.get("instruction", ""))},
+        ]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        prompt_to_problem[formatted.strip()] = p
+
+    def correctness_fn(completions: List[str], prompts: Optional[List[str]] = None, **kwargs) -> List[float]:
+        """Compute correctness rewards: 1.0 (correct) or 0.0 (wrong)."""
+        if prompts is None:
+            prompts = [""] * len(completions)
+        rewards = []
+        for prompt_text, completion_text in zip(prompts, completions):
+            problem = prompt_to_problem.get(prompt_text.strip())
+            if problem is None:
+                rewards.append(0.0)
+                continue
+
+            answer_text = extract_answer(completion_text)
+            truth = problem.get("ground_truth", problem.get("answer", ""))
+            domain = problem.get("domain", "math")
+            answer_type = problem.get("answer_type", "numeric")
+
+            # Map answer_type to question_type for verify() router
+            if answer_type == "mc_letter":
+                q_type = "mc"
+            else:
+                q_type = problem.get("type", "calc")
+
+            result = verify(
+                answer=answer_text,
+                truth=truth,
+                domain=domain,
+                question_type=q_type,
+                test_cases=problem.get("test_cases"),
+                rubric=problem.get("rubric"),
+                reference=problem.get("reference"),
+            )
+            rewards.append(1.0 if result.correct else 0.0)
+
+        # ReDit: Reward Dithering (arXiv:2506.18631)
+        # Add small Gaussian noise to break ties in zero-variance groups,
+        # creating continuous gradient landscape for better RL convergence.
+        if dithering_sigma > 0:
+            noise = np.random.normal(0.0, dithering_sigma, size=len(rewards))
+            rewards = [r + n for r, n in zip(rewards, noise)]
+
+        return rewards
+
+    return correctness_fn
+
+
+def make_gdpo_format_fn(
+    problems: Optional[List[Dict[str, Any]]] = None,
+    tokenizer: Any = None,
+    system_prompts: Optional[Dict[str, str]] = None,
+) -> Callable:
+    """Create a format reward function for GDPO-style training.
+
+    Answer-type-aware scoring:
+    - calc/numeric/latex: \\boxed{} presence (0.5) + step markers (0.3) + length (0.2)
+    - MC (mc_letter): "Answer: X" pattern (0.5) + reasoning markers (0.3) + length (0.2)
+    - physics with units: \\boxed{} (0.4) + unit mention (0.2) + step markers (0.2) + length (0.2)
+
+    Args:
+        problems: Optional list of problem dicts with answer_type field.
+                  When provided, enables type-aware scoring via prompt lookup.
+        tokenizer: Required if problems is provided, for chat template formatting.
+        system_prompts: Optional dict mapping answer_type to system prompt string.
+                        Used for prompt-to-problem lookup.
+
+    Returns a callable matching TRL GRPOTrainer signature:
+        (completions, prompts=None, **kwargs) -> list[float]
+    """
+    # Build prompt-to-answer-type lookup if problems provided
+    prompt_to_type: Dict[str, str] = {}
+    if problems is not None and tokenizer is not None:
+        default_prompts = system_prompts or {}
+        for p in problems:
+            answer_type = p.get("answer_type", "numeric")
+            sys_prompt = default_prompts.get(
+                answer_type,
+                "Ты — репетитор по STEM. Реши задачу пошагово и запиши финальный ответ в \\boxed{}.",
+            )
+            messages = [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": p.get("prompt", p.get("instruction", ""))},
+            ]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            prompt_to_type[formatted.strip()] = answer_type
+
+    def format_fn(completions: List[str], prompts: Optional[List[str]] = None, **kwargs) -> List[float]:
+        """Score format quality of completions, returns values in [0, 1]."""
+        rewards = []
+        for i, completion in enumerate(completions):
+            text = completion if isinstance(completion, str) else str(completion)
+
+            # Determine answer type from prompt lookup
+            answer_type = "numeric"  # default: calc-style scoring
+            if prompts is not None and i < len(prompts) and prompt_to_type:
+                answer_type = prompt_to_type.get(prompts[i].strip(), "numeric")
+
+            score = _score_format_by_type(text, answer_type)
+            rewards.append(min(1.0, score))
+        return rewards
+
+    return format_fn
+
+
+def _score_format_by_type(text: str, answer_type: str) -> float:
+    """Score format quality based on answer type."""
+    text_lower = text.lower()
+    word_count = len(text.split())
+
+    # Shared: step-by-step reasoning markers
+    step_markers = [
+        "step", "therefore", "thus", "hence", "because",
+        "шаг", "следовательно", "значит", "потому что", "так как",
+        "далее", "подставим", "найдём", "получим", "вычислим",
+    ]
+    has_steps = any(m in text_lower for m in step_markers)
+    reasonable_length = 50 < word_count < 800
+
+    if answer_type == "mc_letter":
+        score = 0.0
+        # MC: reward "Answer: X" or "Ответ: X" pattern with letter
+        mc_pattern = re.search(
+            r'(?:answer|ответ)\s*[:=]\s*[A-DА-Г]', text, re.IGNORECASE
+        )
+        if mc_pattern:
+            score += 0.5
+        # Reasoning before answer
+        if has_steps:
+            score += 0.3
+        if reasonable_length:
+            score += 0.2
+        return score
+
+    elif answer_type == "numeric_with_unit":
+        score = 0.0
+        # Physics: boxed answer
+        if "\\boxed{" in text:
+            score += 0.4
+        # Unit mention (common physics units)
+        unit_patterns = [
+            r'\b(м/с|кг|Дж|Н|Па|Вт|А|В|Ом|Гц|м²|м³|моль|К)\b',
+            r'\b(m/s|kg|J|N|Pa|W|A|V|Hz|mol|K|eV|cm|mm)\b',
+        ]
+        if any(re.search(p, text) for p in unit_patterns):
+            score += 0.2
+        if has_steps:
+            score += 0.2
+        if reasonable_length:
+            score += 0.2
+        return score
+
+    else:
+        # Default calc/numeric/latex_boxed scoring
+        score = 0.0
+        if "\\boxed{" in text:
+            score += 0.5
+        if has_steps:
+            score += 0.3
+        if reasonable_length:
+            score += 0.2
+        return score
+
+
+def make_gdpo_reward_fns(
+    problems: List[Dict[str, Any]],
+    tokenizer: Any,
+    system_prompt: str = "Ты — репетитор по STEM. Реши задачу пошагово и запиши финальный ответ в \\boxed{}.",
+    dithering_sigma: float = 0.0,
+) -> List[Callable]:
+    """Create GDPO-compatible reward function list for TRL GRPOTrainer.
+
+    Returns [correctness_fn, format_fn] — two separate callables that TRL
+    normalizes independently before combining with reward_weights.
+
+    This is the GDPO approach (arXiv 2601.05242): decoupled normalization
+    preserves each reward's relative differences, preventing reward hacking
+    that occurs when summing rewards before normalization.
+
+    Usage:
+        reward_fns = make_gdpo_reward_fns(problems, tokenizer, dithering_sigma=0.05)
+        trainer = GRPOTrainer(
+            ...,
+            reward_funcs=reward_fns,          # [correctness, format]
+            reward_weights=[0.8, 0.2],        # GDPO decoupled weights
+        )
+
+    Args:
+        problems: List of problem dicts with prompt, answer, domain, type fields.
+        tokenizer: HuggingFace tokenizer for chat template formatting.
+        system_prompt: System prompt used in chat template.
+        dithering_sigma: Gaussian noise std for ReDit reward dithering (0.0 = off).
+
+    Returns:
+        List of two callables: [correctness_fn, format_fn]
+    """
+    correctness_fn = make_gdpo_correctness_fn(
+        problems, tokenizer, system_prompt, dithering_sigma=dithering_sigma,
+    )
+    format_fn = make_gdpo_format_fn(
+        problems=problems,
+        tokenizer=tokenizer,
+        system_prompts={"mc_letter": "Проанализируй задачу и выбери правильный ответ (A, B, C или D)."},
+    )
+    return [correctness_fn, format_fn]
 
 
 # ---------------------------------------------------------------------------

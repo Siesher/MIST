@@ -104,11 +104,21 @@ def classify_difficulty(
         + " " + example.get("input", "")
         + " " + example.get("output", "")
         + " " + example.get("completion", "")
+        + " " + example.get("prompt", "")
+        + " " + example.get("answer", "")
     ).lower()
 
-    # 2. Solution length heuristic
-    solution = example.get("output", example.get("completion", ""))
-    token_count = len(solution.split())
+    # 2. Text length heuristic
+    # Prefer solution length; fall back to prompt length for HF datasets
+    solution = example.get("output", "") or example.get("completion", "")
+    if solution.strip():
+        token_count = len(solution.split())
+        len_short, len_long = 100, 400
+    else:
+        # No full solution — use prompt length as difficulty proxy
+        prompt_text = example.get("prompt", "") or example.get("instruction", "")
+        token_count = len(prompt_text.split())
+        len_short, len_long = 40, 120
 
     # 3. Keyword matching
     easy_keywords = DIFFICULTY_KEYWORDS["easy"].get(domain, [])
@@ -117,19 +127,22 @@ def classify_difficulty(
     easy_hits = sum(1 for kw in easy_keywords if kw in text)
     hard_hits = sum(1 for kw in hard_keywords if kw in text)
 
-    # 4. Step count
+    # 4. Step count / structural complexity
     step_patterns = [
-        r'шаг\s*\d', r'step\s*\d', r'\d\)', r'\d\.', r'во-первых|во-вторых|далее',
+        r'шаг\s*\d', r'step\s*\d', r'\d\)', r'\d\.',
+        r'во-первых|во-вторых|далее',
+        r'найдите|определите|вычислите|докажите|покажите',
+        r'\\frac|\\int|\\sum|\\lim|\\sqrt',
     ]
     step_count = sum(len(re.findall(p, text)) for p in step_patterns)
 
     # Scoring
-    score = 0  # -2..+2 range maps to easy/medium/hard
+    score = 0  # -3..+3 range maps to easy/medium/hard
 
     # Token count signal
-    if token_count < 100:
+    if token_count < len_short:
         score -= 1
-    elif token_count > 400:
+    elif token_count > len_long:
         score += 1
 
     # Keywords
@@ -138,8 +151,8 @@ def classify_difficulty(
     elif hard_hits > easy_hits:
         score += 1
 
-    # Step count
-    if step_count > 5:
+    # Structural complexity
+    if step_count >= 4:
         score += 1
     elif step_count <= 1:
         score -= 1

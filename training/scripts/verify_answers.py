@@ -66,6 +66,11 @@ def extract_answer(text: str) -> str:
     if boxed:
         return boxed[-1].strip()
 
+    # Try GSM8K "#### answer" format
+    gsm8k_match = re.search(r'####\s*(.+?)$', text.strip(), re.MULTILINE)
+    if gsm8k_match:
+        return gsm8k_match.group(1).strip().replace(",", "")
+
     # Try "Ответ: ..."
     answer_ru = re.search(r'(?:Ответ|ответ)\s*[:=]\s*(.+?)(?:\.|$)', text)
     if answer_ru:
@@ -82,6 +87,18 @@ def extract_answer(text: str) -> str:
         return lines[-1]
 
     return text.strip()
+
+
+def extract_gsm8k_answer(text: str) -> Optional[str]:
+    """Extract numeric answer after #### from GSM8K-format solution text.
+
+    GSM8K format: "... #### 42" or "... ####42"
+    Returns answer string with commas removed, or None if not found.
+    """
+    match = re.search(r'####\s*(.+?)$', text.strip(), re.MULTILINE)
+    if match:
+        return match.group(1).strip().replace(",", "")
+    return None
 
 
 # ---------------------------------------------------------------------------

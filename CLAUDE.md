@@ -26,6 +26,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-30
 - SQLite (sessions, auth), Docker, WeasyPrint (PDF export) (013-comprehensive-improvements)
 - Python 3.11+ (backend, ML), TypeScript 5.x (frontend) + FastAPI, Next.js 14, PyTorch, Transformers, Unsloth, PEFT, TRL, SQLAlchemy, Recharts (013-comprehensive-improvements)
 - SQLite (sessions, auth, analytics), filesystem (model weights, training data) (013-comprehensive-improvements)
+- Python 3.11+ (Jupyter notebooks on Google Colab) + Unsloth, TRL (GRPOTrainer, DPOTrainer, SFTTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy (014-advanced-training-pipeline)
+- Google Drive (checkpoints), HuggingFace Hub (datasets, adapters), local filesystem (014-advanced-training-pipeline)
 
 ## Project Structure
 
@@ -43,9 +45,9 @@ cd src; pytest; ruff check .
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- 014-advanced-training-pipeline: Added Python 3.11+ (Jupyter notebooks on Google Colab) + Unsloth, TRL (GRPOTrainer, DPOTrainer, SFTTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy
 - 013-comprehensive-improvements: Added Python 3.11+ (backend, ML), TypeScript 5.x (frontend) + FastAPI, Next.js 14, PyTorch, Transformers, Unsloth, PEFT, TRL, SQLAlchemy, Recharts
 - 013-comprehensive-improvements: ML training (QLoRA, DKT, RuBERT), evaluation pipeline, analytics dashboard, Docker, JWT auth, session persistence
-- 012-chat-modes: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, Next.js 14, Zustand, Ollama
 
 
 <!-- MANUAL ADDITIONS START -->
