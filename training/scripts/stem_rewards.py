@@ -14,8 +14,8 @@ GDPO-compatible reward functions (arXiv 2601.05242):
     reward_fns = make_gdpo_reward_fns(problems_list, tokenizer)
     trainer = GRPOTrainer(
         ...,
-        reward_funcs=reward_fns,          # [correctness_fn, format_fn]
-        reward_weights=[0.8, 0.2],
+        reward_funcs=reward_fns,          # [correctness_fn, format_fn, socratic_fn]
+        reward_weights=[0.7, 0.15, 0.15],
     )
 
 Usage with TRL GRPOTrainer:
@@ -547,27 +547,52 @@ def _score_format_by_type(text: str, answer_type: str) -> float:
         return score
 
 
+def make_gdpo_socratic_fn() -> Callable:
+    """Create a Socratic style reward function for GDPO-style training.
+
+    Scores pedagogical quality of the visible answer (after </think>):
+    - Guiding questions (? marks)
+    - Socratic patterns (Russian: "как ты думаешь", "попробуй", etc.)
+    - Penalty for direct telling ("ответ:", "правильный ответ")
+
+    This is the 3rd GDPO reward signal, normalized independently from
+    correctness and format. Encourages the model to guide rather than tell.
+
+    Returns a callable matching TRL GRPOTrainer signature:
+        (completions, prompts=None, **kwargs) -> list[float]
+    """
+    def socratic_fn(completions: List[str], prompts: Optional[List[str]] = None, **kwargs) -> List[float]:
+        """Score Socratic tutoring quality for each completion."""
+        return [score_socratic(c if isinstance(c, str) else str(c)) for c in completions]
+
+    return socratic_fn
+
+
 def make_gdpo_reward_fns(
     problems: List[Dict[str, Any]],
     tokenizer: Any,
     system_prompt: str = "Ты — репетитор по STEM. Реши задачу пошагово и запиши финальный ответ в \\boxed{}.",
     dithering_sigma: float = 0.0,
+    include_socratic: bool = True,
 ) -> List[Callable]:
     """Create GDPO-compatible reward function list for TRL GRPOTrainer.
 
-    Returns [correctness_fn, format_fn] — two separate callables that TRL
-    normalizes independently before combining with reward_weights.
+    Returns [correctness_fn, format_fn, socratic_fn] — three separate callables
+    that TRL normalizes independently before combining with reward_weights.
 
     This is the GDPO approach (arXiv 2601.05242): decoupled normalization
     preserves each reward's relative differences, preventing reward hacking
     that occurs when summing rewards before normalization.
 
+    The Socratic reward (3rd signal) encourages pedagogical tutoring style:
+    guiding questions, scaffolding patterns, penalizes direct answer-giving.
+
     Usage:
         reward_fns = make_gdpo_reward_fns(problems, tokenizer, dithering_sigma=0.05)
         trainer = GRPOTrainer(
             ...,
-            reward_funcs=reward_fns,          # [correctness, format]
-            reward_weights=[0.8, 0.2],        # GDPO decoupled weights
+            reward_funcs=reward_fns,          # [correctness, format, socratic]
+            reward_weights=[0.7, 0.15, 0.15], # GDPO decoupled weights
         )
 
     Args:
@@ -575,9 +600,12 @@ def make_gdpo_reward_fns(
         tokenizer: HuggingFace tokenizer for chat template formatting.
         system_prompt: System prompt used in chat template.
         dithering_sigma: Gaussian noise std for ReDit reward dithering (0.0 = off).
+        include_socratic: Whether to include Socratic reward (default True).
+                          Set False for backward compat with 2-reward setup.
 
     Returns:
-        List of two callables: [correctness_fn, format_fn]
+        List of callables: [correctness_fn, format_fn] or
+        [correctness_fn, format_fn, socratic_fn] if include_socratic=True
     """
     correctness_fn = make_gdpo_correctness_fn(
         problems, tokenizer, system_prompt, dithering_sigma=dithering_sigma,
@@ -587,7 +615,10 @@ def make_gdpo_reward_fns(
         tokenizer=tokenizer,
         system_prompts={"mc_letter": "Проанализируй задачу и выбери правильный ответ (A, B, C или D)."},
     )
-    return [correctness_fn, format_fn]
+    fns = [correctness_fn, format_fn]
+    if include_socratic:
+        fns.append(make_gdpo_socratic_fn())
+    return fns
 
 
 # ---------------------------------------------------------------------------

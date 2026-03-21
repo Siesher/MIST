@@ -21,6 +21,14 @@ from src.models.prompts import TASK_GENERATOR_SYSTEM, TASK_GENERATOR_PROMPT
 from src.data.schemas import Task, Difficulty, Subject
 from src.config import settings
 
+# SKI for textbook grounding
+try:
+    from src.knowledge.ski import get_ski
+    HAS_SKI = True
+except ImportError:
+    HAS_SKI = False
+    get_ski = None
+
 if TYPE_CHECKING:
     from src.models.knowledge_tracing import KnowledgeTracker, StudentModel
 
@@ -163,13 +171,45 @@ class TaskGeneratorAgent(BaseAgent):
         """
         skills = skills or []
         student_level = student_level or {}
-        
+
+        # Try template-based generation first
+        template_task = self._generate_from_template(topic, difficulty)
+        if template_task is not None:
+            self._log_action("template_task_generated", {"task_id": template_task.id})
+            return template_task
+
+        # Build method context from SKI
+        method_context = ""
+        notation_context = ""
+        if HAS_SKI:
+            try:
+                ski = get_ski()
+                methods = ski.get_solution_methods(topic)
+                if methods:
+                    lines = ["## МЕТОДЫ РЕШЕНИЯ (из учебника):"]
+                    for m in methods[:3]:
+                        lines.append(f"- **{m.get('name', '')}**: {m.get('when_to_use', '')}")
+                        for step in m.get("steps", [])[:4]:
+                            lines.append(f"  {step.get('step', '')}: {step.get('action', '')}")
+                    method_context = "\n".join(lines)
+
+                notation = ski.get_notation_context(topic)
+                if notation:
+                    lines = ["## НОТАЦИЯ (используй эти обозначения):"]
+                    for sym, desc in notation.items():
+                        lines.append(f"- {sym}: {desc}")
+                    notation_context = "\n".join(lines)
+            except Exception as e:
+                logger.debug(f"SKI context retrieval skipped: {e}")
+
         prompt = TASK_GENERATOR_PROMPT.format(
             subject=subject.value,
             topic=topic,
             difficulty=difficulty.value,
             skills=", ".join(skills) if skills else "appropriate for topic",
-            num_steps=self._get_steps_for_difficulty(difficulty)
+            num_steps=self._get_steps_for_difficulty(difficulty),
+            method_context=method_context,
+            notation_context=notation_context,
         )
         
         self._log_action("generating_task", {
@@ -243,6 +283,141 @@ class TaskGeneratorAgent(BaseAgent):
         
         return tasks
     
+    # ── Template-based task generation ─────────────────────────────
+
+    def _generate_from_template(
+        self, topic: str, difficulty: Difficulty
+    ) -> Optional[Task]:
+        """
+        Try to generate a task from a problem template.
+        Returns None if no template available or sampling fails.
+        """
+        if not HAS_SKI:
+            return None
+
+        try:
+            ski = get_ski()
+            templates = ski.get_problem_templates(topic, difficulty=difficulty.value)
+            if not templates:
+                return None
+
+            template = random.choice(templates)
+            params = self._sample_template_params(template)
+            if params is None:
+                return None
+
+            # Fill pattern with sampled params
+            problem = template["pattern"].format(**params)
+            answer = template.get("answer_template", "").format(**params)
+
+            # Build solution from linked method
+            solution = ""
+            method_id = template.get("solution_method_id")
+            if method_id:
+                methods = ski.get_solution_methods(topic, method_id=method_id)
+                if methods:
+                    m = methods[0]
+                    steps = []
+                    for s in m.get("steps", []):
+                        step_text = f"{s.get('step', '')}: {s.get('action', '')}"
+                        if s.get("formula"):
+                            step_text += f" → {s['formula']}"
+                        steps.append(step_text)
+                    solution = "\n".join(steps)
+
+            return Task(
+                id=str(uuid.uuid4()),
+                subject=Subject.MATH,
+                topic=topic,
+                difficulty=difficulty,
+                skills=[topic],
+                problem=problem,
+                solution=solution,
+                answer=answer,
+                hints=template.get("hints", [])[:3],
+                common_mistakes=[],
+                estimated_time_minutes=self._estimate_time(difficulty),
+            )
+        except Exception as e:
+            logger.debug(f"Template generation failed: {e}")
+            return None
+
+    def _sample_template_params(
+        self, template: Dict[str, Any], max_retries: int = 20
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Sample random parameters from template ranges, respecting constraints.
+        Returns None if no valid sample found after max_retries.
+        """
+        param_specs = template.get("parameters", {})
+        constraints = template.get("constraints", [])
+
+        for _ in range(max_retries):
+            params: Dict[str, Any] = {}
+            valid = True
+
+            for name, spec in param_specs.items():
+                ptype = spec.get("type", "int")
+                prange = spec.get("range", [1, 10])
+                exclude = set(spec.get("exclude", []))
+
+                if ptype == "int":
+                    val = random.randint(prange[0], prange[1])
+                    while val in exclude and prange[1] - prange[0] > len(exclude):
+                        val = random.randint(prange[0], prange[1])
+                    if val in exclude:
+                        valid = False
+                        break
+                elif ptype == "float":
+                    val = round(random.uniform(prange[0], prange[1]), 2)
+                else:
+                    val = random.randint(prange[0], prange[1])
+
+                params[name] = val
+
+            if not valid:
+                continue
+
+            # Compute derived params
+            params = self._compute_derived_params(template, params)
+
+            # Check constraints
+            if self._check_constraints(constraints, params):
+                return params
+
+        return None
+
+    def _compute_derived_params(
+        self, template: Dict[str, Any], params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Evaluate derived_params expressions (e.g. 'D': 'b*b - 4*a*c')."""
+        derived = template.get("derived_params", {})
+        safe_ns = {"__builtins__": {}, "abs": abs, "round": round}
+        safe_ns.update(params)
+
+        for name, expr in derived.items():
+            try:
+                params[name] = eval(expr, safe_ns)  # noqa: S307
+                safe_ns[name] = params[name]
+            except Exception:
+                pass
+        return params
+
+    @staticmethod
+    def _check_constraints(
+        constraints: List[str], params: Dict[str, Any]
+    ) -> bool:
+        """Check all constraint expressions evaluate to True."""
+        safe_ns = {"__builtins__": {}, "abs": abs, "round": round}
+        safe_ns.update(params)
+        for expr in constraints:
+            try:
+                if not eval(expr, safe_ns):  # noqa: S307
+                    return False
+            except Exception:
+                return False
+        return True
+
     def _get_steps_for_difficulty(self, difficulty: Difficulty) -> int:
         """Get expected solution steps for difficulty."""
         return {

@@ -1,0 +1,130 @@
+{
+  "stage": "base",
+  "mode": "local",
+  "adapter_source": "qwen3:4b-instruct",
+  "evaluated_at": "2026-02-15T11:36:23.543830",
+  "results": {
+    "overall_accuracy": 0.5509259259259259,
+    "total_problems": 216,
+    "total_correct": 119,
+    "errors": 2,
+    "per_domain": {
+      "physics": {
+        "accuracy": 0.7441860465116279,
+        "correct": 32,
+        "total": 43
+      },
+      "math": {
+        "accuracy": 0.7906976744186046,
+        "correct": 34,
+        "total": 43
+      },
+      "cs": {
+        "accuracy": 0.46511627906976744,
+        "correct": 20,
+        "total": 43
+      },
+      "chemistry": {
+        "accuracy": 0.4666666666666667,
+        "correct": 21,
+        "total": 45
+      },
+      "biology": {
+        "accuracy": 0.2857142857142857,
+        "correct": 12,
+        "total": 42
+      }
+    },
+    "per_difficulty": {
+      "hard": {
+        "accuracy": 0.2962962962962963,
+        "correct": 16,
+        "total": 54
+      },
+      "easy": {
+        "accuracy": 0.7142857142857143,
+        "correct": 60,
+        "total": 84
+      },
+      "medium": {
+        "accuracy": 0.5512820512820513,
+        "correct": 43,
+        "total": 78
+      }
+    },
+    "avg_completion_tokens": 202.8287037037037,
+    "elapsed_seconds": 1664.573742389679,
+    "sample_completions": [
+      {
+        "prompt": "На безграничной гладкой горизонтальной поверхности находится блок массой 5 кг. Блок толкает сила 10 ",
+        "domain": "physics",
+        "truth": "1.56",
+        "extracted": "9.8",
+        "correct": false
+      },
+      {
+        "prompt": "На столе лежат три шарика одинаковой массы $m$, которые соединены невесомыми нитями. Шарик $A$ движе",
+        "domain": "physics",
+        "truth": "$v_0$",
+        "extracted": "v_0",
+        "correct": true
+      },
+      {
+        "prompt": "Длина волны равна 2 метра, а частота равна 50 Гц. Какова скорость этой волны?",
+        "domain": "physics",
+        "truth": "100",
+        "extracted": "100",
+        "correct": true
+      },
+      {
+        "prompt": "В школе 15 учеников. Из них необходимо выбрать 3 человек для участия в математической олимпиаде. Ско",
+        "domain": "math",
+        "truth": "455",
+        "extracted": "455",
+        "correct": true
+      },
+      {
+        "prompt": "Переведите число 12 из десятичной системы счисления в двоичную систему счисления.",
+        "domain": "cs",
+        "truth": "1100",
+        "extracted": "1100",
+        "correct": true
+      },
+      {
+        "prompt": "При сгорании 1 моля этана (C2H6) в кислороде выделяется 1559,7 кДж энергии. Запишите сбалансированно",
+        "domain": "chemistry",
+        "truth": "5454.95",
+        "extracted": "2\\text{C",
+        "correct": false
+      },
+      {
+        "prompt": "В ходе окислительно-восстановительной реакции 2 моля перманганата калия (KMnO4) реагируют с 3 молями",
+        "domain": "chemistry",
+        "truth": "2",
+        "extracted": "2",
+        "correct": true
+      },
+      {
+        "prompt": "Найдите производную функции f(x) = 3x^2 * sin(x) с помощью правила произведения.",
+        "domain": "math",
+        "truth": "\\frac{d}{dx}(3x^2\\sin(x)) = 6x\\sin(x) + 3x^2\\cos(x)",
+        "extracted": "f'(x) = 6x \\sin(x) + 3x^2 \\cos(x)",
+        "correct": true
+      },
+      {
+        "prompt": "Как называется структура данных, которая следует принципу \"последний вошёл — первый вышел\"?",
+        "domain": "cs",
+        "truth": "стек",
+        "extracted": "\\text{стек",
+        "correct": false
+      },
+      {
+        "prompt": "Два объекта движутся навстречу друг другу. Первый объект имеет массу 2 кг и скорость 4 м/с, второй о",
+        "domain": "physics",
+        "truth": "2",
+        "extracted": "0.5",
+        "correct": false
+      }
+    ]
+  }
+}

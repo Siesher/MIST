@@ -18,6 +18,10 @@ class ToolType(Enum):
     CALCULATOR = "calculator"
     WEB_SEARCH = "web_search"
     KNOWLEDGE_SEARCH = "knowledge_search"
+    CONCEPT_LOOKUP = "concept_lookup"
+    WORKED_EXAMPLE = "worked_example"
+    FORMULA_LOOKUP = "formula_lookup"
+    PREREQUISITES = "prerequisites"
 
 
 @dataclass
@@ -105,6 +109,19 @@ def register_default_tools():
     tool_registry.register(CalculatorTool())
     tool_registry.register(WebSearchTool())
     tool_registry.register(KnowledgeSearchTool())
+
+    # SKI-based tools (graceful — skip if knowledge base not available)
+    try:
+        from src.tools.ski_tool_adapters import (
+            ConceptLookupTool, WorkedExampleTool,
+            FormulaTool, PrerequisitesTool,
+        )
+        tool_registry.register(ConceptLookupTool())
+        tool_registry.register(WorkedExampleTool())
+        tool_registry.register(FormulaTool())
+        tool_registry.register(PrerequisitesTool())
+    except Exception:
+        pass  # SKI tools are optional
 
 
 # Auto-register tools on import (lazy)

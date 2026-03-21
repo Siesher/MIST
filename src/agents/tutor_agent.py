@@ -75,6 +75,15 @@ except ImportError:
     ToolResult = None
     ToolType = None
 
+# Native SKI tool calling
+try:
+    from src.tools.ski_tools import SKI_TOOL_DEFINITIONS, SKI_FUNCTIONS
+    HAS_SKI_TOOLS = True
+except ImportError:
+    HAS_SKI_TOOLS = False
+    SKI_TOOL_DEFINITIONS = []
+    SKI_FUNCTIONS = {}
+
 if TYPE_CHECKING:
     from src.memory.session_memory import SessionMemory
 
@@ -181,6 +190,11 @@ class SocraticTutorAgent(BaseAgent):
             except Exception as e:
                 logger.warning(f"Не удалось зарегистрировать инструменты: {e}")
                 self.use_tools = False
+
+        # Native SKI tool calling via Ollama Tools API
+        self.use_native_tools = HAS_SKI_TOOLS
+        self._ski_tool_defs = SKI_TOOL_DEFINITIONS if HAS_SKI_TOOLS else []
+        self._ski_functions = SKI_FUNCTIONS if HAS_SKI_TOOLS else {}
 
         # === Innovation Features (009) ===
 
@@ -415,6 +429,113 @@ class SocraticTutorAgent(BaseAgent):
 
         return response
 
+    def _generate_with_native_tools(
+        self,
+        session: TutoringSession,
+        student_message: str,
+        strategy: str,
+        rag_context: Optional[Any] = None,
+        few_shot_prompt: str = "",
+    ) -> Optional[TutorResponse]:
+        """
+        LLM-driven tool calling via Ollama Tools API.
+
+        The model decides which SKI tools to call based on the conversation.
+        Returns None on failure so caller can fallback to classic flow.
+        """
+        if not self.use_native_tools or not self._ski_tool_defs:
+            return None
+
+        # Build messages for tool-calling conversation
+        history_turns = session.conversation[-8:]
+        messages = [
+            {"role": "system", "content": SOCRATIC_TUTOR_SYSTEM},
+        ]
+
+        # Add few-shot examples if available
+        if few_shot_prompt:
+            messages[0]["content"] += "\n\n" + few_shot_prompt
+
+        # Add notation context from SKI
+        try:
+            from src.knowledge.ski import get_ski as _get_ski_instance
+            _ski = _get_ski_instance()
+            _topic = session.task.topic if session.task and hasattr(session.task, 'topic') else None
+            if _topic:
+                _notation = _ski.get_notation_context(_topic)
+                if _notation:
+                    _lines = ["\n## НОТАЦИЯ (используй эти обозначения):"]
+                    for _sym, _desc in _notation.items():
+                        _lines.append(f"- {_sym}: {_desc}")
+                    messages[0]["content"] += "\n".join(_lines)
+        except Exception:
+            pass
+
+        # Add task context as system info
+        if session.task:
+            task_context = (
+                f"\n\n## ТЕКУЩАЯ ЗАДАЧА (для тебя, НЕ раскрывай ответ!):\n"
+                f"Условие: {session.task.problem}\n"
+                f"Рекомендуемая стратегия: {strategy}\n"
+                f"Подсказок использовано: {session.hints_used}"
+            )
+            messages[0]["content"] += task_context
+
+        # Add conversation history
+        for turn in history_turns:
+            messages.append({
+                "role": "user" if turn.role == "student" else "assistant",
+                "content": turn.content,
+            })
+
+        # Add current student message
+        messages.append({"role": "user", "content": student_message})
+
+        try:
+            result = self.llm.chat_with_tools(
+                messages=messages,
+                tools=self._ski_tool_defs,
+                available_functions=self._ski_functions,
+                max_tool_rounds=3,
+            )
+
+            content = result.get("content", "")
+            if not content:
+                return None
+
+            # Try to parse as JSON (structured response)
+            try:
+                response_data = json.loads(content)
+                tool_info = ""
+                if result.get("tool_calls_made"):
+                    tool_names = [tc["function"] for tc in result["tool_calls_made"]]
+                    tool_info = f" | Tools used: {', '.join(tool_names)}"
+
+                return TutorResponse(
+                    move=TutorMove(response_data.get("move", strategy)),
+                    message=response_data["message"],
+                    internal_reasoning=response_data.get("reasoning", "") + tool_info,
+                    hint_number=session.hints_used + 1 if strategy == "hint" else None,
+                    is_telling=response_data.get("move") == "tell",
+                )
+            except (json.JSONDecodeError, KeyError):
+                # Model returned plain text — wrap it
+                tool_info = ""
+                if result.get("tool_calls_made"):
+                    tool_names = [tc["function"] for tc in result["tool_calls_made"]]
+                    tool_info = f"Tools used: {', '.join(tool_names)}"
+
+                return TutorResponse(
+                    move=TutorMove.SCAFFOLDING,
+                    message=content,
+                    internal_reasoning=f"Native tool response (plain text). {tool_info}",
+                    is_telling=False,
+                )
+
+        except Exception as e:
+            logger.warning("Native tool calling failed, will fallback: %s", e)
+            return None
+
     def _generate_classic(
         self,
         session: TutoringSession,
@@ -468,6 +589,18 @@ class SocraticTutorAgent(BaseAgent):
             "strategy": strategy,
             "situation": situation
         })
+
+        # 2.5. Try native tool calling first (LLM decides what to look up)
+        if self.use_native_tools:
+            native_response = self._generate_with_native_tools(
+                session, student_message, strategy
+            )
+            if native_response:
+                # Safety check
+                if self._is_revealing_answer(native_response.message, session.task):
+                    logger.warning("answer_leak_in_tool_response")
+                    native_response = self._sanitize_response(native_response, session.task)
+                return native_response
 
         # 3. Получаем RAG контекст (если доступен)
         rag_context = None
@@ -1046,6 +1179,10 @@ class SocraticTutorAgent(BaseAgent):
             else:
                 return "tell"  # ⚠️ Last resort
         
+        # Student used wrong method (answer correct but method wrong)
+        if situation.get("error_type") == "wrong_method":
+            return "rectify"
+
         # Student made an error
         if situation.get("student_state") == "made_error":
             return "rectify"
@@ -1111,11 +1248,49 @@ class SocraticTutorAgent(BaseAgent):
 
         mistakes_str = "\n".join(mistakes_list) if mistakes_list else "None specified."
 
+        # Notation context from SKI
+        notation_text = ""
+        try:
+            from src.knowledge.ski import get_ski
+            ski = get_ski()
+            topic = session.task.topic if hasattr(session.task, 'topic') else None
+            if topic:
+                notation = ski.get_notation_context(topic)
+                if notation:
+                    lines = ["## НОТАЦИЯ (используй эти обозначения):"]
+                    for sym, desc in notation.items():
+                        lines.append(f"- {sym}: {desc}")
+                    notation_text = "\n".join(lines)
+        except Exception as e:
+            logger.debug(f"Notation retrieval skipped: {e}")
+
+        # Dynamic few-shot examples
+        few_shot_text = ""
+        try:
+            from src.knowledge.few_shot_bank import get_few_shot_bank
+            bank = get_few_shot_bank()
+            topic = session.task.topic if hasattr(session.task, 'topic') else None
+            skill = None
+            if hasattr(session.task, 'skills') and session.task.skills:
+                skill = session.task.skills[0]
+            examples = bank.retrieve_structured(
+                topic=topic,
+                difficulty=session.task.difficulty if hasattr(session.task, 'difficulty') else None,
+                skill=skill,
+                limit=2,
+            )
+            if examples:
+                few_shot_text = bank.format_for_prompt(examples)
+        except Exception as e:
+            logger.debug(f"Few-shot retrieval skipped: {e}")
+
         prompt = TUTOR_RESPONSE_PROMPT.format(
             problem=session.task.problem,
             solution=session.task.solution,
             answer=session.task.answer,
             common_mistakes=mistakes_str,
+            few_shot_examples=few_shot_text,
+            notation_context=notation_text,
             conversation_history=history,
             student_message=student_message,
             attempts=session.attempts,

@@ -1,54 +1,74 @@
-﻿# MITS Development Guidelines
+# MITS Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-01-30
+Last updated: 2026-03-05
 
 ## Active Technologies
-- Python 3.11+ + Gradio 4.x, Ollama, ChromaDB, sentence-transformers, Unsloth, TRL, bitsandbytes (001-its-integration)
-- ChromaDB (vectors), JSON/SQLite (profiles), in-memory (sessions) (001-its-integration)
-- Python 3.11+ + Ollama 0.14.3+, ollama-python, Gradio 4.x, pydantic-settings (002-glm-model-integration)
-- SQLite (metrics), JSON (config) (002-glm-model-integration)
-- Google Drive (checkpoints), local filesystem (GGUF) (003-glm-math-pruning)
-- Python 3.11+ + Ollama, huggingface_hub, requests (005-glm-stem-integration)
-- Файловая система (GGUF файлы ~13-21GB) (005-glm-stem-integration)
-- Python 3.11+ + Ollama, Gradio 4.x, ChromaDB, sentence-transformers, pydantic, structlog, LangChain (006-mits-system-completion)
-- SQLite (student profiles, metrics), ChromaDB (RAG vectors), JSON (configs, task banks) (006-mits-system-completion)
-- Python 3.11+ (Gradio backend), CSS3, JavaScript ES6 + Gradio 4.x, custom CSS themes (008-claude-ui-redesign)
-- localStorage (user preferences), existing SQLite (session data) (008-claude-ui-redesign)
-- Python 3.11+ + Gradio 4.x, Ollama, SymPy, sentence-transformers, ChromaDB, pydantic (009-groundbreaking-innovations)
-- SQLite (student profiles), ChromaDB (vectors), JSON (configs) (009-groundbreaking-innovations)
-- Python 3.11+ + Ollama, Gradio 4.x, ChromaDB, sentence-transformers, pydantic, structlog, SQLite (010-performance-optimization)
-- SQLite (metrics, sessions), ChromaDB (vectors), JSON (configs, knowledge base) (010-performance-optimization)
-- Python 3.11+ (backend), TypeScript 5.x (frontend) (011-nextjs-ui-migration)
-- SQLite (existing), browser localStorage (preferences) (011-nextjs-ui-migration)
-- Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, Next.js 14, Zustand, Ollama (012-chat-modes)
-- In-memory sessions (StoredSession dataclass), SQLite for persistence (012-chat-modes)
-- Python 3.11+ (backend), TypeScript 5.x (frontend) + PyTorch, Transformers, Unsloth, PEFT, Colab Pro+ (013-comprehensive-improvements)
-- SQLite (sessions, auth), Docker, WeasyPrint (PDF export) (013-comprehensive-improvements)
-- Python 3.11+ (backend, ML), TypeScript 5.x (frontend) + FastAPI, Next.js 14, PyTorch, Transformers, Unsloth, PEFT, TRL, SQLAlchemy, Recharts (013-comprehensive-improvements)
-- SQLite (sessions, auth, analytics), filesystem (model weights, training data) (013-comprehensive-improvements)
-- Python 3.11+ (Jupyter notebooks on Google Colab) + Unsloth, TRL (GRPOTrainer, DPOTrainer, SFTTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy (014-advanced-training-pipeline)
-- Google Drive (checkpoints), HuggingFace Hub (datasets, adapters), local filesystem (014-advanced-training-pipeline)
+
+### Frontend
+- Next.js 14, TypeScript 5.x, Tailwind CSS, shadcn/ui, Zustand
+
+### Backend
+- Python 3.11+, FastAPI, SQLAlchemy, SQLite, Alembic, JWT (PyJWT + Argon2)
+
+### Core Logic
+- Python 3.11+, Ollama, ChromaDB, sentence-transformers, SymPy, pydantic, structlog
+
+### ML Training (Google Colab A100 80GB)
+- Unsloth, TRL (GRPOTrainer, KTOTrainer, DPOTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy
+- Google Drive (checkpoints), HuggingFace Hub (datasets, adapters)
+
+### Evaluation
+- evaluate_stage.py (per-stage model evaluation)
+- build_eval_benchmark.py (3678-problem benchmark from MGSM + ruMMLU + custom)
+- verify_answers.py (SymPy/ChemPy verification)
 
 ## Project Structure
 
 ```text
-src/
-tests/
+frontend/          # Next.js 14 UI
+backend/           # FastAPI backend
+src/               # Core Python agents + models
+training/          # ML pipeline scripts + configs + data
+notebooks/         # Colab training notebooks (GSPO, KTO, DPO)
+evaluation/        # Model evaluation reports + benchmarks
+data/              # Knowledge bases (RAG, skill graph, tasks)
+docs/              # Documentation
+specs/             # Feature specifications (001-014)
+tests/             # Unit & integration tests
 ```
 
 ## Commands
 
+```bash
 cd src; pytest; ruff check .
+```
 
 ## Code Style
 
 Python 3.11+: Follow standard conventions
 
-## Recent Changes
-- 014-advanced-training-pipeline: Added Python 3.11+ (Jupyter notebooks on Google Colab) + Unsloth, TRL (GRPOTrainer, DPOTrainer, SFTTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy
-- 013-comprehensive-improvements: Added Python 3.11+ (backend, ML), TypeScript 5.x (frontend) + FastAPI, Next.js 14, PyTorch, Transformers, Unsloth, PEFT, TRL, SQLAlchemy, Recharts
-- 013-comprehensive-improvements: ML training (QLoRA, DKT, RuBERT), evaluation pipeline, analytics dashboard, Docker, JWT auth, session persistence
+## Training Pipeline
 
+3-stage RL pipeline (SFT removed — Instruct base; RAFT++ replaced by KTO):
+
+```
+Qwen3.5-9B → GSPO (triple reward) → KTO (Socratic alignment) → DPO (polish)
+```
+
+| Stage | Notebook | HF Repo | Key Technique |
+|-------|----------|---------|---------------|
+| GSPO | grpo_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-gspo | Triple GDPO reward (correctness + format + Socratic) |
+| KTO | kto_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-kto | Kahneman-Tversky Optimization (arXiv 2402.01306) |
+| DPO | dpo_polish_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-final | Final alignment polish |
+
+## Recent Changes
+- 016: Triple GDPO reward (correctness + format + Socratic), KTO replaces RAFT++
+- 015: Migrated to Qwen3.5-9B, A100 80GB bf16, 3-stage pipeline (removed AdaSTaR)
+- 014: Removed SFT from pipeline (Instruct model has dialogue abilities built-in)
+- 014: Added 4-stage RL pipeline (GSPO → RAFT++ → AdaSTaR → DPO)
+- 014: Added evaluation infrastructure (3678-problem benchmark, per-stage reports)
+- 013: Next.js 14 + FastAPI migration, JWT auth, session persistence
+- 013: ML training (QLoRA, DKT, RuBERT), analytics dashboard, Docker
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
