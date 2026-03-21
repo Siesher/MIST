@@ -215,11 +215,17 @@ class VerificationResult(BaseModel):
 
     # Error analysis
     has_error: bool = False
-    error_type: Optional[str] = None  # "arithmetic", "conceptual", "notation"
+    error_type: Optional[str] = None  # "arithmetic", "conceptual", "notation", "wrong_method"
     error_location: Optional[str] = None
 
     # Feedback
     feedback: Optional[str] = None
+
+    # Method verification
+    method_used: Optional[str] = None           # detected method
+    expected_method: Optional[str] = None        # from task/card
+    method_correct: Optional[bool] = None        # None = not checked
+    method_feedback: Optional[str] = None        # e.g. "Попробуй через дискриминант"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

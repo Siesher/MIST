@@ -1,0 +1,15 @@
+FROM C:\Work\MITS\training\models\mits-hf
+
+# Enable Qwen3.5 thinking support (RENDERER/PARSER)
+RENDERER qwen3.5
+PARSER qwen3.5
+
+# Match official qwen3.5:9b parameters
+PARAMETER temperature 1
+PARAMETER top_p 0.95
+PARAMETER top_k 20
+PARAMETER presence_penalty 1.5
+PARAMETER num_ctx 4096
+PARAMETER num_predict 2048
+PARAMETER stop <|im_end|>
+PARAMETER stop <|endoftext|>

@@ -290,7 +290,7 @@
       "solution_code": "s = input().lower()\nvowels = set('aeiou')\nprint(sum(1 for c in s if c in vowels))",
       "solution_explanation": "",
       "time_limit_sec": 2.0,
-      "attempts": 1,
+      "attempts": 0,
       "accepted": 0
     },
     {

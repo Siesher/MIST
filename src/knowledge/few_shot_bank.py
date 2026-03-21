@@ -43,6 +43,8 @@ class FewShotExample:
     tutor_response: str
     tags: List[str] = field(default_factory=list)
     embedding: Optional[Any] = None
+    skill: str = ""               # matches skill_graph keys, e.g. "calculus.derivatives"
+    student_level: str = ""       # "beginner", "intermediate", "advanced"
 
     def to_prompt_format(self, include_tags: bool = False) -> str:
         """Format example for prompt inclusion."""
@@ -110,6 +112,8 @@ class FewShotBank:
                         student_input=item.get("student_input", ""),
                         tutor_response=item.get("tutor_response", ""),
                         tags=item.get("tags", []),
+                        skill=item.get("skill", ""),
+                        student_level=item.get("student_level", ""),
                     )
                     examples.append(example)
                     self._all_examples.append(example)
@@ -177,6 +181,69 @@ class FewShotBank:
             examples = [e for e in examples if e.difficulty == difficulty]
 
         return examples[:limit]
+
+    def retrieve_structured(
+        self,
+        topic: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        skill: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        limit: int = 3,
+    ) -> List[FewShotExample]:
+        """
+        Structured scoring retrieval (no embeddings needed).
+
+        Scoring: topic match (+3), skill match (+2), difficulty match (+1),
+        each tag match (+1).
+
+        Args:
+            topic: Topic to match (e.g., "derivatives")
+            difficulty: Difficulty filter
+            skill: Skill graph key (e.g., "calculus.derivatives")
+            tags: Tags to boost matching
+            limit: Maximum examples to return
+
+        Returns:
+            Sorted list of best-matching examples
+        """
+        scored: List[tuple] = []
+        tags_lower = [t.lower() for t in (tags or [])]
+
+        for example in self._all_examples:
+            score = 0
+
+            # Topic match (+3)
+            if topic:
+                topic_lower = topic.lower()
+                if topic_lower == example.topic.lower():
+                    score += 3
+                elif topic_lower in example.topic.lower() or example.topic.lower() in topic_lower:
+                    score += 2
+
+            # Skill match (+2)
+            if skill and example.skill:
+                skill_lower = skill.lower()
+                if skill_lower == example.skill.lower():
+                    score += 2
+                elif skill_lower in example.skill.lower():
+                    score += 1
+
+            # Difficulty match (+1)
+            if difficulty and example.difficulty == difficulty:
+                score += 1
+
+            # Tag matches (+1 each)
+            if tags_lower:
+                example_tags_lower = [t.lower() for t in example.tags]
+                for tag in tags_lower:
+                    if tag in example_tags_lower:
+                        score += 1
+
+            if score > 0:
+                scored.append((example, score))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [ex for ex, _ in scored[:limit]]
 
     def retrieve_similar(
         self,
@@ -303,6 +370,8 @@ class FewShotBank:
                     "student_input": ex.student_input,
                     "tutor_response": ex.tutor_response,
                     "tags": ex.tags,
+                    "skill": ex.skill,
+                    "student_level": ex.student_level,
                 }
                 for ex in self._examples[topic]
             ]

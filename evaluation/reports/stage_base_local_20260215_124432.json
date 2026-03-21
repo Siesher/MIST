@@ -1,0 +1,17 @@
+{
+  "stage": "base",
+  "mode": "local",
+  "adapter_source": "qwen3:4b",
+  "evaluated_at": "2026-02-15T12:44:32.503099",
+  "results": {
+    "overall_accuracy": 0,
+    "total_problems": 0,
+    "total_correct": 0,
+    "errors": 200,
+    "per_domain": {},
+    "per_difficulty": {},
+    "avg_completion_tokens": 0,
+    "elapsed_seconds": 410.72143602371216,
+    "sample_completions": []
+  }
+}

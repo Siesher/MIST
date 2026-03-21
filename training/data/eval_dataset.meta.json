@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-02-15T01:23:12.784386",
+  "total": 218,
+  "backend": "cerebras",
+  "model": "llama-3.3-70b",
+  "cross_validated": true,
+  "domain_counts": {
+    "physics": 44,
+    "math": 43,
+    "cs": 43,
+    "chemistry": 46,
+    "biology": 42
+  },
+  "difficulty_counts": {
+    "hard": 54,
+    "easy": 85,
+    "medium": 79
+  }
+}

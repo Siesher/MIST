@@ -8,9 +8,9 @@ Usage:
     # On Colab (with Unsloth):
     python training/scripts/export_gguf_qwen3.py \
         --model-size 4b \
-        --adapter-path /content/drive/MyDrive/MITS/adapters/qwen3-4b-sft-simpo-grpo \
+        --adapter-path /content/drive/MyDrive/MITS/adapters/qwen3-4b-final \
         --output-dir /content/drive/MyDrive/MITS/gguf/ \
-        --quantizations q4_k_m q5_k_m q8_0
+        --quantizations q4_k_m q8_0
 
     # Verify exported GGUF:
     python training/scripts/export_gguf_qwen3.py \
@@ -30,14 +30,14 @@ logger = logging.getLogger(__name__)
 # Model configurations
 MODEL_CONFIGS = {
     "4b": {
-        "base_model": "unsloth/Qwen3-4B",
+        "base_model": "unsloth/Qwen3-4B-Instruct-2507",
         "ollama_name": "mits-tutor-qwen3-4b",
-        "hf_repo": "Siesher/mits-tutor-qwen3-4b",
+        "hf_repo": "Siesher/mits-qwen3-4b-final",
     },
-    "1.7b": {
-        "base_model": "unsloth/Qwen3-1.7B",
-        "ollama_name": "mits-tutor-qwen3-1.7b",
-        "hf_repo": "Siesher/mits-tutor-qwen3-1.7b",
+    "9b": {
+        "base_model": "unsloth/Qwen3.5-9B",
+        "ollama_name": "mits-tutor-qwen3.5-9b",
+        "hf_repo": "Siesher/mits-qwen3-9b-final",
     },
 }
 
@@ -254,7 +254,7 @@ if __name__ == "__main__":
 
     # Export command
     export_parser = subparsers.add_parser("export", help="Export LoRA to GGUF")
-    export_parser.add_argument("--model-size", choices=["4b", "1.7b"], required=True)
+    export_parser.add_argument("--model-size", choices=["4b", "9b", "1.7b"], required=True)
     export_parser.add_argument("--adapter-path", required=True)
     export_parser.add_argument("--output-dir", required=True)
     export_parser.add_argument("--quantizations", nargs="+",
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     # Upload command
     upload_parser = subparsers.add_parser("upload", help="Upload to HuggingFace")
-    upload_parser.add_argument("--model-size", choices=["4b", "1.7b"], required=True)
+    upload_parser.add_argument("--model-size", choices=["4b", "9b", "1.7b"], required=True)
     upload_parser.add_argument("--adapter-path", required=True)
     upload_parser.add_argument("--gguf-dir", required=True)
     upload_parser.add_argument("--token", help="HuggingFace token")

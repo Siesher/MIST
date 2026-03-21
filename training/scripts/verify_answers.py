@@ -47,6 +47,29 @@ class VerificationResult:
 # Answer extraction
 # ---------------------------------------------------------------------------
 
+def _extract_all_boxed(text: str) -> list:
+    """Extract all \\boxed{...} contents, handling nested braces."""
+    results = []
+    search_from = 0
+    while True:
+        idx = text.find("\\boxed{", search_from)
+        if idx == -1:
+            break
+        start = idx + len("\\boxed{")
+        depth = 1
+        pos = start
+        while pos < len(text) and depth > 0:
+            if text[pos] == "{":
+                depth += 1
+            elif text[pos] == "}":
+                depth -= 1
+            pos += 1
+        if depth == 0:
+            results.append(text[start:pos - 1])
+        search_from = pos
+    return results
+
+
 def extract_answer(text: str) -> str:
     """Extract final answer from model completion.
 
@@ -61,8 +84,8 @@ def extract_answer(text: str) -> str:
     if "</think>" in text:
         text = text.split("</think>")[-1].strip()
 
-    # Try \\boxed{...}
-    boxed = re.findall(r'\\boxed\{([^}]+)\}', text)
+    # Try \\boxed{...} with nested brace support
+    boxed = _extract_all_boxed(text)
     if boxed:
         return boxed[-1].strip()
 
