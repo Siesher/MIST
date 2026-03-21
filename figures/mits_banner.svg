@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1035;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2d1b69;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1035;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#818CF8;stop-opacity:0" />
+      <stop offset="50%" style="stop-color:#C4B5FD;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#818CF8;stop-opacity:0" />
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#C4B5FD" />
+      <stop offset="50%" style="stop-color:#E9D5FF" />
+      <stop offset="100%" style="stop-color:#C4B5FD" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="300" fill="url(#bg)" rx="12"/>
+
+  <!-- Decorative particles -->
+  <circle cx="100" cy="80" r="2" fill="#C4B5FD" opacity="0.4"/>
+  <circle cx="200" cy="200" r="1.5" fill="#818CF8" opacity="0.3"/>
+  <circle cx="350" cy="50" r="1" fill="#E9D5FF" opacity="0.5"/>
+  <circle cx="500" cy="240" r="2" fill="#C4B5FD" opacity="0.3"/>
+  <circle cx="700" cy="70" r="1.5" fill="#818CF8" opacity="0.4"/>
+  <circle cx="850" cy="220" r="1" fill="#E9D5FF" opacity="0.3"/>
+  <circle cx="950" cy="100" r="2" fill="#C4B5FD" opacity="0.4"/>
+  <circle cx="1050" cy="180" r="1.5" fill="#818CF8" opacity="0.3"/>
+  <circle cx="1100" cy="60" r="1" fill="#E9D5FF" opacity="0.5"/>
+  <circle cx="150" cy="250" r="1" fill="#C4B5FD" opacity="0.3"/>
+  <circle cx="450" cy="130" r="1.5" fill="#818CF8" opacity="0.2"/>
+  <circle cx="600" cy="260" r="2" fill="#E9D5FF" opacity="0.3"/>
+  <circle cx="800" cy="150" r="1" fill="#C4B5FD" opacity="0.4"/>
+  <circle cx="1000" cy="250" r="1.5" fill="#818CF8" opacity="0.3"/>
+
+  <!-- Accent line -->
+  <rect x="0" y="280" width="1200" height="2" fill="url(#accent)"/>
+
+  <!-- Magic circle decoration (left) -->
+  <g transform="translate(150, 150)" opacity="0.15">
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#C4B5FD" stroke-width="0.5"/>
+    <circle cx="0" cy="0" r="45" fill="none" stroke="#818CF8" stroke-width="0.5"/>
+    <circle cx="0" cy="0" r="30" fill="none" stroke="#E9D5FF" stroke-width="0.5"/>
+    <!-- Hexagram -->
+    <polygon points="0,-40 34.6,20 -34.6,20" fill="none" stroke="#C4B5FD" stroke-width="0.5"/>
+    <polygon points="0,40 -34.6,-20 34.6,-20" fill="none" stroke="#C4B5FD" stroke-width="0.5"/>
+  </g>
+
+  <!-- Magic circle decoration (right) -->
+  <g transform="translate(1050, 150)" opacity="0.15">
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#C4B5FD" stroke-width="0.5"/>
+    <circle cx="0" cy="0" r="45" fill="none" stroke="#818CF8" stroke-width="0.5"/>
+    <circle cx="0" cy="0" r="30" fill="none" stroke="#E9D5FF" stroke-width="0.5"/>
+    <polygon points="0,-40 34.6,20 -34.6,20" fill="none" stroke="#C4B5FD" stroke-width="0.5"/>
+    <polygon points="0,40 -34.6,-20 34.6,-20" fill="none" stroke="#C4B5FD" stroke-width="0.5"/>
+  </g>
+
+  <!-- Crystal/spell icon -->
+  <g transform="translate(600, 85)" filter="url(#softGlow)">
+    <polygon points="0,-25 15,0 0,25 -15,0" fill="none" stroke="#C4B5FD" stroke-width="1.5" opacity="0.8"/>
+    <polygon points="0,-18 10,0 0,18 -10,0" fill="#C4B5FD" opacity="0.15"/>
+    <line x1="0" y1="-30" x2="0" y2="-38" stroke="#E9D5FF" stroke-width="1" opacity="0.6"/>
+    <line x1="20" y1="-15" x2="26" y2="-21" stroke="#E9D5FF" stroke-width="1" opacity="0.4"/>
+    <line x1="-20" y1="-15" x2="-26" y2="-21" stroke="#E9D5FF" stroke-width="1" opacity="0.4"/>
+  </g>
+
+  <!-- Main title -->
+  <text x="600" y="160" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="56" font-weight="300" fill="url(#textGrad)" letter-spacing="12" filter="url(#glow)">
+    M I T S
+  </text>
+
+  <!-- Subtitle -->
+  <text x="600" y="200" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="14" fill="#A78BFA" letter-spacing="4" opacity="0.8">
+    MATH  INTELLIGENT  TUTORING  SYSTEM
+  </text>
+
+  <!-- Tagline -->
+  <text x="600" y="240" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" fill="#818CF8" letter-spacing="2" opacity="0.5" font-style="italic">
+    Socratic Method  ·  Multi-Agent  ·  Reinforcement Learning
+  </text>
+</svg>
