@@ -93,3 +93,24 @@ next-env.d.ts
 # Backend
 backend/.env
 backend/venv/
+
+# Evaluation outputs (generated, regeneratable)
+evaluation/reports/*.json
+evaluation/completions/*.jsonl
+
+# Generated figures (regeneratable from scripts)
+figures/*.pdf
+figures/*.png
+figures/training_summary.tex
+
+# Model merge artifacts
+training/merged_*/
+
+# Claude session backups
+.claude/backups/
+
+# Knowledge cache files
+data/knowledge/textbooks/.cache_*
+
+# Ruff cache
+.ruff_cache/

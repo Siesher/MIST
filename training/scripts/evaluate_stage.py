@@ -155,22 +155,78 @@ def load_eval_dataset(path: str) -> List[Dict]:
     return problems
 
 
+def _clean_boxed(val: str) -> str:
+    """Clean boxed value: strip \\text{}, remove comma separators."""
+    # \text{...} or \text {...} -> contents
+    val = re.sub(r"\\text\s*\{([^}]*)\}", r"\1", val)
+    # Remove LaTeX formatting
+    val = val.replace("\\,", "").replace("\\;", "").replace("\\!", "")
+    # Remove units (руб, $, см, Дж, etc.) but keep the number
+    val = re.sub(r"\s*(?:руб|долл|\$|см|м|кг|Дж|л|г)\.?\s*$", "", val).strip()
+    # Remove comma thousand-separators: 276,000 -> 276000
+    val = re.sub(r"(\d),(\d{3})\b", r"\1\2", val)
+    val = re.sub(r"(\d),(\d{3})\b", r"\1\2", val)  # second pass for millions
+    return val.strip()
+
+
 def extract_answer(text: str) -> str:
     """Extract answer from model output."""
     # Strip thinking block
     if "</think>" in text:
         text = text.split("</think>")[-1].strip()
+    if not text:
+        return ""
     # Try \boxed{}
     boxed = re.findall(r"\\boxed\{([^}]+)\}", text)
     if boxed:
-        return boxed[-1].strip()
-    # Try "Ответ: X"
-    answer_match = re.search(r"(?:ответ|answer)\s*[:=]\s*(.+?)(?:\.|$)", text, re.IGNORECASE)
+        return _clean_boxed(boxed[-1])
+    # Try "Ответ: X" / "Ответ — X" / "Answer: X" (colon, equals, em-dash, hyphen)
+    # First try to extract just a letter/number after ответ marker
+    answer_letter = re.search(
+        r"(?:правильный\s+)?(?:ответ|answer)\s*[:=—–\-]\s*\*{0,2}\s*([A-DА-Гa-dа-г])\b",
+        text,
+        re.IGNORECASE,
+    )
+    if answer_letter:
+        return answer_letter.group(1).strip()
+    # Then try broader match for numeric/text answers
+    answer_match = re.search(
+        r"(?:правильный\s+)?(?:ответ|answer|вариант(?:\s+ответа)?)\s*[:=—–\-]\s*(.+?)(?:\.\s|$)",
+        text,
+        re.IGNORECASE,
+    )
     if answer_match:
         return answer_match.group(1).strip()
-    # Try last number
-    numbers = re.findall(r"[-+]?\d*\.?\d+", text)
-    return numbers[-1] if numbers else text.strip()[-50:]
+    # Try "вариант **X**" / "вариант X " pattern (last occurrence)
+    variant_match = re.findall(
+        r"вариант\s+\*{0,2}([A-DА-Гa-dа-г])\b",
+        text,
+        re.IGNORECASE,
+    )
+    if variant_match:
+        return variant_match[-1].strip()
+    # Try bold letter at end: **X** or **X. ... ** (common GSPO output pattern)
+    bold_match = re.findall(r"\*\*\s*([A-DА-Гa-dа-г])\s*[\.\)]?\s*[^*]*\*\*", text)
+    if bold_match:
+        return bold_match[-1].strip()
+    # Try standalone bold letter near end (last 300 chars)
+    tail = text[-300:] if len(text) > 300 else text
+    bold_tail = re.findall(r"\*\*([A-DА-Гa-dа-г])\*\*", tail)
+    if bold_tail:
+        return bold_tail[-1].strip()
+    # Try last number (strip comma separators first)
+    cleaned = re.sub(r"(\d),(\d{3})\b", r"\1\2", text)
+    numbers = re.findall(r"[-+]?\d*\.?\d+", cleaned)
+    return numbers[-1] if numbers else ""
+
+
+def _normalize_number(s: str) -> str:
+    """Normalize number string: remove comma separators, %, units."""
+    s = re.sub(r"(\d),(\d{3})\b", r"\1\2", s)  # 276,000 -> 276000
+    s = re.sub(r"(\d),(\d{3})\b", r"\1\2", s)  # second pass
+    s = re.sub(r"\\text\s*\{[^}]*\}", "", s)  # \text{...}
+    s = s.replace("\\,", "").replace("\\;", "")
+    return s.strip()
 
 
 def verify_answer(extracted: str, truth: str, domain: str, answer_type: str = "numeric") -> bool:
@@ -190,19 +246,38 @@ def verify_answer(extracted: str, truth: str, domain: str, answer_type: str = "n
 
     # MC letter match
     if answer_type == "mc_letter":
-        ext_letter = re.search(r"[a-dа-г]", extracted, re.IGNORECASE)
-        truth_letter = re.search(r"[a-dа-г]", truth, re.IGNORECASE)
-        if ext_letter and truth_letter:
-            return ext_letter.group(0).upper() == truth_letter.group(0).upper()
+        # Normalize Cyrillic АБВГ -> Latin ABCD for comparison
+        cyrillic_to_latin = str.maketrans("АБВГабвгАБВГ", "ABCDabcdABCD")
+
+        def find_mc_letter(s: str) -> str | None:
+            s_norm = s.translate(cyrillic_to_latin)
+            m = re.search(r"[a-d]", s_norm, re.IGNORECASE)
+            return m.group(0).upper() if m else None
+
+        ext_l = find_mc_letter(extracted)
+        truth_l = find_mc_letter(truth)
+        if ext_l and truth_l:
+            return ext_l == truth_l
         return False
+
+    # Normalize numbers
+    extracted_n = _normalize_number(extracted)
+    truth_n = _normalize_number(truth)
+
+    # Handle percentage vs fraction: 50% == 0.5, 25% == 0.25
+    def to_float_pct(s: str) -> float | None:
+        # Match both real % and escaped \%
+        m = re.search(r"([-+]?\d*\.?\d+)\s*\\?%", s)
+        if m:
+            return float(m.group(1)) / 100.0
+        nums = re.findall(r"[-+]?\d*\.?\d+", s)
+        return float(nums[-1]) if nums else None
 
     # Numeric comparison
     try:
-        ext_nums = re.findall(r"[-+]?\d*\.?\d+", extracted)
-        truth_nums = re.findall(r"[-+]?\d*\.?\d+", truth)
-        if ext_nums and truth_nums:
-            e = float(ext_nums[-1])
-            t = float(truth_nums[-1])
+        e = to_float_pct(extracted_n)
+        t = to_float_pct(truth_n)
+        if e is not None and t is not None:
             if abs(t) < 1e-10:
                 return abs(e - t) < 1e-6
             return abs(e - t) / max(abs(t), 1e-10) < 0.05
@@ -213,8 +288,8 @@ def verify_answer(extracted: str, truth: str, domain: str, answer_type: str = "n
     try:
         import sympy
 
-        pred = sympy.sympify(extracted)
-        gold = sympy.sympify(truth)
+        pred = sympy.sympify(extracted_n)
+        gold = sympy.sympify(truth_n)
         return sympy.simplify(pred - gold) == 0
     except Exception:
         pass
@@ -677,12 +752,12 @@ def _eval_single_problem(args):
                 "stream": False,
                 "options": {
                     "temperature": 0.0,
-                    "num_predict": 4096,
-                    "num_ctx": 8192,
+                    "num_predict": 8192,
+                    "num_ctx": 16384,
                 },
                 "think": True,
             },
-            timeout=180,
+            timeout=360,
         )
 
         if resp.status_code != 200:
@@ -799,7 +874,7 @@ def evaluate_local(
     logger.info(
         f"Evaluating {len(problems)} problems via Ollama ({model_name}), {num_workers} workers..."
     )
-    logger.info("  Options: num_predict=4096, num_ctx=8192, timeout=180s")
+    logger.info("  Options: num_predict=8192, num_ctx=16384, timeout=360s")
     start_time = time.time()
 
     import requests as _requests
@@ -1067,6 +1142,11 @@ def main():
         default="evaluation/completions",
         help="Directory for completion JSONL files",
     )
+    eval_parser.add_argument(
+        "--problem-file",
+        default="",
+        help="JSONL file with exact problems to evaluate (for paired comparison)",
+    )
 
     # Compare command
     cmp_parser = subparsers.add_parser("compare", help="Compare all stages")
@@ -1088,12 +1168,16 @@ def main():
         eval_data_path = str(_PROJECT_ROOT / "training" / "data" / "eval_benchmark.jsonl")
 
     # Load eval dataset
-    eval_problems = load_eval_dataset(eval_data_path)
+    if args.problem_file:
+        eval_problems = load_eval_dataset(args.problem_file)
+        logger.info(f"Loaded {len(eval_problems)} problems from --problem-file {args.problem_file}")
+    else:
+        eval_problems = load_eval_dataset(eval_data_path)
 
-    # Apply stratified sampling if requested
-    if args.stratified and args.max_samples > 0:
-        eval_problems = stratified_sample(eval_problems, args.max_samples)
-        logger.info(f"Stratified sample: {len(eval_problems)} problems selected")
+        # Apply stratified sampling if requested
+        if args.stratified and args.max_samples > 0:
+            eval_problems = stratified_sample(eval_problems, args.max_samples)
+            logger.info(f"Stratified sample: {len(eval_problems)} problems selected")
 
     # Auto-resolve adapter from stage name
     adapter_source = args.adapter or STAGE_HF_REPOS.get(args.stage, "")

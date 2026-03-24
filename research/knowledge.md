@@ -1,6 +1,6 @@
 # ML Research Agent Knowledge Base
 **Project**: MITS (Qwen3.5-9B GSPO/GRPO pipeline)
-**Last updated**: 2026-03-21
+**Last updated**: 2026-03-23
 
 ## TRL GRPOConfig: reward_weights
 
@@ -208,10 +208,17 @@ For MITS: standard inclusion is fine; DuP-PO is an enhancement worth implementin
 - LoRA less tolerant of large effective batch sizes: keep effective batch < 32 unique prompts/step
 - LR for LoRA ~10x higher than full fine-tuning (1/r scaling makes it rank-independent)
 
+**LoRA Safety Alignment (arXiv 2507.17075) -- KEY FINDING FOR STYLE/BEHAVIOR**:
+- r=1 is sufficient for safety/style behavior change in reasoning LLMs
+- "Safety behavior mediated by a single direction" -- behavior changes need minimal rank
+- r=1 best for behavior; full-rank risks interfering with existing reasoning weights
+- Implication: r=16 is MORE than sufficient for Socratic style alignment
+
 **Recommendation for 9B**: r=16 with lora_alpha=32
 - Lower rank = stronger regularizer = prevents policy drift (especially important with beta=0)
 - RL training more susceptible to forgetting than SFT
 - Increase to r=32 only if performance plateaus after 200+ steps
+- DO NOT use r=64: demonstrably underperforms r=16
 
 **BF16 collapse warning**: BF16 LoRA training collapses at ~600 steps. Use FP16 or mixed precision for LoRA weights.
 
@@ -244,6 +251,7 @@ If Socratic behavior degrades, increase to r=32 + add orthogonality regularizati
 2. **KL NaN bug**: `mask_truncated_completions=True` + high clipped_ratio = all completions masked = NaN KL (issue #3149)
 3. **VRAM growth over steps**: OOM after many steps in some configs (issue #3864)
 4. **gradient_accumulation_steps not counted**: In batch/num_generations divisibility check
+5. **TRL issue #3823**: GSPO loss incorrect with default `loss_type="bnpo"` when `importance_sampling_level="sequence"` and multi-step training. Check if using multi-step gradient accumulation with GSPO.
 
 **Mitigation**: Use standard TRL GRPOTrainer for training; use Unsloth only for model loading (Flash Attention, quantization).
 
@@ -489,3 +497,49 @@ This exacerbates the direct-answer training problem.
 - "Hidden Objective Biases" (arXiv:2601.05002): systematic gradient biases in group-based RL
 - DeepSeek-R1 (arXiv:2501.12948): cold-start SFT rationale, format prior necessity
 - MTL-LoRA (AAAI 2025): multi-task LoRA orthogonality requirements
+
+---
+
+## GSPO Training Failure Post-Mortem (2026-03-23)
+
+**Full analysis**: research/findings_gspo_failure_diagnosis_2026-03-23.md
+
+### Summary of verdict per failure cause
+
+| Cause | Verdict | Evidence |
+|---|---|---|
+| System prompt mismatch | CONFIRMED CRITICAL | Llama 2 Ghost Attention (2307.09288), InstructGPT (2203.02155) |
+| Reward weight imbalance | PARTIALLY CONFIRMED | MO-GRPO (2509.22047) variance theorem, GDPO (2601.05242) |
+| Beta=0.0 | CONFIRMED for tutor use case | DeepSeek-R1 uses 0.001, DAPO justification only for base-model math |
+| Rewards decreasing | CONFIRMED AS SYMPTOM | LLD death spiral (2512.04220), GTPO (2508.03772) |
+| LoRA r=16 too small | NOT CONFIRMED | r=1 sufficient for behavior (2507.17075), r=64 WORSE than r=16 (Tina) |
+| GRPO-specific issues | PARTIALLY RELEVANT | TRL issue #3823 (GSPO multi-step bug), group variance issue |
+
+### New papers discovered (2026-03-23)
+
+- **LLD Death Spiral** (arXiv 2512.04220): Mechanism for reward decrease in GRPO. Three phases: stagnation → steady decay → catastrophic collapse. Negative gradients from incorrect responses suppress correct response likelihood.
+- **GTPO** (arXiv 2508.03772): Policy collapse mechanism in GRPO -- entropy collapse in second half of training. GRPO performance drops sharply; GTPO fixes via gradient/entropy control.
+- **MO-GRPO** (arXiv 2509.22047): Multi-objective reward hacking. Theorem 1: advantage dominated by reward with highest variance, regardless of explicit weight. Proved empirically: readability dominated translation accuracy.
+- **Llama 2 Ghost Attention** (arXiv 2307.09288): System prompt must be included in every training rollout during RLHF to maintain instructional consistency. Zero-loss training on intermediate turns when synthetic data injected.
+- **"LoRA is All You Need for Safety Alignment"** (arXiv 2507.17075): r=1 optimal for style/behavior alignment. Behavior change mediated by single direction. Knowledge requires higher rank, behavior does not.
+- **TRL issue #3823**: GSPO loss computed incorrectly with default bnpo loss_type when using sequence-level IS + multi-step. Check TRL version.
+
+### Cold-start SFT necessity (DeepSeek-R1 evidence)
+
+DeepSeek-R1 Section 3.2: "without cold start, the model has no behavioral prior for the desired output format, and RL may not converge toward the target distribution." For Socratic style: Qwen3.5-9B Instruct has no trained prior for Socratic behavior. Run 200-300 SFT steps on dialogs.jsonl BEFORE GSPO.
+
+### GDPO weight threshold finding
+
+GDPO (arXiv 2601.05242): "reducing secondary weight to 0.25 has little impact on the primary objective." Threshold where secondary reward becomes effectively ignored: ~0.25. With GDPO normalization, 0.15 Socratic weight is slightly above this threshold but only marginally. Boost to 0.45 is well-justified.
+
+### Beta values across major papers
+
+| Paper | Beta | Context |
+|---|---|---|
+| DeepSeek-R1 Stage 1 | 0.001 | Math reasoning from base model |
+| DeepSeek-R1-Zero | 0.0 | Pure RL, suffers language mixing |
+| DAPO | 0.0 | Math from base model, explicitly justified |
+| GSPO | 0.0 | Math from base model, clipping as substitute |
+| TRL v0.15.2 default | 0.04 | Generic RLHF applications |
+| TRL v0.27+ default | 0.0 | Changed to follow DAPO/DeepSeek practice |
+| MITS recommendation | 0.04 | Socratic tutoring, instruction-following preservation |
