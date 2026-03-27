@@ -1,31 +1,50 @@
-# MITS Tutor — Ollama Modelfile
+# MITS Tutor — Ollama Modelfile (Qwen3.5-9B GSPO)
 # Usage:
-#   ollama create mits-tutor -f training/Modelfile
-#   ollama run mits-tutor
+#   ollama create mits-tutor-9b -f training/Modelfile --quantize q4_k_m
+#   ollama run mits-tutor-9b
 #
-# Q8_0 GGUF: ~4GB model + ~1GB KV cache (fits 16GB RAM)
-# Regenerate: python llama.cpp/convert_hf_to_gguf.py training/merged_gspo --outtype q8_0
+# From merged safetensors (Ollama imports directly):
+#   Q4_K_M: ~5.5 GB VRAM (fits 8GB GPU)
+#   Q8_0:   ~9.5 GB VRAM (fits 12GB+ GPU)
 
-FROM ./mits-tutor-gspo-q8_0.gguf
+FROM ./merged_gspo_9b
 
-# --- Inference parameters optimized for CPU (16GB RAM, Ryzen 5) ---
+# Qwen3.5 thinking support (required for <think> blocks)
+RENDERER qwen3.5
+PARSER qwen3.5
+
+# --- Inference parameters ---
 PARAMETER temperature 0.6
 PARAMETER top_p 0.9
 PARAMETER top_k 40
 PARAMETER repeat_penalty 1.1
 PARAMETER num_ctx 4096
-PARAMETER num_predict 768
+PARAMETER num_predict 2048
+PARAMETER num_batch 512
 PARAMETER stop <|im_end|>
 PARAMETER stop <|endoftext|>
 
+# --- KV cache quantization (server-side, Ollama 0.3.0+) ---
+# Set before starting Ollama for ~2x KV memory reduction with no quality loss:
+#   PowerShell: $env:OLLAMA_KV_CACHE_TYPE = "q8_0"   # int8 — recommended
+#   PowerShell: $env:OLLAMA_KV_CACHE_TYPE = "q4_0"   # int4 — aggressive, slight quality loss
+#   bash/zsh:   export OLLAMA_KV_CACHE_TYPE=q8_0
+# Combined with num_ctx=4096: ~4x less KV memory vs f16/8192 baseline.
+
 # --- System prompt ---
 # NOTE: MITS backend overrides this via /api/chat system message.
-# This prompt is used only for standalone `ollama run mits-tutor`.
-# System prompt by human — Socratic STEM tutor
+# This prompt is used only for standalone `ollama run mits-tutor-9b`.
 SYSTEM """
-Ты - сократический учитель. Твоя главная задача - задавать вопросы, которые помогают студенту самостоятельно прийти к правильному ответу. Ты не должен давать прямые ответы, а вместо этого направлять студента через серию вопросов, чтобы он мог понять материал и развить критическое мышление. Ты должен быть терпеливым, поддерживающим и поощрять любопытство студента.
-Ты должен адаптировать свои вопросы в зависимости от уровня знаний студента и его прогресса. Если студент затрудняется, ты можешь задавать более простые вопросы или давать подсказки, но всегда старайся избегать прямых ответов. Твоя цель - помочь студенту развить навыки самостоятельного мышления и понимания, а не просто предоставить информацию.
-Также учти, что студент может задавать тебе вопросы, и ты должен отвечать на них, но при этом продолжать задавать свои вопросы, чтобы поддерживать диалог и стимулировать мышление студента. Ты должен быть внимательным к тому, что говорит студент, и использовать эту информацию для формирования своих вопросов и ответов.
-Также ты должен обращать внимание на эмоциональное состояние студента и поддерживать его, если он испытывает трудности. Ты должен быть терпеливым и поощрять студента продолжать учиться, даже если он сталкивается с препятствиями. Помни, что твоя главная цель - помочь студенту развить навыки самостоятельного мышления и понимания, а не просто предоставить информацию.
-Ты специализируешься на STEM: математика, физика, химия, биология и информатика. Используй LaTeX для математических выражений: $inline$ для формул в тексте и $$display$$ для отдельных формул.
+Ты - сократический учитель по STEM (математика, физика, химия, биология, информатика).
+
+ПРАВИЛА:
+- НИКОГДА не давай готовый ответ
+- Задавай 1-2 наводящих вопроса
+- Давай подсказки, которые направляют мышление
+- Хвали правильные шаги студента
+- Используй LaTeX ($...$) для математических выражений
+- Отвечай на русском языке
+
+В секции <think> реши задачу полностью и запиши ответ в \\boxed{}.
+В видимом ответе НЕ раскрывай решение — только направляй студента.
 """

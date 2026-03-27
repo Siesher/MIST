@@ -1,6 +1,6 @@
-# MITS - Статус проекта
+# MITS — Статус проекта
 
-> Последнее обновление: Февраль 2026
+> Последнее обновление: Март 2026
 
 ## О проекте
 
@@ -8,14 +8,14 @@
 
 ### Целевые дисциплины
 - Математика (алгебра, анализ, геометрия, статистика)
-- Программирование (Python, алгоритмы, структуры данных)
 - Физика (кинематика, динамика, электричество, оптика)
 - Химия (строение атома, реакции, органика, растворы)
 - Биология (клетка, генетика, экология, эволюция)
+- Информатика (Python, алгоритмы, структуры данных)
 
-### Целевое оборудование
-- **Inference:** CPU (Ryzen 5 9500f), 16GB RAM, Windows — Ollama + Q8_0 (~4GB)
-- **Training:** Google Colab A100 40GB / 80GB
+### Оборудование
+- **Inference:** CPU (Ryzen 5 9500f), 16GB RAM, Windows — Ollama + Q8_0 (~5.5GB)
+- **Training:** Google Colab A100 80GB (bf16, без QLoRA)
 
 ---
 
@@ -31,23 +31,19 @@
 │                      FastAPI Backend                              │
 │   JWT Auth │ Sessions (SQLite) │ Analytics │ Export (PDF)         │
 ├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
 │  │ Profiler │→│ Planner  │→│  Tutor   │→│ Verifier │         │
 │  │Диагностика│ │Стратегия │ │Генерация │ │Проверка  │         │
-│  │ошибок    │  │обучения  │  │ответа   │  │качества  │         │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
-│                                                                   │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
 │  │   RAG    │  │Knowledge │  │ Emotion  │  │   OCR    │         │
 │  │ChromaDB  │  │ Tracing  │  │ Detector │  │Qwen2.5-VL│         │
 │  │          │  │ BKT+DKT  │  │ RuBERT   │  │          │         │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
-│                                                                   │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
-│      Ollama + Qwen3-4B-Instruct-2507 (fine-tuned, Q8_0)          │
+│      Ollama + Qwen3.5-9B-Instruct (fine-tuned, Q8_0)             │
 │            CPU inference, streaming token-by-token                │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -56,121 +52,76 @@
 
 ## Прогресс реализации
 
-### Фаза 1: Инфраструктура ✅ ЗАВЕРШЕНА
+### Фаза 1–6: Инфраструктура + Агенты + UI ✅ ЗАВЕРШЕНА
 
-| Компонент | Статус | Файл |
-|-----------|--------|------|
-| Генератор диалогов Cerebras | ✅ | `training/scripts/cerebras_dialog_generator.py` |
-| База знаний RAG (hints) | ✅ | `data/knowledge/hints/*.jsonl` |
-| База знаний RAG (ошибки) | ✅ | `data/knowledge/misconceptions/*.jsonl` |
-| Граф навыков | ✅ | `data/knowledge/skill_graph.json` |
-| Менеджер моделей | ✅ | `src/inference/model_manager.py` |
-| Слой кэширования | ✅ | `src/inference/cache.py` |
-| RAG Retriever | ✅ | `src/knowledge/rag_retriever.py` |
+| Компонент | Статус |
+|-----------|--------|
+| Многоагентная система (Profiler, Planner, Tutor, Verifier) | ✅ |
+| RAG + ChromaDB (hints + misconceptions) | ✅ |
+| Knowledge Tracing (BKT + DKT на ASSISTments) | ✅ |
+| RuBERT эмоциональный детектор (5-class) | ✅ |
+| OCR рукописных решений (Qwen2.5-VL) | ✅ |
+| FastAPI backend (REST + WebSocket + JWT) | ✅ |
+| Next.js 14 frontend (shadcn/ui + Zustand) | ✅ |
+| 3 режима чата (Chat, Guided Learning, Task Generator) | ✅ |
+| Analytics dashboard + PDF экспорт | ✅ |
+| Docker Compose deployment | ✅ |
 
-### Фаза 2: Многоагентная система ✅ ЗАВЕРШЕНА
+---
 
-| Компонент | Статус | Файл |
-|-----------|--------|------|
-| Агент Профайлер | ✅ | `src/agents/profiler.py` |
-| Агент Планировщик | ✅ | `src/agents/planner.py` |
-| Агент Верификатор | ✅ | `src/agents/verifier.py` |
-| Оркестратор | ✅ | `src/agents/orchestrator.py` |
-| Интеграция с TutorAgent | ✅ | `src/agents/tutor_agent.py` |
+### Фаза 7: Training Pipeline 🔄 В ПРОЦЕССЕ
 
-### Фаза 3: Оценка качества ✅ ЗАВЕРШЕНА
+**Модель:** Qwen3.5-9B-Instruct (выпуск: 2 марта 2026)
+**Оборудование:** Google Colab A100 80GB, bf16, без QLoRA
+**Ветка:** `013-comprehensive-improvements`
 
-| Компонент | Статус | Файл |
-|-----------|--------|------|
-| Метрики качества | ✅ | `evaluation/metrics.py` |
-| CLI оценки | ✅ | `evaluation/evaluate_model.py` |
-| RAG в оркестраторе | ✅ | `src/agents/orchestrator.py` |
-| Документация моделей | ✅ | `docs/MODEL_SELECTION.md` |
+#### 3-стадийный RL пайплайн
 
-### Фаза 4: Генерация данных ✅ ЗАВЕРШЕНА
+```
+Qwen3.5-9B-Instruct → GSPO → KTO → DPO
+(SFT убран: Instruct-модель уже имеет диалоговые способности)
+```
 
-| Задача | Статус | Описание |
-|--------|--------|----------|
-| STEM генератор диалогов | ✅ | 5 дисциплин × 10 тем |
-| Cerebras API интеграция | ✅ | 10 ключей, round-robin |
-| Гибридный RL-датасет | ✅ | 14,203 задачи из 5 источников |
-| Curriculum-классификация | ✅ | easy 39.9%, medium 34.8%, hard 25.2% |
+| Стадия | Метод | Цель | Ноутбук | HF Repo | Статус |
+|--------|-------|------|---------|---------|--------|
+| 1. GSPO | Group Sequence Policy Optimization | STEM reasoning + формат + Сократ | `grpo_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-gspo` | ✅ |
+| 2. KTO | Kahneman-Tversky Optimization | Сократическое выравнивание | `kto_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-kto` | 🔄 |
+| 3. DPO | Direct Preference Optimization | Финальная полировка | `dpo_polish_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-final` | 📋 |
 
-### Фаза 5: Next.js + FastAPI миграция ✅ ЗАВЕРШЕНА
+#### Ключевые техники GSPO (тройная награда)
 
-| Задача | Статус | Описание |
-|--------|--------|----------|
-| FastAPI backend | ✅ | REST + WebSocket + JWT auth |
-| Next.js 14 frontend | ✅ | Tailwind + shadcn/ui + Zustand |
-| Три режима чата | ✅ | Chat, Guided Learning, Task Generator |
-| WebSocket streaming | ✅ | Sync-to-async через ThreadPoolExecutor |
-| Session persistence | ✅ | SQLite + SQLAlchemy |
+| Техника | Статья | Вес / Эффект |
+|---------|--------|-------------|
+| GDPO correctness reward | arXiv 2601.05242 | 0.70 — SymPy/точность |
+| GDPO format reward | arXiv 2601.05242 | 0.15 — `\boxed{}` + шаги |
+| Socratic reward | MITS custom | 0.15 — no_leak + guide |
+| Dr. GRPO length norm | arXiv 2503.20783 | Без length bias |
+| Clip-Higher | arXiv 2504.05118 | ε=3e-4, ε_high=4e-4 |
+| Zero-variance masking | arXiv 2505.22257 | Фильтрация пустых групп |
 
-### Фаза 6: Comprehensive Improvements ✅ ЗАВЕРШЕНА
+#### KTO (arXiv 2402.01306)
 
-| Задача | Статус | Описание |
-|--------|--------|----------|
-| DKT Knowledge Tracing | ✅ | Pre-trained на ASSISTments |
-| RuBERT эмоциональный детектор | ✅ | 5-class affective states |
-| OCR рукописных решений | ✅ | Qwen2.5-VL |
-| Analytics dashboard | ✅ | Recharts |
-| A/B experiment framework | ✅ | Server-side experiments |
-| PDF экспорт прогресса | ✅ | WeasyPrint |
-| Docker Compose deployment | ✅ | Full stack |
+Kahneman-Tversky Optimization — выравнивание на непарных предпочтениях.
+Обучается на `dialogs.jsonl` (3875 диалогов) + `preference_pairs.jsonl` (12597 пар).
 
-### Фаза 7: Advanced Training Pipeline 🔄 В ПРОЦЕССЕ
+---
 
-> **Ветка**: `014-advanced-training-pipeline`
-> **Модель**: Qwen3-4B-Instruct-2507 → GSPO → RAFT++ → AdaSTaR → DPO
-> **Оборудование**: Google Colab A100 40GB / 80GB
-> **Спецификация**: `specs/014-advanced-training-pipeline/`
-
-**Обоснование удаления SFT:**
-Стадия SFT была удалена из пайплайна. Qwen3-4B-Instruct уже обладает abilities
-для инструкций и диалога (обучена с RLHF), поэтому дополнительный SFT на 38K примерах
-переобучал модель на узкое распределение и снижал exploration diversity для GSPO.
-
-**4-стадийный пайплайн обучения:**
-
-| Стадия | Метод | Цель | Ноутбук | Статус |
-|--------|-------|------|---------|--------|
-| 1. GSPO | Group Sequence Policy Optimization | STEM reasoning через verifiable rewards + curriculum | `grpo_qwen3_4b.ipynb` | 🔄 |
-| 2. RAFT++ | Rejection Sampling + GVM allocation | Self-distillation на верных решениях | `raft_plus_qwen3_4b.ipynb` | 📋 |
-| 3. AdaSTaR | Adaptive Self-Taught Reasoner | Итеративная генерация с приоритизацией | `star_loop.ipynb` | 📋 |
-| 4. DPO | Direct Preference Optimization | Полировка формата + reuse RAFT++ негативов | `dpo_polish_qwen3_4b.ipynb` | 📋 |
-
-**Ключевые алгоритмические оптимизации (GSPO):**
-
-| Техника | Статья | Эффект |
-|---------|--------|--------|
-| GSPO sequence-level IS | arXiv 2507.18071 | Importance sampling уровня Qwen3 |
-| Dr. GRPO | arXiv 2503.20783 | Constant length normalization (без length bias) |
-| ReDit дизеринг | arXiv 2506.18631 | Гауссовский шум на наградах → 10x сходимость |
-| GDPO декаплинг | arXiv 2601.05242 | Независимая нормализация correctness и format |
-| GRPO-LEAD | arXiv 2504.09696 | Difficulty-aware curriculum (hard=2×, easy=0.5×) |
-| Zero-variance маскинг | arXiv 2505.22257 | Фильтрация групп с нулевой дисперсией |
-| Clip-Higher | arXiv 2504.05118 | Асимметричный клиппинг ε=3e-4 / ε_high=4e-4 |
-
-**Ключевые техники (RAFT++, AdaSTaR, DPO):**
-
-| Техника | Стадия | Статья | Эффект |
-|---------|--------|--------|--------|
-| GVM-RAFT dynamic allocation | RAFT++ | arXiv 2504.11343 | 2-4x ускорение, адаптивный бюджет |
-| Negative saving | RAFT++ | arXiv 2505.24850 | Сохранение неверных для DPO |
-| Adaptive problem selection | AdaSTaR | STaR variant | Staleness + difficulty priority |
-| RAFT++ negative reuse | DPO | arXiv 2505.24850 | Без повторной генерации |
-
-### Evaluation Infrastructure ✅ ЗАВЕРШЕНА
+### Фаза 8: Evaluation Infrastructure ✅ ЗАВЕРШЕНА
 
 | Компонент | Статус | Описание |
 |-----------|--------|----------|
-| Evaluation benchmark | ✅ | 3678 задач (MGSM + ruMMLU + custom) |
-| Per-stage evaluation | ✅ | `evaluate_with_model()` + JSON reports |
-| CSV summary for graphs | ✅ | `summary.csv` с per-stage метриками |
-| Base model evaluation | ✅ | `evaluate_stage.py --stage base` |
-| Inline notebook eval cells | ✅ | Компактные ячейки во всех ноутбуках |
+| Benchmark (3678 задач) | ✅ | MGSM + ruMMLU + custom |
+| `evaluate_stage.py` | ✅ | Per-stage eval с Ollama |
+| Гибридная верификация | ✅ | SymPy → Cerebras LLM fallback |
+| Combined judge | ✅ | Accuracy + Socratic за 1 Cerebras вызов |
+| `--full-judge` режим | ✅ | Все ответы → Cerebras judge |
+| `--eval-150` пресет | ✅ | 10 задач × 5 доменов × 3 сложности |
+| `compare-live` | ✅ | Side-by-side сравнение 2 моделей |
+| Checkpoint/resume | ✅ | `--resume` продолжает с места остановки |
+| WandB интеграция | ✅ | `--wandb` логирует метрики |
+| CSV summary | ✅ | `evaluation/summary.csv` для графиков |
 
-**Benchmark composition:**
+#### Benchmark состав
 
 | Источник | Количество | Домены |
 |----------|-----------|--------|
@@ -179,35 +130,58 @@
 | ruMMLU STEM (20 предметов) | 3,210 | Физика, химия, биология, CS |
 | **Итого** | **3,678** | **5 доменов** |
 
-**Baseline результаты (Qwen3-4B-Instruct, без дообучения, 218 задач):**
+#### Baseline результаты (Qwen3.5-9B-Instruct, без дообучения)
+
+> Оценка через `compare-live --eval-150 --full-judge` (Cerebras combined judge)
 
 | Домен | Accuracy |
 |-------|----------|
-| Математика | 79.1% |
-| Физика | 74.4% |
-| Информатика | 46.5% |
-| Химия | 46.7% |
-| Биология | 28.6% |
-| **Overall** | **55.1%** |
+| Математика | TBD |
+| Физика | TBD |
+| Информатика | TBD |
+| Химия | TBD |
+| Биология | TBD |
+| **Overall** | **TBD** |
+
+*Базовые метрики будут заполнены после завершения первого compare-live прогона.*
+
+---
+
+## Текущие модели (Ollama)
+
+| Модель | Размер | Описание | Стадия |
+|--------|--------|----------|--------|
+| `qwen3.5:9b` | 6.6GB | Базовая Qwen3.5-9B-Instruct | base |
+| `mits-tutor-9b-think:latest` | 5.5GB | GSPO fine-tuned (thinking) | gspo |
 
 ---
 
 ## Следующие шаги
 
-1. **Завершить GSPO тренировку** на Colab A100 (Stage 1: 200 steps + Stage 2: 400 steps)
-2. **RAFT++** с GVM-динамическим аллоцированием
-3. **AdaSTaR** итеративная генерация rationales
-4. **DPO** полировка формата
-5. **Полная оценка** на 3678-benchmark после каждой стадии
-6. **Экспорт в GGUF** (Q4_K_M + Q8_0) для inference через Ollama на CPU (16GB RAM)
+1. **Завершить валидацию** GSPO vs base — `compare-live --eval-150 --full-judge`
+2. **KTO тренировка** на Colab A100 (загрузить GSPO адаптер с HF)
+3. **DPO полировка** после KTO
+4. **Финальная оценка** — сравнение всех 4 стадий (base / gspo / kto / dpo)
+5. **Интеграция** финальной модели в Ollama (`merge_and_create_ollama.py`)
 
 ---
 
-## Ссылки
+## Структура проекта
 
-- [Qwen3-4B-Instruct](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
-- [Ollama](https://ollama.ai/)
-- [Unsloth](https://github.com/unslothai/unsloth)
-- [TRL](https://github.com/huggingface/trl)
-- [GSPO paper](https://arxiv.org/abs/2507.18071)
-- [Cerebras API](https://inference-docs.cerebras.ai/)
+```
+frontend/          # Next.js 14 UI
+backend/           # FastAPI backend
+src/               # Core Python agents + models
+training/
+  scripts/         # ML pipeline scripts (evaluate_stage.py, compare_socratic.py, ...)
+  data/            # Training data (~1.1GB JSONL)
+notebooks/         # Colab training notebooks (GSPO, KTO, DPO + legacy)
+evaluation/        # Model evaluation reports + benchmarks
+data/              # Knowledge bases (RAG, skill graph, tasks)
+docs/              # Documentation
+research/          # Research findings (findings_*.md + knowledge.md)
+specs/             # Feature specifications (001–014)
+figures/           # Training visualizations (PDF + PNG)
+metrics/           # Training metrics from Colab runs
+tests/             # Unit & integration tests
+```

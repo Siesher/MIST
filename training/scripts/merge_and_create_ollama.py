@@ -32,7 +32,9 @@ def _hf_download_with_retry(fn, *args, max_retries=5, **kwargs):
         except Exception as e:
             if "429" in str(e) and attempt < max_retries - 1:
                 wait = 30 * (attempt + 1)
-                print(f"      Rate limited (429), waiting {wait}s... (attempt {attempt + 1}/{max_retries})")
+                print(
+                    f"      Rate limited (429), waiting {wait}s... (attempt {attempt + 1}/{max_retries})"
+                )
                 time.sleep(wait)
             else:
                 raise
@@ -42,43 +44,63 @@ def merge_adapter(
     base_model: str,
     adapter_repo: str,
     output_dir: str,
+    low_memory: bool = True,
 ) -> str:
-    """Download base model + LoRA adapter, merge, save as safetensors."""
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    from peft import PeftModel
+    """Download base model + LoRA adapter, merge, save as safetensors.
 
-    print(f"\n[1/3] Downloading base model: {base_model}")
-    print("      (first run downloads ~8 GB, cached afterwards)")
+    Args:
+        base_model: HuggingFace model ID for the base model.
+        adapter_repo: HuggingFace repo ID for the LoRA adapter.
+        output_dir: Directory to save merged safetensors.
+        low_memory: If True, use low_cpu_mem_usage to reduce peak RAM (~50% less).
+    """
+    import gc
+
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    print(f"\n[1/4] Downloading base model: {base_model}")
+    print("      (first run downloads ~18 GB, cached afterwards)")
+    if low_memory:
+        print("      Low-memory mode: loading with reduced peak RAM usage")
 
     tokenizer = _hf_download_with_retry(
-        AutoTokenizer.from_pretrained, base_model, trust_remote_code=True,
+        AutoTokenizer.from_pretrained,
+        base_model,
+        trust_remote_code=True,
     )
 
     model = _hf_download_with_retry(
         AutoModelForCausalLM.from_pretrained,
         base_model,
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         device_map="cpu",
+        low_cpu_mem_usage=True,
         trust_remote_code=True,
     )
 
-    print(f"\n[2/3] Loading LoRA adapter: {adapter_repo}")
+    print(f"\n[2/4] Loading LoRA adapter: {adapter_repo}")
     model = _hf_download_with_retry(
-        PeftModel.from_pretrained, model, adapter_repo,
+        PeftModel.from_pretrained,
+        model,
+        adapter_repo,
+        low_cpu_mem_usage=True,
     )
 
-    print("      Merging LoRA weights into base model...")
+    print("\n[3/4] Merging LoRA weights into base model...")
     model = model.merge_and_unload()
+    gc.collect()
 
-    print(f"\n[3/3] Saving merged model to {output_dir}")
+    print(f"\n[4/4] Saving merged model to {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
-    model.save_pretrained(output_dir)
+    model.save_pretrained(output_dir, max_shard_size="4GB")
     tokenizer.save_pretrained(output_dir)
 
-    size_gb = sum(
-        f.stat().st_size for f in Path(output_dir).rglob("*") if f.is_file()
-    ) / (1024 ** 3)
+    del model
+    gc.collect()
+
+    size_gb = sum(f.stat().st_size for f in Path(output_dir).rglob("*") if f.is_file()) / (1024**3)
     print(f"      Saved ({size_gb:.1f} GB)")
 
     return output_dir
@@ -97,7 +119,8 @@ def create_ollama_model(
     try:
         result = subprocess.run(
             ["ollama", "--version"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         print(f"      Ollama version: {result.stdout.strip()}")
     except FileNotFoundError:
@@ -116,15 +139,17 @@ def create_ollama_model(
 
 def main():
     parser = argparse.ArgumentParser(description="Merge LoRA adapter and create Ollama model")
-    parser.add_argument("--base-model", default="Qwen/Qwen3-4B-Instruct-2507")
-    parser.add_argument("--adapter-repo", default="Siesher/mits-qwen3-4b-gspo")
-    parser.add_argument("--merged-dir", default="training/merged_gspo")
+    parser.add_argument("--base-model", default="Qwen/Qwen3.5-9B")
+    parser.add_argument("--adapter-repo", default="Siesher/mits-qwen3-9b-gspo")
+    parser.add_argument("--merged-dir", default="training/merged_gspo_9b")
     parser.add_argument("--modelfile", default="training/Modelfile")
-    parser.add_argument("--ollama-name", default="mits-tutor")
-    parser.add_argument("--quantize", default="q8_0",
-                        help="Quantization: q8_0, q4_k_m, q5_k_m, or empty for none")
-    parser.add_argument("--merge-only", action="store_true",
-                        help="Only merge, don't create Ollama model")
+    parser.add_argument("--ollama-name", default="mits-tutor-9b")
+    parser.add_argument(
+        "--quantize", default="q8_0", help="Quantization: q8_0, q4_k_m, q5_k_m, or empty for none"
+    )
+    parser.add_argument(
+        "--merge-only", action="store_true", help="Only merge, don't create Ollama model"
+    )
     args = parser.parse_args()
 
     merged_dir = merge_adapter(

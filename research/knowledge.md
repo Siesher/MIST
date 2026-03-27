@@ -1,6 +1,6 @@
 # ML Research Agent Knowledge Base
 **Project**: MITS (Qwen3.5-9B GSPO/GRPO pipeline)
-**Last updated**: 2026-03-23
+**Last updated**: 2026-03-25
 
 ## TRL GRPOConfig: reward_weights
 
@@ -407,20 +407,62 @@ succeed (trivial, no gradient) or all fail (no gradient). Keeps only the "teacha
 
 ---
 
-## Lion Optimizer for RL Fine-Tuning (2026-03-20)
+## Optimizer Choice for GRPO/RLHF (2026-03-25, UPDATED)
 
-**No RL papers use Lion**: All major RL papers (DeepSeek-R1, DAPO, VAPO, GRPO-LEAD) use AdamW.
+**Universal finding**: ZERO major RL papers use Lion. Every paper that discloses its optimizer uses AdamW.
 
-**Memory savings**: ~33% vs AdamW (no second moment). 8-bit Lion: another 4x reduction.
+### Verified optimizer choices in RL papers
 
-**LR calibration**: Lion optimal LR = 3-10x SMALLER than AdamW equivalent.
-Weight decay = 3-10x LARGER than AdamW equivalent.
+| Paper | Optimizer | Actor LR | Beta1/Beta2 | Weight Decay |
+|---|---|---|---|---|
+| DeepSeek-R1 (2501.12948) | AdamW | 3e-6 | Not disclosed | Not disclosed |
+| VAPO (2504.05118) | AdamW | 1e-6 | Not disclosed | Not disclosed |
+| Open-Reasoner-Zero (2503.24290) | AdamW | 1e-6 | 0.9/0.95 | 0.0 |
+| Kimi K2 (2507.20534) | Muon | Not disclosed | N/A | N/A |
 
-**Theoretical concern for RL**: Lion uses sign updates (all gradients clipped to unit magnitude).
-GRPO advantage-weighted gradients carry magnitude information about reward certainty.
-Sign updates discard this -- unclear interaction. Not validated in literature.
+### Why Lion is NOT recommended for GRPO (structural risks)
 
-**Safe fallback**: AdamW 8-bit (bitsandbytes) if Lion shows instability or reward decay.
+1. **Sign update discards advantage magnitude**: GRPO gradients are weighted by advantage A_i = (r - mean)/std. Lion's sign() collapses all magnitudes to +-lr. A high-advantage correct response and a barely-above-average one produce identical update steps. Reward signal magnitude is information -- discarding it is structurally wrong for policy gradient.
+
+2. **Sign function non-convergence in noisy settings**: RL gradients are 3-5x noisier than SFT gradients. Documented instability from sign discreteness (RLion paper, PMC12215452) applies more strongly.
+
+3. **LR recalibration required**: Lion needs 3-10x SMALLER lr than AdamW AND 10x LARGER weight decay. Standard RL LR (1e-6) would need to become 1e-7 to 3e-7 for Lion -- dangerously slow.
+
+4. **No empirical validation**: optimi.dev Lion docs note "negative results seem to be with problems outside of what was evaluated -- RL, feedforward networks, weird hybrid architectures." This is documented, not speculative.
+
+### Memory comparison for MITS (LoRA r=16, ~170M trainable params)
+
+| Optimizer | States per param | Optimizer VRAM (LoRA) | Full 9B FT |
+|---|---|---|---|
+| AdamW fp32 | 2 | 1.36 GB | 72 GB |
+| 8-bit AdamW | 2 (quantized) | 0.34 GB | 18 GB |
+| Lion / AdamS | 1 | 0.68 GB | 36 GB |
+
+**Conclusion for MITS**: LoRA r=16 means 1.36 GB optimizer states vs 80 GB VRAM. Memory is NOT the constraint. Do not change optimizer for memory reasons.
+
+### AdamS (arXiv 2505.16363, EMNLP 2025) -- best alternative
+
+**What**: Replaces second moment with squared momentum as normalizer. Eliminates m2 entirely.
+**GRPO validation**: YES -- tested on GRPO with Qwen2.5-3B and DeepSeek-R1-Distill-Llama-8B on Countdown task. Results match or exceed AdamW.
+**Memory**: Same as Lion (-50% optimizer states vs AdamW).
+**Hyperparameter compatibility**: Directly inherits AdamW lr, beta1, weight_decay -- zero recalibration.
+**Status**: EMNLP 2025 paper; not yet in TRL optim presets -- requires custom optimizer object.
+
+### AdamW hyperparameters for MITS GRPO
+
+```python
+GRPOConfig(
+    learning_rate=3e-6,       # Conservative, matches VAPO actor LR
+    optim="adamw_torch",
+    warmup_ratio=0.05,
+    weight_decay=0.01,
+    adam_beta1=0.9,
+    adam_beta2=0.95,          # DeepSeek / Open-Reasoner-Zero: 0.95, not 0.999
+    adam_epsilon=1e-8,
+)
+```
+
+Note: beta2=0.95 (not 0.999) reduces EMA window for second moment -- more responsive to non-stationary RL objectives.
 
 ---
 
