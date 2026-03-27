@@ -114,3 +114,6 @@ data/knowledge/textbooks/.cache_*
 
 # Ruff cache
 .ruff_cache/
+
+# External documents (not part of MITS)
+docs/Статья_GNN_*.docx
