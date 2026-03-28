@@ -97,6 +97,7 @@ backend/venv/
 # Evaluation outputs (generated, regeneratable)
 evaluation/reports/*.json
 evaluation/completions/*.jsonl
+evaluation/checkpoints/*.jsonl
 
 # Generated figures (regeneratable from scripts)
 figures/*.pdf
@@ -117,3 +118,9 @@ data/knowledge/textbooks/.cache_*
 
 # External documents (not part of MITS)
 docs/Статья_GNN_*.docx
+
+# Document backups
+docs/*.bak
+
+# Metrics (consolidated into figures/)
+metrics/

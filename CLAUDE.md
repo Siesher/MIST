@@ -1,6 +1,6 @@
 # MITS Development Guidelines
 
-Last updated: 2026-03-05
+Last updated: 2026-03-27
 
 ## Active Technologies
 
@@ -28,12 +28,19 @@ Last updated: 2026-03-05
 frontend/          # Next.js 14 UI
 backend/           # FastAPI backend
 src/               # Core Python agents + models
-training/          # ML pipeline scripts + configs + data
-notebooks/         # Colab training notebooks (GSPO, KTO, DPO)
-evaluation/        # Model evaluation reports + benchmarks
+training/
+  scripts/         # ML pipeline scripts (evaluate_stage.py, etc.)
+  data/            # Training data (~1.1GB JSONL)
+  Modelfile*       # Ollama model configs
+notebooks/         # Active Colab notebooks (GSPO, KTO, DPO)
+  archive/         # Legacy notebooks (GLM, Qwen3-4B, RAFT++)
+evaluation/        # Evaluation framework + reports + benchmarks
 data/              # Knowledge bases (RAG, skill graph, tasks)
-docs/              # Documentation
+docs/              # Documentation + research articles
+research/          # Research findings (findings_*.md)
+scripts/           # Utility scripts (DB init, Ollama, PDF ingestion)
 specs/             # Feature specifications (001-014)
+figures/           # Training visualizations (PDF + PNG + TeX)
 tests/             # Unit & integration tests
 ```
 
@@ -62,13 +69,13 @@ Qwen3.5-9B → GSPO (triple reward) → KTO (Socratic alignment) → DPO (polish
 | DPO | dpo_polish_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-final | Final alignment polish |
 
 ## Recent Changes
+- 017: Project cleanup — removed GLM/QLoRA/SFT dead code, reorganized files, consolidated metrics into figures/
 - 016: Triple GDPO reward (correctness + format + Socratic), KTO replaces RAFT++
+- 016: Full LLM judge mode (--full-judge), checkpoint/resume, compare-live improvements
 - 015: Migrated to Qwen3.5-9B, A100 80GB bf16, 3-stage pipeline (removed AdaSTaR)
 - 014: Removed SFT from pipeline (Instruct model has dialogue abilities built-in)
-- 014: Added 4-stage RL pipeline (GSPO → RAFT++ → AdaSTaR → DPO)
 - 014: Added evaluation infrastructure (3678-problem benchmark, per-stage reports)
 - 013: Next.js 14 + FastAPI migration, JWT auth, session persistence
-- 013: ML training (QLoRA, DKT, RuBERT), analytics dashboard, Docker
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

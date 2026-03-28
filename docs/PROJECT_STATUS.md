@@ -173,15 +173,20 @@ frontend/          # Next.js 14 UI
 backend/           # FastAPI backend
 src/               # Core Python agents + models
 training/
-  scripts/         # ML pipeline scripts (evaluate_stage.py, compare_socratic.py, ...)
+  scripts/         # ML pipeline (generate_*, filter_*, export_*, evaluate_stage.py, ...)
   data/            # Training data (~1.1GB JSONL)
-notebooks/         # Colab training notebooks (GSPO, KTO, DPO + legacy)
-evaluation/        # Model evaluation reports + benchmarks
+  Modelfile*       # Ollama model configs
+notebooks/         # Colab training notebooks (GSPO, KTO, DPO)
+  archive/         # Legacy notebooks (GLM, Qwen3-4B, RAFT++)
+evaluation/        # Evaluation framework + reports + benchmarks
+  checkpoints/     # Per-problem evaluation checkpoints (JSONL)
+  completions/     # Model completion logs
+  reports/         # Aggregated evaluation reports (JSON)
 data/              # Knowledge bases (RAG, skill graph, tasks)
-docs/              # Documentation
+docs/              # Documentation + research articles
 research/          # Research findings (findings_*.md + knowledge.md)
+scripts/           # Utility scripts (DB init, Ollama, PDF ingestion)
 specs/             # Feature specifications (001–014)
-figures/           # Training visualizations (PDF + PNG)
-metrics/           # Training metrics from Colab runs
+figures/           # Training visualizations (PDF + PNG + TeX)
 tests/             # Unit & integration tests
 ```
