@@ -159,42 +159,52 @@ def evaluate_combined_quality(
         ground_truth=ground_truth,
     )
 
-    try:
-        raw = cerebras_client.generate(
-            prompt=prompt,
-            system_prompt=(
-                "You are an expert evaluator of Socratic STEM tutoring. "
-                "Return ONLY valid JSON, no markdown."
-            ),
-            max_tokens=300,
-            temperature=0.0,
-        )
+    import time as _time
 
-        json_str = raw.strip()
-        if json_str.startswith("```"):
-            json_str = json_str.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            raw = cerebras_client.generate(
+                prompt=prompt,
+                system_prompt=(
+                    "You are an expert evaluator of Socratic STEM tutoring. "
+                    "Return ONLY valid JSON, no markdown."
+                ),
+                max_tokens=300,
+                temperature=0.0,
+            )
 
-        scores = json.loads(json_str)
+            json_str = raw.strip()
+            if json_str.startswith("```"):
+                json_str = json_str.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
-        # Composite Socratic score: (guides×2 + no_leak×2 + scaffold×2 + engage×1) / 7
-        total = (
-            scores.get("guides_student", 0)
-            + scores.get("no_answer_leak", 0)
-            + scores.get("scaffolding", 0)
-            + scores.get("engagement", 0)
-        )
-        scores["socratic_score"] = round(total / 7, 3)
-        # Normalise is_correct to bool
-        scores["is_correct"] = bool(scores.get("is_correct", False))
-        return scores
+            scores = json.loads(json_str)
 
-    except json.JSONDecodeError as e:
-        logger.warning(f"Judge returned invalid JSON: {raw[:200]}... Error: {e}")
-        logger.warning(f"Combined judge returned invalid JSON: {raw[:200]}... Error: {e}")
-        return {"socratic_score": None, "is_correct": None, "error": f"invalid JSON: {e}"}
-    except Exception as e:
-        logger.warning(f"Combined judge failed: {e}")
-        return {"socratic_score": None, "is_correct": None, "error": str(e)}
+            # Composite Socratic score: (guides×2 + no_leak×2 + scaffold×2 + engage×1) / 7
+            total = (
+                scores.get("guides_student", 0)
+                + scores.get("no_answer_leak", 0)
+                + scores.get("scaffolding", 0)
+                + scores.get("engagement", 0)
+            )
+            scores["socratic_score"] = round(total / 7, 3)
+            # Normalise is_correct to bool
+            scores["is_correct"] = bool(scores.get("is_correct", False))
+            return scores
+
+        except json.JSONDecodeError as e:
+            logger.warning(f"Combined judge returned invalid JSON: {raw[:200]}... Error: {e}")
+            return {"socratic_score": None, "is_correct": None, "error": f"invalid JSON: {e}"}
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                wait = 2**attempt * 5  # 5s, 10s, 20s, 40s
+                logger.info(
+                    f"Rate limit hit, waiting {wait}s (attempt {attempt + 1}/{max_retries})..."
+                )
+                _time.sleep(wait)
+                continue
+            logger.warning(f"Combined judge failed: {e}")
+            return {"socratic_score": None, "is_correct": None, "error": str(e)}
 
 
 def stratified_sample(problems: List[Dict], n: int, seed: int = 42) -> List[Dict]:
@@ -1059,7 +1069,7 @@ def _eval_single_problem(args):
     """Evaluate a single problem via Ollama (used by ThreadPoolExecutor)."""
     import requests
 
-    idx, p, model_name, ollama_host, session, cerebras_client, full_judge = args
+    idx, p, model_name, ollama_host, session, cerebras_client, full_judge, request_timeout = args
     domain = p.get("domain", "math")
     difficulty = p.get("difficulty", "medium")
     answer_type = p.get("answer_type", "numeric")
@@ -1068,23 +1078,44 @@ def _eval_single_problem(args):
 
     try:
         http = session if session is not None else requests
-        resp = http.post(
-            f"{ollama_host}/api/chat",
-            json={
-                "model": model_name,
-                "messages": [
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": p["prompt"]},
-                ],
-                "stream": False,
-                "options": _build_ollama_options("full_judge" if full_judge else "accuracy"),
-                # full_judge: think=False — judge sees student-facing response only;
-                # accuracy:   think=True  — \boxed{} extraction needs full reasoning.
-                "think": not full_judge,
-                "cache_prompt": True,  # reuse KV for shared system-prompt prefix
-            },
-            timeout=600,  # 10 min: thinking models can be slow locally
-        )
+        think_enabled = True
+        try:
+            resp = http.post(
+                f"{ollama_host}/api/chat",
+                json={
+                    "model": model_name,
+                    "messages": [
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": p["prompt"]},
+                    ],
+                    "stream": False,
+                    "options": _build_ollama_options("full_judge" if full_judge else "accuracy"),
+                    "think": True,
+                    "cache_prompt": True,
+                },
+                timeout=request_timeout,
+            )
+        except requests.exceptions.ReadTimeout:
+            # Thinking loop: retry with think=False (model answers directly)
+            logger.warning(
+                f"  Problem {idx}: think timeout ({request_timeout}s), retrying with think=False"
+            )
+            think_enabled = False
+            resp = http.post(
+                f"{ollama_host}/api/chat",
+                json={
+                    "model": model_name,
+                    "messages": [
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": p["prompt"]},
+                    ],
+                    "stream": False,
+                    "options": _build_ollama_options("accuracy"),
+                    "think": False,
+                    "cache_prompt": True,
+                },
+                timeout=request_timeout,
+            )
 
         if resp.status_code != 200:
             return {"idx": idx, "error": True}
@@ -1105,19 +1136,26 @@ def _eval_single_problem(args):
         if full_judge and cerebras_client is not None:
             # Full LLM judge: accuracy + Socratic in one Cerebras call
             combined = evaluate_combined_quality(p["prompt"], visible, truth, cerebras_client)
-            correct = bool(combined.get("is_correct", False))
-            extracted = None
-            socratic_scores = {
-                k: combined.get(k)
-                for k in (
-                    "socratic_score",
-                    "guides_student",
-                    "no_answer_leak",
-                    "scaffolding",
-                    "engagement",
-                    "explanation",
-                )
-            }
+            extracted = extract_answer(completion)  # for display in logs
+            if combined.get("is_correct") is not None:
+                correct = bool(combined["is_correct"])
+                socratic_scores = {
+                    k: combined.get(k)
+                    for k in (
+                        "socratic_score",
+                        "guides_student",
+                        "no_answer_leak",
+                        "scaffolding",
+                        "engagement",
+                        "explanation",
+                    )
+                }
+            else:
+                # Cerebras failed (rate limit / error) — fallback to SymPy
+                if extracted:
+                    correct = verify_answer(extracted, truth, domain, answer_type)
+                else:
+                    correct = False
         else:
             # Hybrid: SymPy/exact first, LLM only if answer not found
             extracted = extract_answer(completion)
@@ -1151,6 +1189,7 @@ def _eval_single_problem(args):
                 "correct": correct,
                 "has_boxed": fmt["has_boxed"],
                 "has_thinking": fmt["has_thinking"],
+                "think_fallback": not think_enabled,
                 "source": p.get("source", ""),
                 **socratic_scores,
             },
@@ -1185,12 +1224,14 @@ def _build_ollama_options(mode: str = "accuracy") -> Dict[str, Any]:
             "num_batch": 512,
         }
     if mode == "full_judge":
-        # think=False: judge evaluates student-facing response, not internal reasoning.
-        # num_predict=-1: model decides when it's done (timeout=600s as safety net).
+        # think=True: model uses internal reasoning (stripped before judge sees it).
+        # num_predict=-1: unlimited — GSPO think blocks can exceed 16K tokens;
+        #   the per-request timeout prevents runaway generation.
+        # num_ctx=32768: large enough for think + visible in one pass.
         return {
             "temperature": 0.0,
-            "num_predict": -1,  # unlimited — model stops at EOS
-            "num_ctx": 8192,
+            "num_predict": -1,
+            "num_ctx": 32768,
             "num_batch": 512,
         }
     # socratic: think=False, short tutoring response
@@ -1276,6 +1317,7 @@ def evaluate_local(
     checkpoint_path: Optional[str] = None,
     resume: bool = False,
     full_judge: bool = False,
+    request_timeout: int = 900,
 ) -> Dict[str, Any]:
     """Evaluate using Ollama API with parallel requests."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1340,6 +1382,15 @@ def evaluate_local(
                 fmt_counts["has_steps"] += 1 if entry.get("has_steps") else 0
                 fmt_counts["has_thinking"] += 1 if entry.get("has_thinking") else 0
                 fmt_counts["total_length"] += len(entry.get("completion", ""))
+                # Reconstruct socratic scores from checkpoint
+                for key in socratic_agg:
+                    val = entry.get(key)
+                    if val is not None:
+                        socratic_agg[key].append(float(val))
+                # Reconstruct completions_by_idx for side-by-side comparison
+                idx = entry.get("idx")
+                if idx is not None:
+                    completions_by_idx[idx] = entry
             done_count = len(completed_idxs)
         ckpt_mode = "a" if resume and os.path.exists(checkpoint_path) else "w"
         os.makedirs(os.path.dirname(checkpoint_path) or ".", exist_ok=True)
@@ -1355,7 +1406,7 @@ def evaluate_local(
     opts = _build_ollama_options(_opts_mode)
     logger.info(
         f"  Options [{_opts_mode}]: num_predict={opts['num_predict']}, num_ctx={opts['num_ctx']}, "
-        f"num_batch={opts['num_batch']}, cache_prompt=True, timeout=600s"
+        f"num_batch={opts['num_batch']}, cache_prompt=True, timeout={request_timeout}s"
     )
     start_time = time.time()
 
@@ -1370,7 +1421,7 @@ def evaluate_local(
     session.mount("http://", adapter)
 
     tasks = [
-        (i, p, model_name, ollama_host, session, cerebras_client, full_judge)
+        (i, p, model_name, ollama_host, session, cerebras_client, full_judge, request_timeout)
         for i, p in enumerate(problems)
         if i not in completed_idxs
     ]
@@ -1745,6 +1796,7 @@ def compare_live(
     resume: bool = False,
     checkpoint_dir: str = "evaluation/checkpoints",
     full_judge: bool = False,
+    request_timeout: int = 900,
 ) -> Dict[str, Any]:
     """Run evaluation for two local models on the same problem set and compare.
 
@@ -1774,6 +1826,7 @@ def compare_live(
         checkpoint_path=_checkpoint_path(model_a, stage_a, checkpoint_dir),
         resume=resume,
         full_judge=full_judge,
+        request_timeout=request_timeout,
     )
     # Separate socratic pass only if not using full_judge (avoid double-counting)
     if run_judge and not full_judge and cerebras_client is not None:
@@ -1796,6 +1849,7 @@ def compare_live(
         checkpoint_path=_checkpoint_path(model_b, stage_b, checkpoint_dir),
         resume=resume,
         full_judge=full_judge,
+        request_timeout=request_timeout,
     )
     if run_judge and not full_judge and cerebras_client is not None:
         results_b["socratic"] = evaluate_combined_pass(
@@ -1830,6 +1884,107 @@ def compare_live(
     logger.info(f"Comparison saved → {cmp_path}")
 
     return comparison
+
+
+# ─── Rescore: add Cerebras Socratic scores to checkpoints ─────
+
+
+def _run_rescore(args: argparse.Namespace) -> None:
+    """Read checkpoint JSONL, call Cerebras judge for entries missing socratic_score, write back."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    ckpt_path = Path(args.checkpoint)
+    if not ckpt_path.exists():
+        logger.error(f"Checkpoint not found: {ckpt_path}")
+        return
+
+    if not HAS_CEREBRAS:
+        logger.error("Cerebras client not available. Install it or set CEREBRAS_API_KEY.")
+        return
+
+    try:
+        cerebras_client = CerebrasClient()
+    except Exception as e:
+        logger.error(f"Cerebras init failed: {e}")
+        return
+
+    # Load all entries
+    entries = []
+    with open(ckpt_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+
+    # Filter entries needing scoring
+    to_score = []
+    for i, entry in enumerate(entries):
+        if entry.get("error"):
+            continue
+        has_score = entry.get("socratic_score") is not None
+        if has_score and not args.force:
+            continue
+        if not entry.get("visible"):
+            continue
+        to_score.append((i, entry))
+
+    logger.info(
+        f"Rescore: {len(to_score)} entries to score out of {len(entries)} total "
+        f"(checkpoint: {ckpt_path.name})"
+    )
+    if not to_score:
+        logger.info("Nothing to rescore.")
+        return
+
+    scored = 0
+    errors = 0
+
+    def _score_one(idx_entry: Tuple[int, Dict]) -> Tuple[int, Dict[str, Any]]:
+        i, entry = idx_entry
+        combined = evaluate_combined_quality(
+            entry["prompt"], entry["visible"], entry["truth"], cerebras_client
+        )
+        return i, combined
+
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        futures = {pool.submit(_score_one, ie): ie for ie in to_score}
+        for fut in as_completed(futures):
+            try:
+                i, combined = fut.result()
+                # Update entry in-place
+                entries[i]["socratic_score"] = combined.get("socratic_score")
+                entries[i]["guides_student"] = combined.get("guides_student")
+                entries[i]["no_answer_leak"] = combined.get("no_answer_leak")
+                entries[i]["scaffolding"] = combined.get("scaffolding")
+                entries[i]["engagement"] = combined.get("engagement")
+                entries[i]["explanation"] = combined.get("explanation")
+                # Optionally update correctness from judge
+                if "is_correct" in combined:
+                    entries[i]["correct_judge"] = combined["is_correct"]
+                scored += 1
+                if scored % 10 == 0:
+                    logger.info(f"  Scored {scored}/{len(to_score)}...")
+            except Exception as e:
+                errors += 1
+                logger.warning(f"  Error scoring entry {futures[fut][0]}: {e}")
+
+    # Write back atomically
+    tmp_path = ckpt_path.with_suffix(".jsonl.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    tmp_path.replace(ckpt_path)
+
+    # Summary
+    soc_scores = [e["socratic_score"] for e in entries if e.get("socratic_score") is not None]
+    logger.info(
+        f"Rescore complete: {scored} scored, {errors} errors. "
+        f"Avg socratic_score: {sum(soc_scores) / len(soc_scores):.3f} (n={len(soc_scores)})"
+    )
+    for metric in ("guides_student", "no_answer_leak", "scaffolding", "engagement"):
+        vals = [e[metric] for e in entries if e.get(metric) is not None]
+        if vals:
+            logger.info(f"  {metric}: {sum(vals) / len(vals):.2f}")
 
 
 # ─── CLI ──────────────────────────────────────────────────────
@@ -1936,6 +2091,12 @@ def main():
         default="evaluation/checkpoints",
         help="Directory for checkpoint files (default: evaluation/checkpoints)",
     )
+    eval_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=900,
+        help="Per-problem Ollama request timeout in seconds (default: 900)",
+    )
 
     # Compare (from saved reports)
     cmp_parser = subparsers.add_parser("compare", help="Compare all stages from saved reports")
@@ -1977,8 +2138,34 @@ def main():
         default="evaluation/checkpoints",
         help="Directory for checkpoint files",
     )
+    cmp_live.add_argument(
+        "--timeout",
+        type=int,
+        default=900,
+        help="Per-problem Ollama request timeout in seconds (default: 900)",
+    )
+
+    # Rescore: add Cerebras Socratic scores to existing checkpoint
+    rescore_parser = subparsers.add_parser(
+        "rescore",
+        help="Add Cerebras Socratic scores to existing checkpoint JSONL (no Ollama needed)",
+    )
+    rescore_parser.add_argument(
+        "checkpoint",
+        help="Path to checkpoint JSONL file (e.g. evaluation/checkpoints/qwen3.5_9b_base.jsonl)",
+    )
+    rescore_parser.add_argument(
+        "--workers", type=int, default=4, help="Parallel Cerebras API workers"
+    )
+    rescore_parser.add_argument(
+        "--force", action="store_true", help="Re-score entries that already have socratic_score"
+    )
 
     args = parser.parse_args()
+
+    if args.command == "rescore":
+        _run_rescore(args)
+        return
 
     if args.command == "compare":
         compare_stages(args.reports_dir)
@@ -1994,7 +2181,7 @@ def main():
             eval_problems = _sample_uniform_150(eval_problems)
 
         cerebras_client = None
-        if (args.hybrid_verify or args.judge) and HAS_CEREBRAS:
+        if (args.hybrid_verify or args.judge or args.full_judge) and HAS_CEREBRAS:
             try:
                 cerebras_client = CerebrasClient()
             except Exception as e:
@@ -2017,6 +2204,7 @@ def main():
             resume=args.resume,
             checkpoint_dir=args.checkpoint_dir,
             full_judge=args.full_judge,
+            request_timeout=args.timeout,
         )
         if args.wandb and HAS_CEREBRAS:
             for side in ("model_a", "model_b"):
@@ -2124,6 +2312,7 @@ def main():
             checkpoint_path=_checkpoint_path(model_name, args.stage, args.checkpoint_dir),
             resume=args.resume,
             full_judge=args.full_judge,
+            request_timeout=args.timeout,
         )
 
         # Optional: combined Socratic quality + correctness pass

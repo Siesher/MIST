@@ -1,7 +1,6 @@
 """Backend configuration."""
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
 
 
 class BackendSettings(BaseSettings):
@@ -21,9 +20,9 @@ class BackendSettings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Model selection
-    MODEL_NAME: str = "glm-reap-23b"
-    MODEL_FINETUNED: str = ""  # e.g. "mits-tutor-qwen3-4b"; empty = use MODEL_NAME
-    USE_FINETUNED: bool = False  # Set True to use fine-tuned model
+    MODEL_NAME: str = "mits-tutor-9b-think"
+    MODEL_FINETUNED: str = "mits-tutor-9b-think"  # GSPO fine-tuned Qwen3.5-9B
+    USE_FINETUNED: bool = True  # Set True to use fine-tuned model
     AUTO_SELECT_MODEL: bool = True  # Auto-detect hardware and pick best model
     SHOW_THINKING: bool = False  # Show <think> blocks in debug mode
     MAX_HINTS: int = 3

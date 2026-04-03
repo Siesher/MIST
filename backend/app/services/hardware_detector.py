@@ -16,11 +16,10 @@ Usage:
     model = select_model(hw)
 """
 
-import os
 import logging
-import subprocess
+import os
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -30,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class HardwareInfo:
     """Detected hardware capabilities."""
+
     total_ram_gb: float = 0.0
     available_ram_gb: float = 0.0
     gpu_name: Optional[str] = None
@@ -46,22 +46,31 @@ class HardwareInfo:
 # Known MITS models in preference order
 MITS_MODELS = [
     {
+        "name": "mits-tutor-9b-think",
+        "min_ram_gb": 8,
+        "min_vram_gb": 6,
+        "ram_usage_gb": 6.0,
+        "vram_usage_gb": 5.5,
+        "quality": "high",
+        "description": "Qwen3.5-9B GSPO fine-tuned Socratic tutor (Q4_K_M)",
+    },
+    {
         "name": "mits-tutor-qwen3-4b",
         "min_ram_gb": 16,
         "min_vram_gb": 4,
         "ram_usage_gb": 4.5,
         "vram_usage_gb": 3.5,
-        "quality": "high",
-        "description": "Qwen3-4B fine-tuned STEM tutor",
+        "quality": "medium",
+        "description": "Qwen3-4B fine-tuned STEM tutor (legacy)",
     },
     {
-        "name": "mits-tutor-qwen3-1.7b",
+        "name": "qwen3.5:9b",
         "min_ram_gb": 8,
-        "min_vram_gb": 2,
-        "ram_usage_gb": 3.0,
-        "vram_usage_gb": 2.0,
+        "min_vram_gb": 7,
+        "ram_usage_gb": 7.0,
+        "vram_usage_gb": 6.6,
         "quality": "medium",
-        "description": "Qwen3-1.7B lightweight STEM tutor",
+        "description": "Qwen3.5-9B base Instruct (fallback)",
     },
     {
         "name": "glm-reap-23b",
@@ -69,8 +78,8 @@ MITS_MODELS = [
         "min_vram_gb": 8,
         "ram_usage_gb": 13.0,
         "vram_usage_gb": 8.0,
-        "quality": "high",
-        "description": "GLM-4.7-Flash ReAP pruned (existing)",
+        "quality": "medium",
+        "description": "GLM-4.7-Flash ReAP pruned (legacy)",
     },
 ]
 
@@ -82,44 +91,49 @@ def detect_hardware(ollama_host: str = "http://localhost:11434") -> HardwareInfo
     # RAM detection via psutil
     try:
         import psutil
+
         mem = psutil.virtual_memory()
-        hw.total_ram_gb = round(mem.total / (1024 ** 3), 1)
-        hw.available_ram_gb = round(mem.available / (1024 ** 3), 1)
+        hw.total_ram_gb = round(mem.total / (1024**3), 1)
+        hw.available_ram_gb = round(mem.available / (1024**3), 1)
     except ImportError:
         logger.debug("psutil not available, trying OS-level detection")
         try:
-            if os.name == 'nt':
+            if os.name == "nt":
                 import ctypes
+
                 kernel32 = ctypes.windll.kernel32
                 c_ulong = ctypes.c_ulonglong
+
                 class MEMORYSTATUSEX(ctypes.Structure):
                     _fields_ = [
-                        ('dwLength', ctypes.c_ulong),
-                        ('dwMemoryLoad', ctypes.c_ulong),
-                        ('ullTotalPhys', c_ulong),
-                        ('ullAvailPhys', c_ulong),
-                        ('ullTotalPageFile', c_ulong),
-                        ('ullAvailPageFile', c_ulong),
-                        ('ullTotalVirtual', c_ulong),
-                        ('ullAvailVirtual', c_ulong),
-                        ('ullAvailExtendedVirtual', c_ulong),
+                        ("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", c_ulong),
+                        ("ullAvailPhys", c_ulong),
+                        ("ullTotalPageFile", c_ulong),
+                        ("ullAvailPageFile", c_ulong),
+                        ("ullTotalVirtual", c_ulong),
+                        ("ullAvailVirtual", c_ulong),
+                        ("ullAvailExtendedVirtual", c_ulong),
                     ]
+
                 stat = MEMORYSTATUSEX()
                 stat.dwLength = ctypes.sizeof(stat)
                 kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
-                hw.total_ram_gb = round(stat.ullTotalPhys / (1024 ** 3), 1)
-                hw.available_ram_gb = round(stat.ullAvailPhys / (1024 ** 3), 1)
+                hw.total_ram_gb = round(stat.ullTotalPhys / (1024**3), 1)
+                hw.available_ram_gb = round(stat.ullAvailPhys / (1024**3), 1)
         except Exception as e:
             logger.warning(f"RAM detection failed: {e}")
 
     # GPU detection via torch.cuda
     try:
         import torch
+
         if torch.cuda.is_available():
             hw.gpu_available = True
             hw.gpu_name = torch.cuda.get_device_name(0)
             total_vram = torch.cuda.get_device_properties(0).total_mem
-            hw.gpu_vram_gb = round(total_vram / (1024 ** 3), 1)
+            hw.gpu_vram_gb = round(total_vram / (1024**3), 1)
     except ImportError:
         logger.debug("torch not available, skipping GPU detection")
 
@@ -162,15 +176,17 @@ def select_model(
 
         fits_ram = hw.available_ram_gb >= model["ram_usage_gb"]
         fits_vram = (
-            hw.gpu_available and hw.gpu_vram_gb >= model["vram_usage_gb"]
-        ) if hw.gpu_available else False
+            (hw.gpu_available and hw.gpu_vram_gb >= model["vram_usage_gb"])
+            if hw.gpu_available
+            else False
+        )
 
         # Can run on CPU if enough RAM, or on GPU if enough VRAM
         can_run = fits_ram or fits_vram
         if not can_run:
             continue
 
-        is_available = model["name"] in hw.ollama_models
+        is_available = any(model["name"] in m for m in hw.ollama_models)
 
         reason_parts = []
         if fits_vram:
@@ -191,7 +207,7 @@ def select_model(
 
     # Fallback: try GLM if available
     for model in MITS_MODELS:
-        if model["name"] in hw.ollama_models:
+        if any(model["name"] in m for m in hw.ollama_models):
             return {
                 "name": model["name"],
                 "description": model["description"],
@@ -204,8 +220,8 @@ def select_model(
             }
 
     return {
-        "name": "glm-reap-23b",
-        "description": "GLM fallback (may need manual pull)",
+        "name": "mits-tutor-9b-think",
+        "description": "MITS Tutor 9B (may need manual pull via ollama create)",
         "quality": "fallback",
         "available": False,
         "needs_pull": True,
@@ -227,6 +243,7 @@ def get_vram_profile(
 
     try:
         import torch
+
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
 
@@ -242,7 +259,7 @@ def get_vram_profile(
                 timeout=120,
             )
 
-            peak_vram = torch.cuda.max_memory_allocated() / (1024 ** 3)
+            peak_vram = torch.cuda.max_memory_allocated() / (1024**3)
             profile["vram_gb"] = round(peak_vram, 2)
             profile["compliant"] = peak_vram < 6.0
             profile["limit_gb"] = 6.0

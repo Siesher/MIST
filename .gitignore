@@ -124,3 +124,12 @@ docs/*.bak
 
 # Metrics (consolidated into figures/)
 metrics/
+
+# W&B logs
+wandb/
+
+# Local model weights (large, downloaded separately)
+training/models/
+
+# Temporary Modelfile variants
+training/Modelfile.*-update
