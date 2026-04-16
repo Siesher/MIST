@@ -206,7 +206,8 @@ NAVIGATOR_TOOL_DEFINITIONS = [
             "description": (
                 "Explore a concept in the knowledge graph. Returns the concept definition, "
                 "content, difficulty, and all connected nodes (prerequisites, formulas, methods, "
-                "examples, misconceptions) enriched with the student's mastery of each prerequisite. "
+                "examples, misconceptions) enriched with the student's "
+                "mastery of each prerequisite. "
                 "Use this to understand a topic before explaining it."
             ),
             "parameters": {
@@ -214,7 +215,9 @@ NAVIGATOR_TOOL_DEFINITIONS = [
                 "properties": {
                     "concept_id": {
                         "type": "string",
-                        "description": "Knowledge graph node ID (e.g. 'math:derivatives:definition')",
+                        "description": (
+                            "Knowledge graph node ID (e.g. 'math:derivatives:definition')"
+                        ),
                     },
                     "student_id": {
                         "type": "string",

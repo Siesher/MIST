@@ -30,7 +30,8 @@ logger = logging.getLogger(__name__)
 # Extraction Prompts
 # ─────────────────────────────────────────────────────────────────────
 
-ENTITY_EXTRACTION_PROMPT = """Analyze the following educational text and extract structured knowledge entities.
+ENTITY_EXTRACTION_PROMPT = """Analyze the following educational text \
+and extract structured knowledge entities.
 
 For each entity found, provide:
 - type: one of "concept", "formula", "theorem", "example", "method"
@@ -49,7 +50,8 @@ DOMAIN: {domain}
 
 Return ONLY valid JSON."""
 
-RELATION_EXTRACTION_PROMPT = """Given these knowledge entities extracted from an educational text, identify relationships between them.
+RELATION_EXTRACTION_PROMPT = """Given these knowledge entities extracted \
+from an educational text, identify relationships between them.
 
 ENTITIES:
 {entities_json}
@@ -57,7 +59,9 @@ ENTITIES:
 For each relationship found, provide:
 - source: title of the source entity (exact match from list above)
 - target: title of the target entity (exact match from list above)
-- type: one of "prerequisite", "derived_from", "part_of", "applies_to", "illustrates", "confused_with", "common_error_for", "proves", "generalizes", "best_taught_after"
+- type: one of "prerequisite", "derived_from", "part_of", "applies_to", \
+"illustrates", "confused_with", "common_error_for", "proves", "generalizes", \
+"best_taught_after"
 
 Return a JSON object with key "relations" containing a list of relations.
 

@@ -337,10 +337,10 @@ def main() -> None:
     graph = KnowledgeGraph(OUTPUT_PATH) if OUTPUT_PATH.exists() else KnowledgeGraph()
 
     # Phase 1: SKILL_GRAPH → CONCEPT nodes + PREREQUISITE edges
-    n_concepts = migrate_skill_graph(graph)
+    migrate_skill_graph(graph)
 
     # Phase 2: Textbook cards → child nodes
-    n_children = migrate_textbook_cards(graph)
+    migrate_textbook_cards(graph)
 
     # Save
     graph.save(OUTPUT_PATH)

@@ -159,12 +159,12 @@
 
 **Purpose**: Quality improvements across all user stories.
 
-- [ ] T044 [P] Run `ruff check .` and `ruff format .` on all new/modified files
-- [ ] T045 [P] Add type hints to all public functions in navigator_tools.py and source_extractor.py (per CLAUDE.md Python Standards)
-- [ ] T046 [P] Add structlog logging to navigator_tools.py — log each tool invocation with concept_id, student_id, and response summary
-- [ ] T047 Run full test suite: `cd src && pytest tests/test_knowledge_forge.py tests/test_navigator.py tests/test_navigator_tools.py tests/test_source_extractor.py -v`
+- [x] T044 [P] Run `ruff check .` and `ruff format .` on all new/modified files
+- [x] T045 [P] Add type hints to all public functions in navigator_tools.py and source_extractor.py (per CLAUDE.md Python Standards)
+- [x] T046 [P] Add structlog logging to navigator_tools.py — log each tool invocation with concept_id, student_id, and response summary
+- [x] T047 Run full test suite: `cd src && pytest tests/test_knowledge_forge.py tests/test_navigator.py tests/test_navigator_tools.py tests/test_source_extractor.py -v`
 - [ ] T048 Run quickstart.md validation — execute all code blocks from `specs/016-knowledge-forge/quickstart.md` and verify expected output
-- [ ] T049 Update `CLAUDE.md` Recent Changes section with Knowledge Forge summary
+- [x] T049 Update `CLAUDE.md` Recent Changes section with Knowledge Forge summary
 
 ---
 
