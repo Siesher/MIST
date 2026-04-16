@@ -272,6 +272,27 @@ class TestNavigatorOptimalPath:
         assert path is not None
         assert path.path[-1] == "math:derivatives:definition"
 
+    def test_path_cost_lower_with_mastery(self, calculus_graph: KnowledgeGraph) -> None:
+        """T028: Student with partial mastery should get lower-cost path."""
+        nav_none = PersonalizedNavigator(calculus_graph, {})
+        nav_some = PersonalizedNavigator(
+            calculus_graph,
+            {
+                "math:algebra:definition": 0.9,
+                "math:functions:definition": 0.85,
+                "math:limits:definition": 0.8,
+            },
+        )
+        target = "math:definite_integrals:definition"
+        path_none = nav_none.find_optimal_path("s1", target)
+        path_some = nav_some.find_optimal_path("s2", target)
+
+        assert path_none is not None
+        assert path_some is not None
+        assert path_some.total_cost < path_none.total_cost, (
+            "Mastered prereqs should reduce path cost"
+        )
+
     def test_already_mastered_target(self, calculus_graph: KnowledgeGraph) -> None:
         mastery = {"math:derivatives:definition": 0.9}
         nav = PersonalizedNavigator(calculus_graph, mastery)
@@ -300,3 +321,47 @@ class TestNavigatorOptimalPath:
         # since it has no prerequisites
         if path is not None:
             assert "cs:oop:definition" in path.path
+
+
+class TestPlannerIntegration:
+    """Test that graph context enriches planner decisions (T033-T034)."""
+
+    def test_planner_with_graph_context_adds_prereqs(self) -> None:
+        """T033: Graph gaps populate prerequisites_to_review."""
+        from src.agents.planner import PlannerAgent
+        from src.agents.profiler import StudentProfile
+
+        planner = PlannerAgent(use_llm=False)
+
+        # Simulate graph context with a gap
+        graph_context = {
+            "student": {
+                "has_gaps": True,
+                "prerequisites": [
+                    {"id": "math:limits:definition", "mastery": 0.2, "status": "gap"},
+                    {"id": "math:algebra:definition", "mastery": 0.9, "status": "mastered"},
+                ],
+            },
+            "misconceptions": [],
+        }
+
+        profile = StudentProfile()
+        from src.agents.planner import SessionContext
+
+        context = SessionContext(topic="derivatives", difficulty="medium")
+
+        plan = planner.create_plan(profile=profile, context=context, graph_context=graph_context)
+        assert "math:limits:definition" in plan.prerequisites_to_review
+
+    def test_planner_without_graph_context_works(self) -> None:
+        """T034: Planner works fine with graph_context=None."""
+        from src.agents.planner import PlannerAgent, SessionContext
+        from src.agents.profiler import StudentProfile
+
+        planner = PlannerAgent(use_llm=False)
+        profile = StudentProfile()
+        context = SessionContext(topic="algebra", difficulty="easy")
+
+        plan = planner.create_plan(profile=profile, context=context, graph_context=None)
+        assert plan.strategy is not None
+        assert plan.primary_move is not None

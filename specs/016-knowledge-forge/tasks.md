@@ -97,16 +97,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T026 [P] [US3] Write pathfinding correctness test in `tests/test_navigator.py` — verify path from algebra to definite_integrals goes through limits and derivatives, not around them
-- [ ] T027 [P] [US3] Write path dependency-order test in `tests/test_navigator.py` — for every consecutive pair (A, B) in path, verify A is a prerequisite of B or BEST_TAUGHT_AFTER B
-- [ ] T028 [P] [US3] Write path optimality test in `tests/test_navigator.py` — with student who has mastered half the prerequisites, verify path cost is lower than path for a student with no mastery
-- [ ] T029 [P] [US3] Write edge case tests in `tests/test_navigator.py` — already mastered target (empty path), unreachable target (returns None), no mastery data (cold start)
+- [x] T026 [P] [US3] Write pathfinding correctness test in `tests/test_navigator.py` — verify path from algebra to definite_integrals goes through limits and derivatives, not around them
+- [x] T027 [P] [US3] Write path dependency-order test in `tests/test_navigator.py` — for every consecutive pair (A, B) in path, verify A is a prerequisite of B or BEST_TAUGHT_AFTER B
+- [x] T028 [P] [US3] Write path optimality test in `tests/test_navigator.py` — with student who has mastered half the prerequisites, verify path cost is lower than path for a student with no mastery
+- [x] T029 [P] [US3] Write edge case tests in `tests/test_navigator.py` — already mastered target (empty path), unreachable target (returns None), no mastery data (cold start)
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Verify `find_optimal_path()` works with real forge.json — load graph, test with various mock mastery profiles, fix any issues with edge traversal direction (PREREQUISITE edges point from prereq → concept)
-- [ ] T031 [US3] Wire `find_learning_path` tool in `src/tools/navigator_tools.py` — implement dispatch function that calls `navigator.find_optimal_path()` and formats LearningPath as JSON response with path titles, costs, and mastery values
-- [ ] T032 [US3] Wire `get_learning_frontier` tool in `src/tools/navigator_tools.py` — implement dispatch function that calls `navigator.get_learning_frontier()` and returns ranked FrontierNode list as JSON
+- [x] T030 [US3] Verify `find_optimal_path()` works with real forge.json — load graph, test with various mock mastery profiles, fix any issues with edge traversal direction (PREREQUISITE edges point from prereq → concept)
+- [x] T031 [US3] Wire `find_learning_path` tool in `src/tools/navigator_tools.py` — implement dispatch function that calls `navigator.find_optimal_path()` and formats LearningPath as JSON response with path titles, costs, and mastery values
+- [x] T032 [US3] Wire `get_learning_frontier` tool in `src/tools/navigator_tools.py` — implement dispatch function that calls `navigator.get_learning_frontier()` and returns ranked FrontierNode list as JSON
 
 **Checkpoint**: find_learning_path and get_learning_frontier tools work end-to-end with real forge.json data.
 
@@ -120,14 +120,14 @@
 
 ### Tests for User Story 4
 
-- [ ] T033 [P] [US4] Write planner enrichment test in `tests/test_navigator.py` — create mock graph context with gap diagnosis, pass to planner, verify prerequisites_to_review populated
-- [ ] T034 [P] [US4] Write fallback test in `tests/test_navigator.py` — pass graph_context=None to planner, verify existing rule-based logic produces valid TeachingPlan without errors
+- [x] T033 [P] [US4] Write planner enrichment test in `tests/test_navigator.py` — create mock graph context with gap diagnosis, pass to planner, verify prerequisites_to_review populated
+- [x] T034 [P] [US4] Write fallback test in `tests/test_navigator.py` — pass graph_context=None to planner, verify existing rule-based logic produces valid TeachingPlan without errors
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Add `graph_context: Optional[Dict] = None` parameter to `create_plan()` in `src/agents/planner.py` — accept gap diagnosis, frontier info, and misconception data from orchestrator
-- [ ] T036 [US4] Enhance strategy selection in `src/agents/planner.py` — when graph_context contains missing_prerequisites, populate `TeachingPlan.prerequisites_to_review`. When graph_context contains misconceptions linked to current concept, bias strategy toward CONCEPTUAL_REPAIR
-- [ ] T037 [US4] Pass graph context from orchestrator to planner in `src/agents/orchestrator.py` — in the PLANNER stage, include graph navigation results (from GRAPH_NAV stage added in T024) as graph_context parameter
+- [x] T035 [US4] Add `graph_context: Optional[Dict] = None` parameter to `create_plan()` in `src/agents/planner.py` — accept gap diagnosis, frontier info, and misconception data from orchestrator
+- [x] T036 [US4] Enhance strategy selection in `src/agents/planner.py` — when graph_context contains missing_prerequisites, populate `TeachingPlan.prerequisites_to_review`. When graph_context contains misconceptions linked to current concept, bias strategy toward CONCEPTUAL_REPAIR
+- [x] T037 [US4] Pass graph context from orchestrator to planner in `src/agents/orchestrator.py` — in the PLANNER stage, include graph navigation results (from GRAPH_NAV stage added in T024) as graph_context parameter
 
 **Checkpoint**: Planner uses graph data when available, falls back to rules when not. TeachingPlan includes prerequisite review data from gap diagnosis.
 

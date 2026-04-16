@@ -971,6 +971,7 @@ class AgentOrchestrator:
                 plan = self.planner.create_plan(
                     profile=profile or StudentProfile(),
                     context=planner_context,
+                    graph_context=graph_context,
                 )
                 metrics["planner_ms"] = (time.time() - plan_start) * 1000
                 planner_stage.complete(
