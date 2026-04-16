@@ -141,15 +141,15 @@
 
 ### Tests for User Story 5
 
-- [ ] T038 [P] [US5] Write extraction test in `tests/test_source_extractor.py` — use a hardcoded sample text about quadratic equations, mock LLM response with expected JSON, verify correct nodes/edges created
-- [ ] T039 [P] [US5] Write deduplication test in `tests/test_source_extractor.py` — extract same text twice, verify no duplicate nodes created
+- [x] T038 [P] [US5] Write extraction test in `tests/test_source_extractor.py` — use a hardcoded sample text about quadratic equations, mock LLM response with expected JSON, verify correct nodes/edges created
+- [x] T039 [P] [US5] Write deduplication test in `tests/test_source_extractor.py` — extract same text twice, verify no duplicate nodes created
 
 ### Implementation for User Story 5
 
-- [ ] T040 [US5] Create `src/knowledge/source_extractor.py` — class SourceExtractor with `extract(text: str, domain: str) -> Tuple[List[KnowledgeNode], List[KnowledgeEdge]]`. Uses LLMClient with JSON mode for structured output
-- [ ] T041 [US5] Implement two-pass extraction in `src/knowledge/source_extractor.py` — Pass 1: extract entities (concepts, formulas, theorems, examples). Pass 2: extract relationships between identified entities. Each pass uses a focused prompt with expected JSON schema
-- [ ] T042 [US5] Add confidence scoring and deduplication in `src/knowledge/source_extractor.py` — extracted nodes get confidence < 1.0, fuzzy match on title + domain to detect duplicates, merge or flag as needed
-- [ ] T043 [US5] Add `ingest_document(text, domain, source_name)` method to `KnowledgeGraph` in `src/knowledge/knowledge_forge.py` — accepts extraction results, adds nodes/edges, saves graph. Returns summary of added/merged/skipped counts
+- [x] T040 [US5] Create `src/knowledge/source_extractor.py` — class SourceExtractor with `extract(text: str, domain: str) -> Tuple[List[KnowledgeNode], List[KnowledgeEdge]]`. Uses LLMClient with JSON mode for structured output
+- [x] T041 [US5] Implement two-pass extraction in `src/knowledge/source_extractor.py` — Pass 1: extract entities (concepts, formulas, theorems, examples). Pass 2: extract relationships between identified entities. Each pass uses a focused prompt with expected JSON schema
+- [x] T042 [US5] Add confidence scoring and deduplication in `src/knowledge/source_extractor.py` — extracted nodes get confidence < 1.0, fuzzy match on title + domain to detect duplicates, merge or flag as needed
+- [x] T043 [US5] Add `ingest_document(text, domain, source_name)` method to `KnowledgeGraph` in `src/knowledge/knowledge_forge.py` — accepts extraction results, adds nodes/edges, saves graph. Returns summary of added/merged/skipped counts
 
 **Checkpoint**: Source extractor can process text documents and add structured knowledge to the graph. Extracted nodes have confidence < 1.0.
 
