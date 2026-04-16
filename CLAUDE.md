@@ -1,8 +1,10 @@
-# MITS Development Guidelines
+﻿# MITS Development Guidelines
 
 Last updated: 2026-03-27
 
 ## Active Technologies
+- Python 3.11+ + Ollama (tool calling API), existing StudentMemory (BKT), existing LLMClient (016-knowledge-forge)
+- JSON file (`data/knowledge/forge.json`) for graph persistence, SQLite for student mastery (existing) (016-knowledge-forge)
 
 ### Frontend
 - Next.js 14, TypeScript 5.x, Tailwind CSS, shadcn/ui, Zustand
@@ -69,13 +71,9 @@ Qwen3.5-9B → GSPO (triple reward) → KTO (Socratic alignment) → DPO (polish
 | DPO | dpo_polish_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-final | Final alignment polish |
 
 ## Recent Changes
+- 016-knowledge-forge: Added Python 3.11+ + Ollama (tool calling API), existing StudentMemory (BKT), existing LLMClient
 - 017: Project cleanup — removed GLM/QLoRA/SFT dead code, reorganized files, consolidated metrics into figures/
 - 016: Triple GDPO reward (correctness + format + Socratic), KTO replaces RAFT++
-- 016: Full LLM judge mode (--full-judge), checkpoint/resume, compare-live improvements
-- 015: Migrated to Qwen3.5-9B, A100 80GB bf16, 3-stage pipeline (removed AdaSTaR)
-- 014: Removed SFT from pipeline (Instruct model has dialogue abilities built-in)
-- 014: Added evaluation infrastructure (3678-problem benchmark, per-stage reports)
-- 013: Next.js 14 + FastAPI migration, JWT auth, session persistence
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

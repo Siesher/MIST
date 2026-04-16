@@ -1,0 +1,674 @@
+"""
+Personalized Knowledge Navigator.
+
+Bridges the KnowledgeGraph (static structure) with StudentMemory (dynamic
+BKT mastery state) to provide intelligent, student-aware navigation.
+
+This is NOT retrieval — the tutor model actively navigates the graph
+using tools, making decisions based on the student's current knowledge state.
+
+Key capabilities:
+- Learning frontier: concepts at the edge of student's knowledge (ZPD on graph)
+- Gap diagnosis: when student fails, find the missing prerequisite
+- Optimal path: mastery-weighted shortest path to any target concept
+- Next suggestion: best concept to teach right now
+"""
+
+import heapq
+import logging
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Set, Tuple
+
+from src.knowledge.knowledge_forge import EdgeType, KnowledgeGraph, NodeType
+
+logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Navigator Output Types
+# ─────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class FrontierNode:
+    """A concept at the edge of student's knowledge — ready to learn.
+
+    Attributes:
+        node_id: Knowledge graph node ID.
+        title: Human-readable title.
+        readiness_score: 0-1, how ready the student is for this concept.
+        mastered_prereqs: Prerequisite IDs the student has mastered.
+        missing_prereqs: Prerequisite IDs the student hasn't mastered.
+        prereq_mastery_avg: Average mastery across prerequisites.
+        own_mastery: Student's current mastery of this concept.
+        difficulty: Concept difficulty (from graph).
+    """
+
+    node_id: str
+    title: str
+    readiness_score: float
+    mastered_prereqs: List[str] = field(default_factory=list)
+    missing_prereqs: List[str] = field(default_factory=list)
+    prereq_mastery_avg: float = 0.0
+    own_mastery: float = 0.0
+    difficulty: float = 0.5
+
+
+@dataclass
+class GapDiagnosis:
+    """Result of diagnosing why a student failed at a concept.
+
+    Attributes:
+        failed_concept: The concept the student struggled with.
+        missing_prerequisites: Unmastered prereqs, sorted by depth.
+        root_gap: The deepest unmastered prerequisite (root cause).
+        suggested_review_path: Ordered list of concepts to review.
+        misconceptions: Related misconception node IDs.
+        confidence: Diagnosis confidence (0-1).
+    """
+
+    failed_concept: str
+    missing_prerequisites: List[str] = field(default_factory=list)
+    root_gap: Optional[str] = None
+    suggested_review_path: List[str] = field(default_factory=list)
+    misconceptions: List[str] = field(default_factory=list)
+    confidence: float = 0.0
+
+
+@dataclass
+class LearningPath:
+    """An optimal path from current knowledge to a target concept.
+
+    Attributes:
+        target: Target concept node ID.
+        path: Ordered list of node IDs to traverse.
+        total_cost: Cumulative cost (lower = easier path).
+        estimated_concepts_to_learn: Number of new concepts on the path.
+        mastery_along_path: Mastery values for each node on the path.
+    """
+
+    target: str
+    path: List[str] = field(default_factory=list)
+    total_cost: float = 0.0
+    estimated_concepts_to_learn: int = 0
+    mastery_along_path: List[float] = field(default_factory=list)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Mastery Provider Interface
+# ─────────────────────────────────────────────────────────────────────
+
+
+class MasteryProvider:
+    """Interface to obtain student mastery data.
+
+    Decouples navigator from StudentMemory implementation.
+    Accepts any object with get_knowledge_state(student_id) method,
+    or a plain dict for testing.
+    """
+
+    def __init__(self, source):
+        """Initialize from StudentMemory instance or mastery dict.
+
+        Args:
+            source: Either a StudentMemory (has get_knowledge_state)
+                or Dict[str, float] mapping topic_id → mastery.
+        """
+        self._source = source
+        self._is_dict = isinstance(source, dict)
+
+    def get_mastery(self, student_id: str, topic_id: str) -> float:
+        """Get mastery for a specific topic. Returns 0.0 if unknown."""
+        if self._is_dict:
+            return self._source.get(topic_id, 0.0)
+
+        try:
+            state = self._source.get_knowledge_state(student_id)
+            if hasattr(state, "topics") and topic_id in state.topics:
+                return state.topics[topic_id].mastery
+            return 0.0
+        except Exception:
+            return 0.0
+
+    def get_all_mastery(self, student_id: str) -> Dict[str, float]:
+        """Get mastery dict for all known topics."""
+        if self._is_dict:
+            return dict(self._source)
+
+        try:
+            state = self._source.get_knowledge_state(student_id)
+            if hasattr(state, "topics"):
+                return {tid: tm.mastery for tid, tm in state.topics.items()}
+            return {}
+        except Exception:
+            return {}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Personalized Navigator
+# ─────────────────────────────────────────────────────────────────────
+
+# Mastery thresholds
+MASTERY_THRESHOLD = 0.7  # Topic considered "mastered"
+MASTERY_WEAK = 0.4  # Below this = significant gap
+MASTERY_UNKNOWN = 0.0  # Never attempted
+
+
+class PersonalizedNavigator:
+    """Student-aware knowledge graph navigator.
+
+    Overlays BKT mastery state onto the knowledge graph to provide
+    personalized navigation: learning frontiers, gap diagnosis,
+    optimal learning paths, and next-concept suggestions.
+
+    Usage:
+        graph = KnowledgeGraph(Path("data/knowledge/forge.json"))
+        memory = StudentMemory("data/mits.db")
+        nav = PersonalizedNavigator(graph, memory)
+
+        # What should this student learn next?
+        frontier = nav.get_learning_frontier("student_42")
+
+        # Student failed at integration_by_parts — why?
+        gap = nav.diagnose_gap("student_42", "calc:integration_by_parts")
+
+        # Build path from current knowledge to target
+        path = nav.find_optimal_path("student_42", "calc:definite_integrals")
+    """
+
+    def __init__(self, graph: KnowledgeGraph, mastery_source) -> None:
+        """Initialize navigator.
+
+        Args:
+            graph: The knowledge graph to navigate.
+            mastery_source: StudentMemory instance or Dict[str, float]
+                for testing.
+        """
+        self._graph = graph
+        self._mastery = MasteryProvider(mastery_source)
+
+    # ── Learning Frontier (ZPD on Graph) ─────────────────────────
+
+    def get_learning_frontier(
+        self,
+        student_id: str,
+        max_results: int = 5,
+        domain: Optional[str] = None,
+    ) -> List[FrontierNode]:
+        """Find concepts at the edge of the student's knowledge.
+
+        A frontier node is a concept where:
+        - The student hasn't mastered it yet (mastery < MASTERY_THRESHOLD)
+        - Most/all prerequisites ARE mastered (mastery >= MASTERY_THRESHOLD)
+
+        This is Vygotsky's Zone of Proximal Development mapped onto
+        the knowledge graph structure.
+
+        Args:
+            student_id: Student identifier.
+            max_results: Maximum frontier nodes to return.
+            domain: Optional domain filter.
+
+        Returns:
+            Frontier nodes sorted by readiness_score (highest first).
+        """
+        all_mastery = self._mastery.get_all_mastery(student_id)
+        candidates: List[FrontierNode] = []
+
+        # Search concept nodes (not examples/formulas/misconceptions)
+        concept_nodes = self._graph.search(
+            domain=domain,
+            node_type=NodeType.CONCEPT,
+        )
+
+        for node in concept_nodes:
+            own_mastery = all_mastery.get(node.id, MASTERY_UNKNOWN)
+
+            # Skip already mastered
+            if own_mastery >= MASTERY_THRESHOLD:
+                continue
+
+            # Get prerequisites via graph edges
+            prereq_edges = self._graph.get_neighbors(
+                node.id, edge_type=EdgeType.PREREQUISITE, direction="incoming"
+            )
+            # Also check BEST_TAUGHT_AFTER (pedagogical prerequisites)
+            taught_after_edges = self._graph.get_neighbors(
+                node.id, edge_type=EdgeType.BEST_TAUGHT_AFTER, direction="incoming"
+            )
+
+            prereq_ids = [n.id for _, n in prereq_edges]
+            taught_after_ids = [n.id for _, n in taught_after_edges]
+            all_prereq_ids = list(set(prereq_ids + taught_after_ids))
+
+            mastered = [
+                pid
+                for pid in all_prereq_ids
+                if all_mastery.get(pid, MASTERY_UNKNOWN) >= MASTERY_THRESHOLD
+            ]
+            missing = [pid for pid in all_prereq_ids if pid not in mastered]
+
+            prereq_mastery_avg = (
+                sum(all_mastery.get(pid, 0.0) for pid in all_prereq_ids) / len(all_prereq_ids)
+                if all_prereq_ids
+                else 1.0  # No prereqs = always ready
+            )
+
+            # TODO(human): Implement readiness scoring.
+            # See the Learn by Doing request below for details.
+            readiness = _score_frontier_node(
+                own_mastery=own_mastery,
+                prereq_mastery_avg=prereq_mastery_avg,
+                n_mastered=len(mastered),
+                n_total_prereqs=len(all_prereq_ids),
+                difficulty=node.difficulty,
+            )
+
+            candidates.append(
+                FrontierNode(
+                    node_id=node.id,
+                    title=node.title,
+                    readiness_score=readiness,
+                    mastered_prereqs=mastered,
+                    missing_prereqs=missing,
+                    prereq_mastery_avg=prereq_mastery_avg,
+                    own_mastery=own_mastery,
+                    difficulty=node.difficulty,
+                )
+            )
+
+        candidates.sort(key=lambda f: -f.readiness_score)
+        return candidates[:max_results]
+
+    # ── Gap Diagnosis ────────────────────────────────────────────
+
+    def diagnose_gap(
+        self,
+        student_id: str,
+        failed_concept_id: str,
+    ) -> GapDiagnosis:
+        """Diagnose why a student failed at a concept.
+
+        Traverses PREREQUISITE edges backward from the failed concept,
+        collecting unmastered prerequisites. The deepest unmastered
+        prerequisite is the likely root cause.
+
+        Args:
+            student_id: Student identifier.
+            failed_concept_id: Concept the student struggled with.
+
+        Returns:
+            GapDiagnosis with missing prerequisites and review path.
+        """
+        all_mastery = self._mastery.get_all_mastery(student_id)
+        missing: List[Tuple[str, int]] = []  # (node_id, depth)
+        visited: Set[str] = set()
+
+        def _collect_gaps(node_id: str, depth: int) -> None:
+            if node_id in visited:
+                return
+            visited.add(node_id)
+
+            prereqs = self._graph.get_neighbors(
+                node_id, edge_type=EdgeType.PREREQUISITE, direction="incoming"
+            )
+            for _, prereq_node in prereqs:
+                mastery = all_mastery.get(prereq_node.id, MASTERY_UNKNOWN)
+                if mastery < MASTERY_THRESHOLD:
+                    missing.append((prereq_node.id, depth + 1))
+                    _collect_gaps(prereq_node.id, depth + 1)
+
+        _collect_gaps(failed_concept_id, 0)
+
+        # Sort by depth (deepest first = root cause)
+        missing.sort(key=lambda x: -x[1])
+
+        # Find misconceptions linked to the failed concept
+        misconception_edges = self._graph.get_neighbors(
+            failed_concept_id,
+            edge_type=EdgeType.COMMON_ERROR_FOR,
+            direction="incoming",
+        )
+        misconception_ids = [n.id for _, n in misconception_edges]
+
+        # Also check CONFUSED_WITH
+        confused_edges = self._graph.get_neighbors(
+            failed_concept_id,
+            edge_type=EdgeType.CONFUSED_WITH,
+            direction="both",
+        )
+        confused_ids = [n.id for _, n in confused_edges if n.node_type == NodeType.MISCONCEPTION]
+
+        all_misconceptions = list(set(misconception_ids + confused_ids))
+
+        root_gap = missing[0][0] if missing else None
+        missing_ids = [m[0] for m in missing]
+
+        # Build review path: from deepest gap → up to the failed concept
+        review_path = list(reversed(missing_ids))
+
+        n_prereqs_checked = len(visited)
+        confidence = min(1.0, n_prereqs_checked / 3) if missing else 0.3
+
+        return GapDiagnosis(
+            failed_concept=failed_concept_id,
+            missing_prerequisites=missing_ids,
+            root_gap=root_gap,
+            suggested_review_path=review_path,
+            misconceptions=all_misconceptions,
+            confidence=confidence,
+        )
+
+    # ── Optimal Learning Path ────────────────────────────────────
+
+    def find_optimal_path(
+        self,
+        student_id: str,
+        target_id: str,
+    ) -> Optional[LearningPath]:
+        """Find the optimal learning path to a target concept.
+
+        Uses Dijkstra's algorithm with mastery-weighted edge costs.
+        Nodes the student already knows have low traversal cost;
+        unknown nodes have high cost. The result is the path that
+        maximizes learning through already-familiar territory.
+
+        Args:
+            student_id: Student identifier.
+            target_id: Target concept to reach.
+
+        Returns:
+            LearningPath with ordered steps, or None if unreachable.
+        """
+        if not self._graph.get_node(target_id):
+            return None
+
+        all_mastery = self._mastery.get_all_mastery(student_id)
+
+        # Find all concepts the student has mastered as start points
+        start_nodes: Set[str] = set()
+        for node_id in self._graph._nodes:
+            node = self._graph._nodes[node_id]
+            if node.node_type != NodeType.CONCEPT:
+                continue
+            if all_mastery.get(node_id, 0.0) >= MASTERY_THRESHOLD:
+                start_nodes.add(node_id)
+
+        if target_id in start_nodes:
+            return LearningPath(target=target_id, path=[target_id], total_cost=0.0)
+
+        # If no mastered concepts, start from nodes with no prerequisites
+        if not start_nodes:
+            for node_id, node in self._graph._nodes.items():
+                if node.node_type != NodeType.CONCEPT:
+                    continue
+                prereqs = self._graph.get_neighbors(
+                    node_id, edge_type=EdgeType.PREREQUISITE, direction="incoming"
+                )
+                if not prereqs:
+                    start_nodes.add(node_id)
+
+        # Dijkstra from all start nodes simultaneously
+        # Cost to reach each node
+        dist: Dict[str, float] = {s: 0.0 for s in start_nodes}
+        prev: Dict[str, Optional[str]] = {s: None for s in start_nodes}
+        # Priority queue: (cost, node_id)
+        pq: List[Tuple[float, str]] = [(0.0, s) for s in start_nodes]
+        heapq.heapify(pq)
+        visited: Set[str] = set()
+
+        while pq:
+            cost, current = heapq.heappop(pq)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == target_id:
+                break
+
+            # Traverse outgoing PREREQUISITE edges (concept → depends_on)
+            # We need to traverse in reverse: prerequisite → concept
+            # So we look at nodes that have `current` as prerequisite
+            for edge, neighbor in self._graph.get_neighbors(
+                current, edge_type=EdgeType.PREREQUISITE, direction="outgoing"
+            ):
+                if neighbor.id in visited:
+                    continue
+                neighbor_mastery = all_mastery.get(neighbor.id, MASTERY_UNKNOWN)
+                edge_cost = _compute_edge_cost(neighbor_mastery, neighbor.difficulty)
+                new_cost = cost + edge_cost
+
+                if new_cost < dist.get(neighbor.id, float("inf")):
+                    dist[neighbor.id] = new_cost
+                    prev[neighbor.id] = current
+                    heapq.heappush(pq, (new_cost, neighbor.id))
+
+            # Also follow BEST_TAUGHT_AFTER edges
+            for edge, neighbor in self._graph.get_neighbors(
+                current, edge_type=EdgeType.BEST_TAUGHT_AFTER, direction="outgoing"
+            ):
+                if neighbor.id in visited:
+                    continue
+                neighbor_mastery = all_mastery.get(neighbor.id, MASTERY_UNKNOWN)
+                # Pedagogical edges slightly cheaper (preferred path)
+                edge_cost = _compute_edge_cost(neighbor_mastery, neighbor.difficulty) * 0.9
+                new_cost = cost + edge_cost
+
+                if new_cost < dist.get(neighbor.id, float("inf")):
+                    dist[neighbor.id] = new_cost
+                    prev[neighbor.id] = current
+                    heapq.heappush(pq, (new_cost, neighbor.id))
+
+        # Reconstruct path
+        if target_id not in prev and target_id not in start_nodes:
+            return None
+
+        path: List[str] = []
+        current = target_id
+        while current is not None:
+            path.append(current)
+            current = prev.get(current)
+        path.reverse()
+
+        mastery_along = [all_mastery.get(nid, 0.0) for nid in path]
+        new_concepts = sum(1 for m in mastery_along if m < MASTERY_THRESHOLD)
+
+        return LearningPath(
+            target=target_id,
+            path=path,
+            total_cost=dist.get(target_id, 0.0),
+            estimated_concepts_to_learn=new_concepts,
+            mastery_along_path=mastery_along,
+        )
+
+    # ── Suggest Next Concept ─────────────────────────────────────
+
+    def suggest_next(
+        self,
+        student_id: str,
+        domain: Optional[str] = None,
+    ) -> Optional[FrontierNode]:
+        """Suggest the single best concept to teach next.
+
+        Combines learning frontier with pedagogical heuristics:
+        highest readiness_score wins.
+
+        Args:
+            student_id: Student identifier.
+            domain: Optional domain filter.
+
+        Returns:
+            Best FrontierNode, or None if nothing to suggest.
+        """
+        frontier = self.get_learning_frontier(student_id, max_results=1, domain=domain)
+        return frontier[0] if frontier else None
+
+    # ── Concept Context for Tutor ────────────────────────────────
+
+    def get_concept_context(
+        self,
+        student_id: str,
+        concept_id: str,
+    ) -> Optional[Dict]:
+        """Get rich context about a concept personalized to the student.
+
+        Returns concept details + student's mastery of prerequisites +
+        related misconceptions + applicable methods. This is what the
+        tutor LLM receives when it asks "tell me about this concept
+        for this student."
+
+        Args:
+            student_id: Student identifier.
+            concept_id: Concept to get context for.
+
+        Returns:
+            Dict with concept info, student state, and related nodes.
+        """
+        explored = self._graph.explore(concept_id)
+        if not explored:
+            return None
+
+        all_mastery = self._mastery.get_all_mastery(student_id)
+        node = explored["node"]
+
+        # Enrich prerequisites with mastery info
+        prereqs = self._graph.get_neighbors(
+            concept_id, edge_type=EdgeType.PREREQUISITE, direction="incoming"
+        )
+        prereq_state = [
+            {
+                "id": n.id,
+                "title": n.title,
+                "mastery": all_mastery.get(n.id, 0.0),
+                "status": (
+                    "mastered"
+                    if all_mastery.get(n.id, 0.0) >= MASTERY_THRESHOLD
+                    else "weak"
+                    if all_mastery.get(n.id, 0.0) >= MASTERY_WEAK
+                    else "gap"
+                ),
+            }
+            for _, n in prereqs
+        ]
+
+        # Get related misconceptions
+        misconceptions = self._graph.get_neighbors(
+            concept_id, edge_type=EdgeType.COMMON_ERROR_FOR, direction="incoming"
+        )
+        confused = self._graph.get_neighbors(
+            concept_id, edge_type=EdgeType.CONFUSED_WITH, direction="both"
+        )
+
+        # Get applicable methods
+        methods = self._graph.get_neighbors(
+            concept_id, edge_type=EdgeType.APPLIES_TO, direction="incoming"
+        )
+
+        # Get illustrating examples
+        examples = self._graph.get_neighbors(
+            concept_id, edge_type=EdgeType.ILLUSTRATES, direction="incoming"
+        )
+
+        return {
+            "concept": {
+                "id": node["id"],
+                "title": node["title"],
+                "content": node["content"],
+                "domain": node["domain"],
+                "difficulty": node["difficulty"],
+            },
+            "student": {
+                "mastery": all_mastery.get(concept_id, 0.0),
+                "prerequisites": prereq_state,
+                "has_gaps": any(p["status"] == "gap" for p in prereq_state),
+                "weakest_prereq": (
+                    min(prereq_state, key=lambda p: p["mastery"]) if prereq_state else None
+                ),
+            },
+            "misconceptions": [
+                {"id": n.id, "title": n.title, "content": n.content}
+                for _, n in list(misconceptions) + list(confused)
+                if n.node_type == NodeType.MISCONCEPTION
+            ],
+            "methods": [{"id": n.id, "title": n.title, "content": n.content} for _, n in methods],
+            "examples": [
+                {"id": n.id, "title": n.title, "difficulty": n.difficulty} for _, n in examples
+            ],
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Scoring Functions
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _score_frontier_node(
+    own_mastery: float,
+    prereq_mastery_avg: float,
+    n_mastered: int,
+    n_total_prereqs: int,
+    difficulty: float,
+) -> float:
+    """Score how ready a student is to learn a frontier concept.
+
+    Higher score = more ready = should be suggested first.
+
+    Args:
+        own_mastery: Student's current mastery of this concept (0-1).
+        prereq_mastery_avg: Average mastery across all prerequisites.
+        n_mastered: Number of prerequisites the student has mastered.
+        n_total_prereqs: Total number of prerequisites.
+        difficulty: Concept difficulty from the graph (0-1).
+
+    Returns:
+        Readiness score (0-1). Higher = more ready to learn.
+    """
+    # Entry-point concepts (no prerequisites) — always accessible,
+    # score depends on own mastery and difficulty
+    if n_total_prereqs == 0:
+        novelty = 1.0 - own_mastery
+        ease = 1.0 - difficulty * 0.3
+        return max(0.0, min(1.0, novelty * ease))
+
+    # Gate: if less than half of prerequisites are mastered, heavily penalize.
+    # A single missing foundation can block understanding.
+    prereq_ratio = n_mastered / n_total_prereqs
+    if prereq_ratio < 0.5:
+        return max(0.0, prereq_ratio * 0.3 * (1.0 - own_mastery))
+
+    # Weighted composite score:
+    # 1. Prerequisite completeness (40%) — ratio of mastered prereqs
+    completeness = prereq_ratio
+
+    # 2. Prerequisite quality (25%) — average mastery (0.71 vs 0.95 matters)
+    quality = prereq_mastery_avg
+
+    # 3. Novelty (25%) — lower own mastery = more frontier value
+    novelty = 1.0 - own_mastery
+
+    # 4. Difficulty alignment (10%) — penalize hard concepts when prereqs are moderate
+    #    If prereq quality is high, difficulty doesn't matter much
+    difficulty_fit = 1.0 - max(0.0, difficulty - quality) * 0.5
+
+    score = 0.40 * completeness + 0.25 * quality + 0.25 * novelty + 0.10 * difficulty_fit
+    return max(0.0, min(1.0, score))
+
+
+def _compute_edge_cost(mastery: float, difficulty: float) -> float:
+    """Compute traversal cost for Dijkstra path finding.
+
+    Low cost = easy to traverse (student knows this or it's easy).
+    High cost = hard to traverse (unknown + difficult).
+
+    Args:
+        mastery: Student's mastery of the target node (0-1).
+        difficulty: Node difficulty (0-1).
+
+    Returns:
+        Edge cost > 0. Lower means preferred path.
+    """
+    # Already-mastered nodes are nearly free to traverse
+    # Unknown nodes cost proportional to difficulty
+    knowledge_cost = 1.0 - mastery
+    difficulty_factor = 0.5 + 0.5 * difficulty  # Range [0.5, 1.0]
+    return max(0.01, knowledge_cost * difficulty_factor)

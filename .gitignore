@@ -133,3 +133,4 @@ training/models/
 
 # Temporary Modelfile variants
 training/Modelfile.*-update
+/tools/
