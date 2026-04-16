@@ -73,17 +73,17 @@
 
 ### Tests for User Story 1
 
-- [ ] T018 [P] [US1] Write integration test for `explore_concept` tool in `tests/test_navigator_tools.py` — load forge.json, create mock mastery dict, call explore_concept, assert response contains concept content and prerequisite mastery annotations
-- [ ] T019 [P] [US1] Write integration test for `diagnose_gap` tool in `tests/test_navigator_tools.py` — create student with mastered algebra but not calculus, call diagnose_gap for "definite_integrals", assert root_gap is in the expected prerequisite chain
-- [ ] T020 [P] [US1] Write integration test for `suggest_next` tool in `tests/test_navigator_tools.py` — create student with partial mastery, call suggest_next, assert returned concept has high readiness score and unmastered status
+- [x] T018 [P] [US1] Write integration test for `explore_concept` tool in `tests/test_navigator_tools.py` — load forge.json, create mock mastery dict, call explore_concept, assert response contains concept content and prerequisite mastery annotations
+- [x] T019 [P] [US1] Write integration test for `diagnose_gap` tool in `tests/test_navigator_tools.py` — create student with mastered algebra but not calculus, call diagnose_gap for "definite_integrals", assert root_gap is in the expected prerequisite chain
+- [x] T020 [P] [US1] Write integration test for `suggest_next` tool in `tests/test_navigator_tools.py` — create student with partial mastery, call suggest_next, assert returned concept has high readiness score and unmastered status
 
 ### Implementation for User Story 1
 
-- [ ] T021 [US1] Create navigator singleton/factory in `src/tools/navigator_tools.py` — function `get_navigator()` that loads forge.json graph + accepts StudentMemory or mock dict, caches instance for session reuse
-- [ ] T022 [US1] Integrate navigator tools into `src/agents/tutor_agent.py` — import NAVIGATOR_TOOL_DEFINITIONS and NAVIGATOR_FUNCTIONS, merge with SKI tools: `all_tools = self._ski_tool_defs + navigator_defs`, `all_functions = {**self._ski_functions, **navigator_fns}`. Pass merged lists to `llm.chat_with_tools()`
-- [ ] T023 [US1] Pass student_id context to navigator tools in `src/agents/tutor_agent.py` — ensure student_id from session is available to tool dispatch functions (via closure, partial, or session context)
-- [ ] T024 [US1] Add GRAPH_NAV stage to orchestrator pipeline in `src/agents/orchestrator.py` — after ROUTING stage, before PLANNER: call navigator's `get_concept_context()` for the current topic, pass result to planner and tutor. Wrap in try/except for graceful degradation
-- [ ] T025 [US1] Test graceful degradation in `tests/test_navigator_tools.py` — verify tutor agent works normally when forge.json doesn't exist or navigator raises an exception
+- [x] T021 [US1] Create navigator singleton/factory in `src/tools/navigator_tools.py` — function `get_navigator()` that loads forge.json graph + accepts StudentMemory or mock dict, caches instance for session reuse
+- [x] T022 [US1] Integrate navigator tools into `src/agents/tutor_agent.py` — import NAVIGATOR_TOOL_DEFINITIONS and NAVIGATOR_FUNCTIONS, merge with SKI tools: `all_tools = self._ski_tool_defs + navigator_defs`, `all_functions = {**self._ski_functions, **navigator_fns}`. Pass merged lists to `llm.chat_with_tools()`
+- [x] T023 [US1] Pass student_id context to navigator tools in `src/agents/tutor_agent.py` — ensure student_id from session is available to tool dispatch functions (via closure, partial, or session context)
+- [x] T024 [US1] Add GRAPH_NAV stage to orchestrator pipeline in `src/agents/orchestrator.py` — after ROUTING stage, before PLANNER: call navigator's `get_concept_context()` for the current topic, pass result to planner and tutor. Wrap in try/except for graceful degradation
+- [x] T025 [US1] Test graceful degradation in `tests/test_navigator_tools.py` — verify tutor agent works normally when forge.json doesn't exist or navigator raises an exception
 
 **Checkpoint**: Tutor can invoke explore_concept, diagnose_gap, suggest_next during sessions. Falls back gracefully when graph is unavailable.
 
