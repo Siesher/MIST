@@ -377,6 +377,109 @@ class MentalModelAgent:
             lines.append(f"  [{role}] {content}")
         return "\n".join(lines)
 
+    # ── LLM-based prereq ranking (второй вызов, опциональный) ────
+
+    def rank_prereqs_by_relevance(
+        self,
+        student_message: str,
+        belief: BeliefState,
+        prereq_candidates: List[Dict[str, str]],
+    ) -> Optional[str]:
+        """Попросить LLM выбрать самый релевантный prereq из списка.
+
+        Используется когда keyword overlap недостаточен (misconception
+        и prereq описаны в разных словарных полях). LLM имеет понимание
+        семантики и может связать "правило произведения" с "определение
+        производной" (пререкизит).
+
+        Args:
+            student_message: Исходное сообщение студента.
+            belief: BeliefState с misconception и belief_about_topic.
+            prereq_candidates: Список dict{"id": str, "title": str, "content": str}.
+
+        Returns:
+            ID наиболее релевантного prereq, или None если LLM не ответил.
+        """
+        if not prereq_candidates or len(prereq_candidates) < 2:
+            return prereq_candidates[0]["id"] if prereq_candidates else None
+
+        candidates_str = "\n".join(
+            f"  {i + 1}. {c['id']}: {c['title']} — {c.get('content', '')[:100]}"
+            for i, c in enumerate(prereq_candidates[:8])  # cap для latency
+        )
+
+        system = (
+            "You select the pedagogically most relevant prerequisite concept "
+            "to review with a student. Output ONE JSON object: "
+            '{"selected_id": "<id from list>", "reason": "<RU short>"}. '
+            "No preamble."
+        )
+        user = f"""Student message: "{student_message[:300]}"
+Active misconception: {belief.active_misconception or "(none)"}
+Student's belief about topic: {belief.belief_about_topic}
+
+Prerequisite candidates (all unmastered):
+{candidates_str}
+
+Which ONE of these prerequisites is MOST relevant to fix the student's \
+current misconception? Consider what knowledge gap directly causes this \
+error, not just what's deepest in the prerequisite chain.
+
+Output JSON: {{"selected_id": "<exact id from list>", "reason": "RU"}}"""
+
+        try:
+            raw = self._llm.generate(
+                prompt=user,
+                system=system,
+                json_mode=True,
+                max_tokens=150,
+                temperature=0.2,
+                thinking=False,
+            )
+            data = self._parse_json(raw)
+            if data is None:
+                return None
+            sid = data.get("selected_id", "")
+            # Валидация: id должен быть в списке candidates
+            valid_ids = {c["id"] for c in prereq_candidates}
+            if sid in valid_ids:
+                logger.info(f"tom.llm_rank selected={sid} reason={data.get('reason', '')[:60]}")
+                return sid
+
+            # Fallback 1: partial match (LLM might truncate id)
+            if isinstance(sid, str) and len(sid) > 3:
+                for vid in valid_ids:
+                    if sid in vid or vid in sid:
+                        logger.info(f"tom.llm_rank partial_match={vid}")
+                        return vid
+
+            # Fallback 2: match by title mentioned in reason
+            reason = str(data.get("reason", "")).lower()
+            best_match = None
+            best_score = 0
+            for c in prereq_candidates:
+                title_lower = c["title"].lower()
+                # Count title words appearing in reason
+                title_words = [w for w in title_lower.split() if len(w) > 3]
+                if not title_words:
+                    continue
+                score = sum(1 for w in title_words if w in reason)
+                if score > best_score:
+                    best_score = score
+                    best_match = c["id"]
+            if best_match and best_score >= 1:
+                logger.info(f"tom.llm_rank reason_match={best_match} (score={best_score})")
+                return best_match
+
+            logger.debug(
+                f"tom.llm_rank rejected_invalid_id={sid}, "
+                f"candidates={list(valid_ids)[:3]}, reason={reason[:60]}"
+            )
+            return None
+        except Exception as e:
+            logger.debug(f"tom.llm_rank_failed: {e}")
+            return None
+
     # ── Взаимодействие с LLM ─────────────────────────────────────
 
     def _llm_call(self, system: str, user: str, output_cap: int) -> str:
