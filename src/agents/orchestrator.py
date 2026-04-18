@@ -107,6 +107,7 @@ class AgentStage(Enum):
 
     ROUTING = "routing"
     PROFILER = "profiler"
+    MENTAL_MODEL = "mental_model"  # ToM-Tutor (017) — между PROFILER и PLANNER
     PLANNER = "planner"
     RAG = "rag"
     TUTOR = "tutor"
@@ -424,6 +425,36 @@ class AgentOrchestrator:
         )
         self.planner = planner or PlannerAgent()
         self.verifier = verifier or VerifierAgent()
+
+        # ToM-Tutor (017): MentalModelAgent if enabled in profile.
+        # Использует отдельный base-model LLMClient (qwen3.5:9b), т.к.
+        # thinking-модели конфликтуют с JSON mode.
+        self.mental_model_agent = None
+        try:
+            from src.resource_profiles import feature_enabled
+
+            if feature_enabled("enable_tom_agent"):
+                from src.agents.mental_model_agent import MentalModelAgent
+                from src.models.llm_client import LLMClient as _LLMClient
+
+                tom_llm = _LLMClient(model="qwen3.5:9b")
+                forge_graph = None
+                try:
+                    from pathlib import Path
+
+                    from src.knowledge.knowledge_forge import KnowledgeGraph
+
+                    forge_path = Path("data/knowledge/forge.json")
+                    if forge_path.exists():
+                        forge_graph = KnowledgeGraph(forge_path)
+                except Exception:
+                    pass
+                self.mental_model_agent = MentalModelAgent(
+                    llm_client=tom_llm, knowledge_graph=forge_graph
+                )
+                logger.info("MentalModelAgent инициализирован (ToM-Tutor 017)")
+        except Exception as e:
+            logger.warning(f"MentalModelAgent не доступен (graceful): {e}")
 
         # Инициализация RAG
         self.rag = None
@@ -952,6 +983,48 @@ class AgentOrchestrator:
                 # T039: Graceful degradation
                 profile = self._handle_agent_failure("profiler", e, trace, context)
 
+        # 1.5. MENTAL_MODEL: ToM-Tutor inference (017)
+        # Между PROFILER и PLANNER: выводим BeliefState для stratification.
+        # Graceful degradation: при любой ошибке — empty BeliefState.
+        belief_state = None
+        try:
+            from src.data.schemas import BeliefState as _BeliefState
+            from src.resource_profiles import feature_enabled
+
+            if (
+                feature_enabled("enable_tom_agent")
+                and getattr(self, "mental_model_agent", None) is not None
+                and profile is not None
+            ):
+                mm_stage = trace.start_stage(AgentStage.MENTAL_MODEL)
+                mm_start = time.time()
+                try:
+                    belief_state = self.mental_model_agent.infer(
+                        student_message=context.student_input,
+                        student_profile=profile,
+                        history=(
+                            session.recent_turns(3)
+                            if session and hasattr(session, "recent_turns")
+                            else []
+                        ),
+                        graph_context=graph_context,
+                        topic=context.topic or "",
+                    )
+                    metrics["mental_model_ms"] = (time.time() - mm_start) * 1000
+                    mm_stage.complete(
+                        True,
+                        output_summary=(
+                            f"confidence={belief_state.confidence:.2f}, "
+                            f"misconception={'yes' if belief_state.active_misconception else 'no'}"
+                        ),
+                    )
+                except Exception as e:
+                    logger.warning(f"MENTAL_MODEL stage failed (graceful): {e}")
+                    mm_stage.complete(False, error=str(e))
+                    belief_state = _BeliefState.empty()
+        except ImportError:
+            pass  # ToM-Tutor not installed — skip
+
         # 2. ПЛАНИРОВЩИК: Выбор стратегии
         plan = None
         should_plan = self.mode in [
@@ -972,6 +1045,7 @@ class AgentOrchestrator:
                     profile=profile or StudentProfile(),
                     context=planner_context,
                     graph_context=graph_context,
+                    belief_state=belief_state,
                 )
                 metrics["planner_ms"] = (time.time() - plan_start) * 1000
                 planner_stage.complete(

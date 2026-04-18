@@ -21,9 +21,12 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.agents.profiler import ConfidenceLevel, ErrorType, StudentProfile
+
+if TYPE_CHECKING:
+    from src.data.schemas import BeliefState
 
 logger = logging.getLogger(__name__)
 
@@ -245,6 +248,7 @@ class PlannerAgent:
         context: SessionContext,
         available_hints: Optional[List[str]] = None,
         graph_context: Optional[Dict] = None,
+        belief_state: Optional["BeliefState"] = None,
     ) -> TeachingPlan:
         """
         Создание плана обучения.
@@ -254,6 +258,9 @@ class PlannerAgent:
             context: Контекст текущей сессии
             available_hints: Доступные подсказки из RAG
             graph_context: Knowledge Forge graph context (from navigator)
+            belief_state: ToM-Tutor belief state (017). When provided with
+                confidence >= 0.5, Planner uses predicted_reactions to override
+                rule-based strategy selection.
 
         Returns:
             TeachingPlan с рекомендациями
@@ -298,6 +305,20 @@ class PlannerAgent:
                     f"{len(misconceptions)} misconceptions from knowledge graph"
                 )
 
+        # ToM-Tutor (017): override strategy based on predicted student reactions
+        if belief_state is not None and belief_state.is_usable(min_confidence=0.5):
+            tom_strategy = self._strategy_from_belief(belief_state, strategy)
+            if tom_strategy is not None and tom_strategy != strategy:
+                old_strategy = strategy
+                strategy = tom_strategy
+                primary_move = self._select_primary_move(profile, strategy, context)
+                move_sequence = self._get_move_sequence(strategy, context)
+                logger.info(
+                    f"tom.planner.strategy_override: "
+                    f"{old_strategy.value} -> {strategy.value} "
+                    f"(confidence={belief_state.confidence:.2f})"
+                )
+
         # Собираем план
         plan = TeachingPlan(
             strategy=strategy,
@@ -317,6 +338,102 @@ class PlannerAgent:
         )
 
         return plan
+
+    # ── ToM-Tutor integration (017) ──────────────────────────────
+
+    def _strategy_from_belief(
+        self,
+        belief: "BeliefState",
+        current_strategy: TeachingStrategy,
+    ) -> Optional[TeachingStrategy]:
+        """Выбор стратегии на основе predicted_reactions от ToM-агента.
+
+        Идея: BeliefState.predicted_reactions содержит прогноз LLM о том,
+        как студент отреагирует на каждую стратегию. Мы выбираем ту, что
+        описана наиболее благоприятно (ключевые слова: "поймёт", "увидит",
+        "пересмотрит", "откроет"), и избегаем неудачных ("застрянет",
+        "не сработает", "останется при своём").
+
+        Args:
+            belief: BeliefState с непустым predicted_reactions.
+            current_strategy: Текущий выбор планировщика (для bias/fallback).
+
+        Returns:
+            Предлагаемая стратегия или None (оставить текущую).
+        """
+        reactions = belief.predicted_reactions or {}
+        if not reactions:
+            return None
+
+        # Ключевые слова для оценки предсказанной реакции
+        positive_markers = (
+            "пойм",
+            "увид",
+            "пересмотр",
+            "открое",
+            "построит",
+            "свяж",
+            "найдёт",
+            "научится",
+            "станет понятн",
+            "рабоча",
+            "продуктивн",
+            "восстановит",
+            "даст понимани",
+        )
+        negative_markers = (
+            "застрянет",
+            "не сработает",
+            "останется при",
+            "запутает",
+            "усилит путаниц",
+            "отвлечёт",
+            "провалится",
+        )
+
+        # Map strategy name (lowercase) -> TeachingStrategy enum
+        name_to_strategy = {
+            "scaffolded": TeachingStrategy.SCAFFOLDED,
+            "scaffolding": TeachingStrategy.SCAFFOLDED,
+            "guided_discovery": TeachingStrategy.GUIDED_DISCOVERY,
+            "conceptual_repair": TeachingStrategy.CONCEPTUAL_REPAIR,
+            "conceptual": TeachingStrategy.CONCEPTUAL_REPAIR,
+            "encourage": TeachingStrategy.ENCOURAGEMENT,
+            "encouragement": TeachingStrategy.ENCOURAGEMENT,
+            "review": TeachingStrategy.REVIEW,
+            "direct": TeachingStrategy.DIRECT_INSTRUCTION,
+            "direct_instruction": TeachingStrategy.DIRECT_INSTRUCTION,
+            "error_correction": TeachingStrategy.ERROR_CORRECTION,
+        }
+
+        best_score = -999
+        best_strategy = None
+
+        for name, reaction in reactions.items():
+            if not isinstance(reaction, str):
+                continue
+            strategy = name_to_strategy.get(name.lower().strip())
+            if strategy is None:
+                continue
+
+            reaction_lower = reaction.lower()
+            score = 0
+            for marker in positive_markers:
+                if marker in reaction_lower:
+                    score += 2
+            for marker in negative_markers:
+                if marker in reaction_lower:
+                    score -= 2
+
+            if score > best_score:
+                best_score = score
+                best_strategy = strategy
+
+        # Только если есть strong signal (>= 2 = хотя бы один positive marker
+        # без negative) — возвращаем. Иначе None (не меняем решение планировщика).
+        if best_strategy is not None and best_score >= 2:
+            return best_strategy
+        return None
 
     def _select_strategy(
         self, profile: StudentProfile, context: SessionContext
