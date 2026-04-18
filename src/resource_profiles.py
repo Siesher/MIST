@@ -74,11 +74,14 @@ class ResourceProfile:
     enable_source_extractor: bool = True  # works but may be slow
     enable_batch_inference: bool = False
     enable_speculative_decoding: bool = False
+    enable_tom_agent: bool = False  # ToM-Tutor feature 017
+    tom_prompt_style: str = "short"  # "short" for lite, "full" for standard/max
 
     # Tunable limits
     max_tool_rounds: int = 3
     max_concurrent_sessions: int = 1
     navigator_max_frontier: int = 5
+    tom_output_cap: int = 150  # max output tokens for ToM inference
 
     # Description for UX
     description: str = ""
@@ -103,14 +106,18 @@ PROFILES: Dict[ProfileName, ResourceProfile] = {
         enable_source_extractor=True,
         enable_batch_inference=False,
         enable_speculative_decoding=False,
+        enable_tom_agent=False,  # disabled by default on lite (opt-in after latency check)
+        tom_prompt_style="short",
         max_tool_rounds=2,
         max_concurrent_sessions=1,
         navigator_max_frontier=5,
+        tom_output_cap=120,  # very tight to hit latency budget on CPU
         description=(
             "Minimum viable setup for a 16 GB RAM laptop without GPU. "
             "Full Knowledge Forge + Living KG functionality. "
             "LLM runs on CPU via Q4_K_M quantization (~12 tok/s). "
-            "Rule-based affect detection only. RuBERT and DKT disabled."
+            "Rule-based affect detection only. RuBERT and DKT disabled. "
+            "ToM agent opt-in (latency check required)."
         ),
     ),
     ProfileName.STANDARD: ResourceProfile(
@@ -126,13 +133,16 @@ PROFILES: Dict[ProfileName, ResourceProfile] = {
         enable_source_extractor=True,
         enable_batch_inference=True,
         enable_speculative_decoding=False,
+        enable_tom_agent=True,
+        tom_prompt_style="full",
         max_tool_rounds=3,
         max_concurrent_sessions=3,
         navigator_max_frontier=10,
+        tom_output_cap=400,
         description=(
             "Recommended setup for a 32 GB RAM machine with 6-12 GB VRAM. "
             "Full feature set including RuBERT affect detection, DKT, "
-            "and LLM verification of graph proposals. ~35 tok/s."
+            "LLM verification of graph proposals, and ToM-Tutor. ~35 tok/s."
         ),
     ),
     ProfileName.MAX: ResourceProfile(
@@ -148,13 +158,16 @@ PROFILES: Dict[ProfileName, ResourceProfile] = {
         enable_source_extractor=True,
         enable_batch_inference=True,
         enable_speculative_decoding=True,
+        enable_tom_agent=True,
+        tom_prompt_style="full",
         max_tool_rounds=5,
         max_concurrent_sessions=16,
         navigator_max_frontier=20,
+        tom_output_cap=500,
         description=(
             "Full-capability setup for 64+ GB RAM and high-end GPU "
             "(RTX 4090 / A100 / cloud Cerebras). All features enabled, "
-            "32K context, batch inference, speculative decoding. ~80+ tok/s."
+            "32K context, batch inference, speculative decoding, ToM-Tutor. ~80+ tok/s."
         ),
     ),
 }

@@ -19,9 +19,9 @@
 
 **Цель**: убедиться, что ветка готова, существующие фичи 016 работают, тестовая инфраструктура в порядке.
 
-- [ ] T001 Проверить, что находимся на ветке `017-tom-tutor` и все тесты 016 проходят — запустить `python -m pytest tests/test_knowledge_forge.py tests/test_navigator.py tests/test_navigator_tools.py tests/test_graph_evolution.py tests/test_resource_profiles.py tests/test_source_extractor.py -q`
-- [ ] T002 [P] Создать пустые файлы тестов: `tests/test_mental_model_agent.py` и `tests/test_tom_integration.py` с базовыми pytest-заглушками
-- [ ] T003 [P] Проверить, что Ollama запущена и отвечает — `curl -s http://localhost:11434/api/tags` (если не запущена, задокументировать как known issue для моков в тестах)
+- [x] T001 Проверить, что находимся на ветке `017-tom-tutor` и все тесты 016 проходят — запустить `python -m pytest tests/test_knowledge_forge.py tests/test_navigator.py tests/test_navigator_tools.py tests/test_graph_evolution.py tests/test_resource_profiles.py tests/test_source_extractor.py -q`
+- [x] T002 [P] Создать пустые файлы тестов: `tests/test_mental_model_agent.py` и `tests/test_tom_integration.py` с базовыми pytest-заглушками
+- [x] T003 [P] Проверить, что Ollama запущена и отвечает — `curl -s http://localhost:11434/api/tags` (если не запущена, задокументировать как known issue для моков в тестах)
 
 ---
 
@@ -31,11 +31,11 @@
 
 **КРИТИЧНО**: ни одна user story не может начинаться до завершения этой фазы.
 
-- [ ] T004 Добавить dataclass `BeliefState` в `src/data/schemas.py` согласно data-model.md — 9 полей (active_misconception, active_misconception_node_id, belief_about_topic, predicted_reactions, candidate_misconceptions, confidence, reasoning, generated_at, profile_used) + classmethod `BeliefState.empty()` для fallback
-- [ ] T005 [P] Добавить поле `enable_tom_agent: bool` в `ResourceProfile` dataclass в `src/resource_profiles.py` — значения по профилям: lite=False (по умолчанию, включается вручную после проверки латентности), standard=True, max=True
-- [ ] T006 [P] Добавить поле `tom_prompt_style: str` в `ResourceProfile` — значения: "short" для lite, "full" для standard/max
-- [ ] T007 Написать unit-тесты для `BeliefState` в `tests/test_mental_model_agent.py` — валидация границ confidence, корректность `empty()`, сериализация в dict/JSON
-- [ ] T008 [P] Написать unit-тесты для новых полей профиля в `tests/test_resource_profiles.py` — проверить, что `feature_enabled("enable_tom_agent")` возвращает False на lite и True на standard/max
+- [x] T004 Добавить dataclass `BeliefState` в `src/data/schemas.py` согласно data-model.md — 9 полей (active_misconception, active_misconception_node_id, belief_about_topic, predicted_reactions, candidate_misconceptions, confidence, reasoning, generated_at, profile_used) + classmethod `BeliefState.empty()` для fallback
+- [x] T005 [P] Добавить поле `enable_tom_agent: bool` в `ResourceProfile` dataclass в `src/resource_profiles.py` — значения по профилям: lite=False (по умолчанию, включается вручную после проверки латентности), standard=True, max=True
+- [x] T006 [P] Добавить поле `tom_prompt_style: str` в `ResourceProfile` — значения: "short" для lite, "full" для standard/max
+- [x] T007 Написать unit-тесты для `BeliefState` в `tests/test_mental_model_agent.py` — валидация границ confidence, корректность `empty()`, сериализация в dict/JSON
+- [x] T008 [P] Написать unit-тесты для новых полей профиля в `tests/test_resource_profiles.py` — проверить, что `feature_enabled("enable_tom_agent")` возвращает False на lite и True на standard/max
 
 **Чекпоинт**: BeliefState и флаг профиля готовы. User Stories могут начинаться.
 

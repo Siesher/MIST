@@ -49,6 +49,26 @@ class TestProfileDefinitions:
         assert p.enable_llm_verifier
         assert p.enable_batch_inference
         assert p.enable_speculative_decoding
+        assert p.enable_tom_agent  # ToM-Tutor (017)
+
+    def test_tom_agent_flags_per_profile(self) -> None:
+        """T008: enable_tom_agent корректно установлен per profile."""
+        assert PROFILES[ProfileName.LITE].enable_tom_agent is False
+        assert PROFILES[ProfileName.STANDARD].enable_tom_agent is True
+        assert PROFILES[ProfileName.MAX].enable_tom_agent is True
+
+    def test_tom_prompt_style_per_profile(self) -> None:
+        """T008: tom_prompt_style соответствует профилю."""
+        assert PROFILES[ProfileName.LITE].tom_prompt_style == "short"
+        assert PROFILES[ProfileName.STANDARD].tom_prompt_style == "full"
+        assert PROFILES[ProfileName.MAX].tom_prompt_style == "full"
+
+    def test_tom_output_cap_increases_with_profile(self) -> None:
+        """T008: output cap растёт с профилем (больше ресурсов = полнее reasoning)."""
+        lite = PROFILES[ProfileName.LITE]
+        std = PROFILES[ProfileName.STANDARD]
+        mx = PROFILES[ProfileName.MAX]
+        assert lite.tom_output_cap < std.tom_output_cap <= mx.tom_output_cap
 
     def test_profile_ordering_consistent(self) -> None:
         """Each profile should require >= resources than smaller one."""
