@@ -13,21 +13,21 @@
 
 ## Фаза 1: Setup
 
-- [ ] T001 Проверить, что находимся на ветке `018-path-slime` и ветки 016+017 merged
-- [ ] T002 [P] Установить `scipy` в venv (требуется для `scipy.stats.levy_stable`); добавить в dev requirements
-- [ ] T003 [P] Создать пустой файл `tests/test_path_slime.py` с pytest заглушкой
+- [x] T001 Проверить, что находимся на ветке `018-path-slime` и ветки 016+017 merged
+- [x] T002 [P] Установить `scipy` в venv (требуется для `scipy.stats.levy_stable`); добавить в dev requirements
+- [x] T003 [P] Создать пустой файл `tests/test_path_slime.py` с pytest заглушкой
 
 ---
 
 ## Фаза 2: Foundational (блокирующие пререквизиты)
 
-- [ ] T004 Добавить поля `enable_path_slime: bool` и `path_slime_k/iterations/timeout` в `ResourceProfile` (src/resource_profiles.py)
+- [x] T004 Добавить поля `enable_path_slime: bool` и `path_slime_k/iterations/timeout` в `ResourceProfile` (src/resource_profiles.py)
   - lite: enable=True, k=2, iter=20, timeout=1500
   - standard: enable=True, k=3, iter=35, timeout=500
   - max: enable=True, k=5, iter=50, timeout=300
-- [ ] T005 [P] Создать `src/knowledge/levy_sampler.py` — функция `levy_multiplier(alpha=1.5, n=1)` возвращает scaled Lévy-stable samples (clamped to [0.1, 10.0])
-- [ ] T006 [P] Создать файл `src/knowledge/path_slime.py` с dataclass skeletons (`Colony`, `AlternativePaths`, `StyleConfig`, `PathSlimeConfig`)
-- [ ] T007 Написать unit test `test_levy_sampler_statistics` в `tests/test_path_slime.py` — убедиться, что distribution имеет heavy tail (variance > Gaussian baseline на 2σ)
+- [x] T005 [P] Создать `src/knowledge/levy_sampler.py` — функция `levy_multiplier(alpha=1.5, n=1)` возвращает scaled Lévy-stable samples (clamped to [0.1, 10.0])
+- [x] T006 [P] Создать файл `src/knowledge/path_slime.py` с dataclass skeletons (`Colony`, `AlternativePaths`, `StyleConfig`, `PathSlimeConfig`)
+- [x] T007 Написать unit test `test_levy_sampler_statistics` в `tests/test_path_slime.py` — убедиться, что distribution имеет heavy tail (variance > Gaussian baseline на 2σ)
 
 **Checkpoint**: все типы и случайный sampling готовы.
 
@@ -39,27 +39,27 @@
 
 ### Тесты для US1
 
-- [ ] T008 [P] [US1] Тест `test_path_slime_basic` в `tests/test_path_slime.py` — k=3 diverse paths, diversity ≥ 0.3, все возвращаемые пути валидны
-- [ ] T009 [P] [US1] Тест `test_path_slime_validity` — каждое последовательное ребро — prerequisite relationship в графе
-- [ ] T010 [P] [US1] Тест `test_path_slime_already_mastered` — если target мастерован, возвращается 1 путь с этим target
-- [ ] T011 [P] [US1] Тест `test_path_slime_reproducibility` — одинаковый seed → одинаковый результат
+- [x] T008 [P] [US1] Тест `test_path_slime_basic` в `tests/test_path_slime.py` — k=3 diverse paths, diversity ≥ 0.3, все возвращаемые пути валидны
+- [x] T009 [P] [US1] Тест `test_path_slime_validity` — каждое последовательное ребро — prerequisite relationship в графе
+- [x] T010 [P] [US1] Тест `test_path_slime_already_mastered` — если target мастерован, возвращается 1 путь с этим target
+- [x] T011 [P] [US1] Тест `test_path_slime_reproducibility` — одинаковый seed → одинаковый результат
 
 ### Реализация US1
 
-- [ ] T012 [US1] Реализовать `Colony.__init__()` в `src/knowledge/path_slime.py` — инициализация path от random start node (one of mastered concepts или graph entry points) до random prerequisite hop
-- [ ] T013 [US1] Реализовать `Colony._extend_path_to_target()` — BFS/DFS с randomness через Lévy multipliers для выбора рёбер. Guard против cycles через visited set
-- [ ] T014 [US1] Реализовать `Colony.fitness()` — multi-objective scoring по `StyleConfig`:
+- [x] T012 [US1] Реализовать `Colony.__init__()` в `src/knowledge/path_slime.py` — инициализация path от random start node (one of mastered concepts или graph entry points) до random prerequisite hop
+- [x] T013 [US1] Реализовать `Colony._extend_path_to_target()` — BFS/DFS с randomness через Lévy multipliers для выбора рёбер. Guard против cycles через visited set
+- [x] T014 [US1] Реализовать `Colony.fitness()` — multi-objective scoring по `StyleConfig`:
   - length component: 1 - (len(path) / max_reasonable_length)
   - mastery component: mean(mastery of intermediate nodes)
   - difficulty smoothness: 1 - max(|diff[i+1] - diff[i]|)
   - examples density: count(ILLUSTRATES links from path nodes) / len(path)
-- [ ] T015 [US1] Реализовать `Colony.lévy_perturb()` — заменяет длинный хвост пути на новый, используя `levy_multiplier` для выбора прыжка
-- [ ] T016 [US1] Реализовать `Colony.gaussian_refine()` — локальная мутация: заменить 1-2 соседних узла на альтернативные prerequisite path
-- [ ] T017 [US1] Реализовать diversity pressure в `PathSlime.step()` — штраф для overlap рёбер между colonies: для каждой colony fitness_adjusted = fitness - λ × edge_overlap_ratio
-- [ ] T018 [US1] Реализовать `PathSlime.run()` — main loop: init k colonies → for i in iterations: evolve each colony → apply diversity pressure → early stop если все converged → return top-k по fitness
-- [ ] T019 [US1] Реализовать timeout handling в `PathSlime.run()` — проверка `time.perf_counter()` vs timeout_ms, возврат best-so-far с `truncated=True`
-- [ ] T020 [US1] Реализовать `PersonalizedNavigator.find_alternative_paths()` — точка входа: создаёт `PathSlime`, запускает, возвращает `AlternativePaths` с computed diversity score
-- [ ] T021 [US1] Реализовать fallback к Dijkstra в `find_alternative_paths()` — если `PathSlime.run()` вернул меньше k путей или все failed validity, вернуть [dijkstra result] с diversity=1.0
+- [x] T015 [US1] Реализовать `Colony.lévy_perturb()` — заменяет длинный хвост пути на новый, используя `levy_multiplier` для выбора прыжка
+- [x] T016 [US1] Реализовать `Colony.gaussian_refine()` — локальная мутация: заменить 1-2 соседних узла на альтернативные prerequisite path
+- [x] T017 [US1] Реализовать diversity pressure в `PathSlime.step()` — штраф для overlap рёбер между colonies: для каждой colony fitness_adjusted = fitness - λ × edge_overlap_ratio
+- [x] T018 [US1] Реализовать `PathSlime.run()` — main loop: init k colonies → for i in iterations: evolve each colony → apply diversity pressure → early stop если все converged → return top-k по fitness
+- [x] T019 [US1] Реализовать timeout handling в `PathSlime.run()` — проверка `time.perf_counter()` vs timeout_ms, возврат best-so-far с `truncated=True`
+- [x] T020 [US1] Реализовать `PersonalizedNavigator.find_alternative_paths()` — точка входа: создаёт `PathSlime`, запускает, возвращает `AlternativePaths` с computed diversity score
+- [x] T021 [US1] Реализовать fallback к Dijkstra в `find_alternative_paths()` — если `PathSlime.run()` вернул меньше k путей или все failed validity, вернуть [dijkstra result] с diversity=1.0
 
 **Checkpoint**: MVP работает — `find_alternative_paths(k=3)` возвращает 3 diverse valid paths на тестовом графе.
 

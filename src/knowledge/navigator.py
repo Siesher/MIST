@@ -447,12 +447,16 @@ class PersonalizedNavigator:
         max_relevance = max((s[0] for s in scored), default=0.0)
         if max_relevance >= 1.5:
             scored.sort(key=lambda x: (-x[0], -x[1]))
+            logger.info(
+                f"tom.rerank.activated max_rel={max_relevance:.2f}, "
+                f"top-3: {[(s[2][:40], round(s[0], 2), s[1]) for s in scored[:3]]}"
+            )
         else:
             scored.sort(key=lambda x: -x[1])  # depth only
-
-        logger.debug(
-            f"tom.rerank: top-3 with scores: {[(s[2], round(s[0], 2), s[1]) for s in scored[:3]]}"
-        )
+            logger.info(
+                f"tom.rerank.skipped max_rel={max_relevance:.2f} (< 1.5 threshold), "
+                f"top-3 scores: {[(s[2][:40], round(s[0], 2), s[1]) for s in scored[:3]]}"
+            )
         return [(nid, depth) for _, depth, nid in scored]
 
     # ── Optimal Learning Path ────────────────────────────────────
@@ -576,6 +580,59 @@ class PersonalizedNavigator:
             estimated_concepts_to_learn=new_concepts,
             mastery_along_path=mastery_along,
         )
+
+    # ── Alternative Paths (PathSlime, 018) ───────────────────────
+
+    def find_alternative_paths(
+        self,
+        student_id: str,
+        target_id: str,
+        k: int = 3,
+        style: str = "mixed",
+        timeout_ms: Optional[int] = None,
+        seed: Optional[int] = None,
+    ):
+        """Bio-inspired multi-path generation через PathSlime (feature 018).
+
+        В отличие от `find_optimal_path()` (Dijkstra, один оптимум), возвращает
+        k diverse learning paths. Позволяет тьютору предложить студенту выбор:
+        "короткий путь vs постепенный vs с примерами".
+
+        Args:
+            student_id: Student identifier.
+            target_id: Target concept to reach.
+            k: Number of alternative paths (default 3, clamped to [1, 5]).
+            style: Fitness weighting — "quick" / "gradual" / "example_rich" / "mixed".
+            timeout_ms: Override default timeout from profile.
+            seed: RNG seed for reproducibility.
+
+        Returns:
+            AlternativePaths object. On failure returns with error field set
+            and empty paths list (no exceptions to caller).
+        """
+        from src.knowledge.path_slime import (
+            AlternativePaths,
+            PathSlime,
+            PathSlimeConfig,
+        )
+
+        # Clamp k
+        k = max(1, min(5, k))
+
+        try:
+            config = PathSlimeConfig.from_active_profile()
+            config.k = k
+            if timeout_ms is not None:
+                config.timeout_ms = timeout_ms
+
+            mastery = self._mastery.get_all_mastery(student_id)
+            engine = PathSlime(graph=self._graph, mastery=mastery, config=config, seed=seed)
+            return engine.run(target_id=target_id, style=style)
+        except Exception as e:
+            logger.error(f"find_alternative_paths failed: {e}")
+            return AlternativePaths(
+                target=target_id, paths=[], error=f"exception: {type(e).__name__}: {e}"
+            )
 
     # ── Suggest Next Concept ─────────────────────────────────────
 

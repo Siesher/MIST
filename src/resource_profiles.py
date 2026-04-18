@@ -76,12 +76,18 @@ class ResourceProfile:
     enable_speculative_decoding: bool = False
     enable_tom_agent: bool = False  # ToM-Tutor feature 017
     tom_prompt_style: str = "short"  # "short" for lite, "full" for standard/max
+    enable_path_slime: bool = True  # PathSlime feature 018 (bio-inspired multi-path)
 
     # Tunable limits
     max_tool_rounds: int = 3
     max_concurrent_sessions: int = 1
     navigator_max_frontier: int = 5
     tom_output_cap: int = 150  # max output tokens for ToM inference
+
+    # PathSlime (018) profile-specific parameters
+    path_slime_k: int = 3  # default number of alternative paths
+    path_slime_iterations: int = 35  # SMA optimization iterations
+    path_slime_timeout_ms: int = 500  # hard cap before returning best-so-far
 
     # Description for UX
     description: str = ""
@@ -112,6 +118,10 @@ PROFILES: Dict[ProfileName, ResourceProfile] = {
         max_concurrent_sessions=1,
         navigator_max_frontier=5,
         tom_output_cap=120,  # very tight to hit latency budget on CPU
+        enable_path_slime=True,
+        path_slime_k=2,
+        path_slime_iterations=20,
+        path_slime_timeout_ms=1500,
         description=(
             "Minimum viable setup for a 16 GB RAM laptop without GPU. "
             "Full Knowledge Forge + Living KG functionality. "
@@ -139,6 +149,10 @@ PROFILES: Dict[ProfileName, ResourceProfile] = {
         max_concurrent_sessions=3,
         navigator_max_frontier=10,
         tom_output_cap=400,
+        enable_path_slime=True,
+        path_slime_k=3,
+        path_slime_iterations=35,
+        path_slime_timeout_ms=500,
         description=(
             "Recommended setup for a 32 GB RAM machine with 6-12 GB VRAM. "
             "Full feature set including RuBERT affect detection, DKT, "
@@ -164,6 +178,10 @@ PROFILES: Dict[ProfileName, ResourceProfile] = {
         max_concurrent_sessions=16,
         navigator_max_frontier=20,
         tom_output_cap=500,
+        enable_path_slime=True,
+        path_slime_k=5,
+        path_slime_iterations=50,
+        path_slime_timeout_ms=300,
         description=(
             "Full-capability setup for 64+ GB RAM and high-end GPU "
             "(RTX 4090 / A100 / cloud Cerebras). All features enabled, "
