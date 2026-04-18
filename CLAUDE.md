@@ -7,6 +7,8 @@ Last updated: 2026-03-27
 - JSON file (`data/knowledge/forge.json`) for graph persistence, SQLite for student mastery (existing) (016-knowledge-forge)
 - Python 3.11+ + Ollama (JSON-mode inference via `LLMClient.generate()`), existing multi-agent pipeline, Knowledge Forge navigator (017-tom-tutor)
 - No new persistence — belief state lives in session memory only (ephemeral) (017-tom-tutor)
+- Python 3.11+ + numpy (random walk, vectorization), scipy.stats (Lévy distribution), existing Knowledge Forge / PersonalizedNavigator (018-path-slime)
+- In-memory only — алгоритм stateless, не персистит между вызовами (018-path-slime)
 
 ### Frontend
 - Next.js 14, TypeScript 5.x, Tailwind CSS, shadcn/ui, Zustand
@@ -73,9 +75,9 @@ Qwen3.5-9B → GSPO (triple reward) → KTO (Socratic alignment) → DPO (polish
 | DPO | dpo_polish_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-final | Final alignment polish |
 
 ## Recent Changes
+- 018-path-slime: Added Python 3.11+ + numpy (random walk, vectorization), scipy.stats (Lévy distribution), existing Knowledge Forge / PersonalizedNavigator
 - 017-tom-tutor: Added Python 3.11+ + Ollama (JSON-mode inference via `LLMClient.generate()`), existing multi-agent pipeline, Knowledge Forge navigator
 - 016-knowledge-forge: Added Python 3.11+ + Ollama (tool calling API), existing StudentMemory (BKT), existing LLMClient
-- 017: Project cleanup — removed GLM/QLoRA/SFT dead code, reorganized files, consolidated metrics into figures/
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
