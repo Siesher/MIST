@@ -31,7 +31,19 @@ codebase. Use it to orient yourself quickly when returning to the project.
 |---------|:------:|-------|----------------|
 | 001-015 | DONE | [specs/](../specs/) | Foundation (agents, RAG, BKT, pipeline) |
 | **016** | **DONE** | [specs/016-knowledge-forge/](../specs/016-knowledge-forge/) | **Knowledge Forge + Living KG + Resource Profiles** |
-| **017** | **PLANNING** | [specs/017-tom-tutor/](../specs/017-tom-tutor/) | **ToM-Tutor — Theory-of-Mind reasoning stage** |
+| **017** | **US1 CALIBRATED** | [specs/017-tom-tutor/](../specs/017-tom-tutor/) | **ToM-Tutor — 95% root-hit, 90% misconception accuracy on 20 scenarios** |
+| 018 | planned | — | PathSlime — Lévy-Gaussian SMA for alternative learning paths |
+
+### Feature 017 A/B Results (latest)
+
+| Metric | Target | Baseline | ToM | Result |
+|--------|:------:|:--------:|:---:|:------:|
+| Root-hit rate | ≥80% | 70% | **95%** | ✅ |
+| Misconception accuracy | ≥75% | — | **90%** | ✅ |
+| No regressions | required | — | **0/20** | ✅ |
+| Improvements | — | — | **5/20** | — |
+
+Full evaluation: [evaluation/reports/tom_ab_2026-04-18.md](../evaluation/reports/tom_ab_2026-04-18.md)
 
 ---
 
