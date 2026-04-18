@@ -17,9 +17,12 @@ Key capabilities:
 import heapq
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 from src.knowledge.knowledge_forge import EdgeType, KnowledgeGraph, NodeType
+
+if TYPE_CHECKING:
+    from src.data.schemas import BeliefState
 
 logger = logging.getLogger(__name__)
 
@@ -286,16 +289,24 @@ class PersonalizedNavigator:
         self,
         student_id: str,
         failed_concept_id: str,
+        belief_state: Optional["BeliefState"] = None,
     ) -> GapDiagnosis:
         """Diagnose why a student failed at a concept.
 
         Traverses PREREQUISITE edges backward from the failed concept,
-        collecting unmastered prerequisites. The deepest unmastered
-        prerequisite is the likely root cause.
+        collecting unmastered prerequisites. By default, the deepest
+        unmastered prerequisite is returned as root cause.
+
+        When a trustworthy `belief_state` is provided (confidence >= 0.5),
+        prerequisites are re-ranked by pedagogical relevance to the active
+        misconception — the top-ranked prereq becomes root_gap instead of
+        the deepest one. This implements the core ToM-Tutor improvement
+        for feature 017.
 
         Args:
             student_id: Student identifier.
             failed_concept_id: Concept the student struggled with.
+            belief_state: Optional BeliefState from MentalModelAgent (017).
 
         Returns:
             GapDiagnosis with missing prerequisites and review path.
@@ -320,8 +331,14 @@ class PersonalizedNavigator:
 
         _collect_gaps(failed_concept_id, 0)
 
-        # Sort by depth (deepest first = root cause)
-        missing.sort(key=lambda x: -x[1])
+        # ToM-aware re-ranking (017): if belief_state is trustworthy,
+        # sort by (relevance to misconception DESC, depth DESC) instead
+        # of pure depth. Otherwise fall back to baseline (depth only).
+        if belief_state is not None and belief_state.is_usable(min_confidence=0.5):
+            missing = self._rerank_by_belief(missing, belief_state, all_mastery)
+        else:
+            # Sort by depth (deepest first = root cause) — baseline behavior
+            missing.sort(key=lambda x: -x[1])
 
         # Find misconceptions linked to the failed concept
         misconception_edges = self._graph.get_neighbors(
@@ -358,6 +375,85 @@ class PersonalizedNavigator:
             misconceptions=all_misconceptions,
             confidence=confidence,
         )
+
+    # ── ToM-aware re-ranking (017) ───────────────────────────────
+
+    def _rerank_by_belief(
+        self,
+        missing: List[Tuple[str, int]],
+        belief: "BeliefState",
+        all_mastery: Dict[str, float],
+    ) -> List[Tuple[str, int]]:
+        """Re-rank missing prerequisites by pedagogical relevance to belief state.
+
+        Relevance score combines:
+        - Token overlap between active_misconception and prereq tags/title (+2.0)
+        - Existence of COMMON_ERROR_FOR edge from misconception → prereq (+1.0)
+        - Closeness of prereq difficulty to student mastery level (+0.5)
+
+        Sort key: (relevance DESC, depth DESC) — higher relevance wins;
+        ties broken by depth so baseline behavior is preserved for equal scores.
+        """
+        misc_tokens = _tokenize(belief.active_misconception or "")
+        misc_tokens |= _tokenize(belief.belief_about_topic or "")
+
+        # Мастери студента по данной теме — оцениваем difficulty match
+        student_avg_mastery = sum(all_mastery.values()) / len(all_mastery) if all_mastery else 0.5
+
+        scored: List[Tuple[float, int, str]] = []
+        for node_id, depth in missing:
+            node = self._graph.get_node(node_id)
+            if node is None:
+                scored.append((0.0, depth, node_id))
+                continue
+
+            relevance = 0.0
+
+            # Token overlap
+            node_tokens = _tokenize(node.title) | _tokenize(node.content or "")
+            for tag in node.tags or []:
+                node_tokens |= _tokenize(tag)
+            overlap = len(misc_tokens & node_tokens)
+            if overlap > 0:
+                relevance += 2.0 * min(overlap / 3.0, 1.0)  # normalize by expected overlap
+
+            # COMMON_ERROR_FOR edge: misconception node → this prereq
+            if belief.active_misconception_node_id:
+                if self._graph.has_edge(
+                    belief.active_misconception_node_id,
+                    node_id,
+                    EdgeType.COMMON_ERROR_FOR,
+                ):
+                    relevance += 1.0
+
+            # Difficulty alignment
+            diff_delta = abs(node.difficulty - student_avg_mastery)
+            if diff_delta < 0.2:
+                relevance += 0.5
+
+            scored.append((relevance, depth, node_id))
+
+        # Threshold-based sort:
+        # - If ANY candidate has relevance >= 1.5 (strong signal from
+        #   misconception match or COMMON_ERROR_FOR edge), use
+        #   (relevance DESC, depth DESC) — ToM wins.
+        # - Otherwise (all weak relevance), fall back to depth DESC
+        #   to preserve baseline behavior and avoid regressions.
+        #
+        # Rationale from MVP evaluation: aggressive re-ranking caused
+        # regressions on scenarios where misconception text had weak
+        # keyword overlap with deeper prereqs. Conservative threshold
+        # preserves baseline unless ToM has a clear winning candidate.
+        max_relevance = max((s[0] for s in scored), default=0.0)
+        if max_relevance >= 1.5:
+            scored.sort(key=lambda x: (-x[0], -x[1]))
+        else:
+            scored.sort(key=lambda x: -x[1])  # depth only
+
+        logger.debug(
+            f"tom.rerank: top-3 with scores: {[(s[2], round(s[0], 2), s[1]) for s in scored[:3]]}"
+        )
+        return [(nid, depth) for _, depth, nid in scored]
 
     # ── Optimal Learning Path ────────────────────────────────────
 
@@ -672,3 +768,63 @@ def _compute_edge_cost(mastery: float, difficulty: float) -> float:
     knowledge_cost = 1.0 - mastery
     difficulty_factor = 0.5 + 0.5 * difficulty  # Range [0.5, 1.0]
     return max(0.01, knowledge_cost * difficulty_factor)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Text tokenizer for ToM re-ranking (017)
+# ─────────────────────────────────────────────────────────────────────
+
+# Русские и английские стоп-слова (короткий список, без внешних зависимостей)
+_STOPWORDS = frozenset(
+    {
+        "и",
+        "в",
+        "на",
+        "с",
+        "что",
+        "это",
+        "как",
+        "для",
+        "не",
+        "но",
+        "же",
+        "то",
+        "по",
+        "из",
+        "от",
+        "до",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "of",
+        "to",
+        "in",
+        "for",
+        "with",
+    }
+)
+
+
+def _tokenize(text: str) -> Set[str]:
+    """Простая токенизация для keyword-overlap без эмбеддингов.
+
+    Разбивает текст на слова длиннее 3 символов, нижний регистр,
+    без стоп-слов. Работает для русского и английского.
+    Ограничение для Lite-профиля: никаких внешних NLP-зависимостей.
+
+    Args:
+        text: Входной текст (русский или английский).
+
+    Returns:
+        Множество токенов в нижнем регистре.
+    """
+    if not text:
+        return set()
+
+    # Разбиваем по небуквенным символам
+    import re
+
+    words = re.findall(r"[^\W\d_]+", text.lower(), flags=re.UNICODE)
+    return {w for w in words if len(w) > 3 and w not in _STOPWORDS}

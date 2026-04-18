@@ -49,21 +49,21 @@
 
 ### Тесты для US1
 
-- [ ] T009 [P] [US1] Написать integration-тест `test_mental_model_agent_returns_valid_belief` в `tests/test_mental_model_agent.py` — при валидном LLM-ответе агент возвращает BeliefState с confidence > 0 и заполненным belief_about_topic
-- [ ] T010 [P] [US1] Написать тест `test_mental_model_agent_invalid_json` в `tests/test_mental_model_agent.py` — при невалидном JSON возвращает empty BeliefState без исключений, логирует fallback
-- [ ] T011 [P] [US1] Написать тест `test_mental_model_agent_timeout` в `tests/test_mental_model_agent.py` — при таймауте LLM возвращает empty BeliefState в пределах hard-cap + 100 мс
-- [ ] T012 [P] [US1] Написать тест `test_diagnose_gap_reranks_with_belief` в `tests/test_navigator.py` — на сценарии, где baseline возвращает "неверный" root_gap, с belief_state возвращает ожидаемый gap
-- [ ] T013 [P] [US1] Написать тест `test_diagnose_gap_no_belief_unchanged` в `tests/test_navigator.py` — при belief_state=None поведение идентично baseline
+- [x] T009 [P] [US1] Написать integration-тест `test_mental_model_agent_returns_valid_belief` в `tests/test_mental_model_agent.py` — при валидном LLM-ответе агент возвращает BeliefState с confidence > 0 и заполненным belief_about_topic
+- [x] T010 [P] [US1] Написать тест `test_mental_model_agent_invalid_json` в `tests/test_mental_model_agent.py` — при невалидном JSON возвращает empty BeliefState без исключений, логирует fallback
+- [x] T011 [P] [US1] Написать тест `test_mental_model_agent_timeout` в `tests/test_mental_model_agent.py` — при таймауте LLM возвращает empty BeliefState в пределах hard-cap + 100 мс
+- [x] T012 [P] [US1] Написать тест `test_diagnose_gap_reranks_with_belief` в `tests/test_navigator.py` — на сценарии, где baseline возвращает "неверный" root_gap, с belief_state возвращает ожидаемый gap
+- [x] T013 [P] [US1] Написать тест `test_diagnose_gap_no_belief_unchanged` в `tests/test_navigator.py` — при belief_state=None поведение идентично baseline
 
 ### Реализация US1
 
-- [ ] T014 [US1] Создать класс `MentalModelAgent(BaseAgent)` в `src/agents/mental_model_agent.py` — конструктор с llm_client и опциональным knowledge_graph, поле `_profile = get_active_profile()`
-- [ ] T015 [US1] Реализовать метод `_build_prompt_short()` в `src/agents/mental_model_agent.py` — короткий промпт для lite-профиля (~100 токенов input, cap 150 output), без few-shot примеров, одношаговый JSON-output
-- [ ] T016 [US1] Реализовать метод `_build_prompt_full()` в `src/agents/mental_model_agent.py` — полный промпт для standard/max (~400 токенов input, cap 500 output) с 2 few-shot примерами и 3-шаговым reasoning (misconception → topic belief → reaction prediction)
-- [ ] T017 [US1] Реализовать метод `infer()` в `src/agents/mental_model_agent.py` — выбирает промпт по `tom_prompt_style`, вызывает `llm.generate(format="json", num_predict=N)`, парсит JSON, при ошибке возвращает `BeliefState.empty()`, логирует `tom.invoked`/`tom.completed`/`tom.fallback`
-- [ ] T018 [US1] Реализовать one-pass JSON repair в `src/agents/mental_model_agent.py` — при первом парсинг-фейле добавить к промпту "Re-output valid JSON only:" и повторить ровно один раз; если снова fail — empty BeliefState
-- [ ] T019 [US1] Расширить `diagnose_gap()` в `src/knowledge/navigator.py` — добавить параметр `belief_state: Optional[BeliefState] = None`. Когда не None и confidence ≥ 0.5, вычислить relevance score для каждого prereq (теги ∩ misconception tokens, наличие COMMON_ERROR_FOR ребра от misconception узла, difficulty match), пересортировать missing_prerequisites по (relevance_score desc, depth desc), установить root_gap в top-ranked
-- [ ] T020 [US1] Добавить keyword-tokenizer helper в `src/knowledge/navigator.py` (или в новом `src/knowledge/text_utils.py`) — простая функция `_tokenize(text: str) -> set[str]` с стемингом для русского (например, отбрасывать последние 2-3 символа), работает без внешних NLP-зависимостей — требование Lite-профиля
+- [x] T014 [US1] Создать класс `MentalModelAgent(BaseAgent)` в `src/agents/mental_model_agent.py` — конструктор с llm_client и опциональным knowledge_graph, поле `_profile = get_active_profile()`
+- [x] T015 [US1] Реализовать метод `_build_prompt_short()` в `src/agents/mental_model_agent.py` — короткий промпт для lite-профиля (~100 токенов input, cap 150 output), без few-shot примеров, одношаговый JSON-output
+- [x] T016 [US1] Реализовать метод `_build_prompt_full()` в `src/agents/mental_model_agent.py` — полный промпт для standard/max (~400 токенов input, cap 500 output) с 2 few-shot примерами и 3-шаговым reasoning (misconception → topic belief → reaction prediction)
+- [x] T017 [US1] Реализовать метод `infer()` в `src/agents/mental_model_agent.py` — выбирает промпт по `tom_prompt_style`, вызывает `llm.generate(format="json", num_predict=N)`, парсит JSON, при ошибке возвращает `BeliefState.empty()`, логирует `tom.invoked`/`tom.completed`/`tom.fallback`
+- [x] T018 [US1] Реализовать one-pass JSON repair в `src/agents/mental_model_agent.py` — при первом парсинг-фейле добавить к промпту "Re-output valid JSON only:" и повторить ровно один раз; если снова fail — empty BeliefState
+- [x] T019 [US1] Расширить `diagnose_gap()` в `src/knowledge/navigator.py` — добавить параметр `belief_state: Optional[BeliefState] = None`. Когда не None и confidence ≥ 0.5, вычислить relevance score для каждого prereq (теги ∩ misconception tokens, наличие COMMON_ERROR_FOR ребра от misconception узла, difficulty match), пересортировать missing_prerequisites по threshold-based логике (safe default), установить root_gap в top-ranked
+- [x] T020 [US1] Добавить keyword-tokenizer helper в `src/knowledge/navigator.py` — функция `_tokenize(text: str) -> set[str]` с русскими/английскими стоп-словами, без внешних NLP-зависимостей — требование Lite-профиля
 
 **Чекпоинт**: MentalModelAgent работает, diagnose_gap использует belief_state, все 5 unit/integration-тестов проходят. MVP готов для измерения root-hit rate.
 

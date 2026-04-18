@@ -53,9 +53,9 @@ training/calibration_data/*
 *.db
 *.sqlite
 
-# Models & Checkpoints
-models/
-!models/Modelfile.*
+# Models & Checkpoints (root-only — не блокирует src/models/)
+/models/
+!/models/Modelfile.*
 checkpoints/
 *.gguf
 *.bin
