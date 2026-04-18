@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "saved_at": "2026-04-16T12:55:14.860314",
+  "saved_at": "2026-04-18T12:50:32.901126",
   "nodes": [
     {
       "id": "math:arithmetic:definition",
@@ -1571,6 +1571,42 @@
       "metadata": {},
       "created_at": "2026-04-16T12:55:14.648969",
       "confidence": 1.0
+    },
+    {
+      "id": "math:factoring:misconception:observed_ec0187c195",
+      "node_type": "misconception",
+      "title": "Ученик не смог разложить многочлен на множители для решения квадратного уравнения",
+      "title_en": "Misconception in math:factoring:definition",
+      "content": "Ученик не смог разложить многочлен на множители для решения квадратного уравнения",
+      "domain": "math",
+      "tags": [
+        "math:factoring:definition",
+        "misconception",
+        "session_derived"
+      ],
+      "difficulty": 0.5,
+      "source": "session_sess_a_0_8422c8",
+      "metadata": {},
+      "created_at": "2026-04-18T12:50:32.901126",
+      "confidence": 0.882351
+    },
+    {
+      "id": "math:quadratic_equations:misconception:observed_f745311294",
+      "node_type": "misconception",
+      "title": "Неверно применена формула корней",
+      "title_en": "Misconception in math:quadratic_equations:definition",
+      "content": "Неверно применена формула корней",
+      "domain": "math",
+      "tags": [
+        "math:quadratic_equations:definition",
+        "misconception",
+        "session_derived"
+      ],
+      "difficulty": 0.45,
+      "source": "session_sess_a_0_8422c8",
+      "metadata": {},
+      "created_at": "2026-04-18T12:50:32.901126",
+      "confidence": 0.882351
     }
   ],
   "edges": [
@@ -2168,6 +2204,30 @@
       "edge_type": "common_error_for",
       "weight": 1.0,
       "metadata": {}
+    },
+    {
+      "source_id": "math:factoring:misconception:observed_ec0187c195",
+      "target_id": "math:factoring:definition",
+      "edge_type": "common_error_for",
+      "weight": 0.882351,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:quadratic_equations:misconception:observed_f745311294",
+      "target_id": "math:quadratic_equations:definition",
+      "edge_type": "common_error_for",
+      "weight": 0.882351,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:quadratic_equations:definition",
+      "target_id": "math:factoring:definition",
+      "edge_type": "confused_with",
+      "weight": 0.882351,
+      "metadata": {
+        "derived_from_sessions": 6,
+        "origin": "confusion_pattern"
+      }
     }
   ]
 }
