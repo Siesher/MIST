@@ -68,14 +68,24 @@ FULL_SYSTEM_PROMPT = (
     "You are a cognitive scientist modeling a Russian-speaking student's mental state "
     "during STEM tutoring. Your analysis will drive teaching decisions. "
     "Reason step-by-step in 3 stages (misconception → topic belief → reaction prediction), "
-    "then output a single JSON object. "
-    "All content in Russian. Keys in English. "
-    "Confidence rubric: 0.8+ if student explicitly demonstrated, "
-    "0.5-0.8 for strong inference from error pattern, 0.2-0.5 for weak signal, "
-    "0.0-0.2 if no usable signal. Be conservative — false high confidence misleads the tutor."
+    "then output a single JSON object. All content in Russian. Keys in English. "
+    "\n\n"
+    "CRITICAL: Actively identify error patterns when student shows ANY of these signs:\n"
+    "- States a wrong mathematical/logical fact as true\n"
+    "- Applies a rule incorrectly (wrong sign, wrong operation, wrong formula)\n"
+    "- Over-generalizes (e.g. treats nonlinear as linear)\n"
+    "- Confuses similar-looking concepts\n"
+    "- Shows gap in foundational understanding\n"
+    "Default to IDENTIFYING the error pattern, not to null. "
+    "Set active_misconception=null ONLY when student asks a genuine open question "
+    "without demonstrating any wrong belief. Even 'I don't understand X' usually has "
+    "an implicit model — extract it.\n\n"
+    "Confidence rubric: 0.8+ if student explicitly demonstrated the error, "
+    "0.5-0.8 for strong inference from error pattern or wrong statement, "
+    "0.2-0.5 for weak signal, 0.0-0.2 if truly no usable signal."
 )
 
-FULL_FEW_SHOT_EXAMPLES = """### Example 1
+FULL_FEW_SHOT_EXAMPLES = """### Example 1 (explicit misconception — over-generalization)
 Student: "производная произведения равна произведению производных"
 Errors: [incorrect product rule application]
 
@@ -93,7 +103,61 @@ Output:
   "reasoning": "Классический паттерн распространения линейности на нелинейные операции."
 }
 
-### Example 2
+### Example 2 (sign error — procedural misconception)
+Student: "Решаю 2x + 5 = 15. Перенёс 5 вправо, получил 2x = 15 + 5 = 20. x = 10."
+Errors: [wrong sign on transposition]
+
+Output:
+{
+  "active_misconception": "При переносе члена в другую часть уравнения знак не меняется — складывает вместо вычитания",
+  "belief_about_topic": "Перенос — это просто перемещение числа, без изменения знака",
+  "predicted_reactions": {
+    "scaffolded": "Через проверку подстановки x=10 увидит противоречие",
+    "conceptual_repair": "Прямое указание на смену знака даст понимание механики",
+    "encourage": "Без указания на ошибку будет уверенно повторять"
+  },
+  "candidate_misconceptions": ["Забывает инверсию операции при переносе"],
+  "confidence": 0.95,
+  "reasoning": "Студент продемонстрировал конкретную вычислительную ошибку со сменой знака."
+}
+
+### Example 3 (confident wrong — misremembered formula)
+Student: "sin(x)^2 + cos(x)^2 = x? Или это всегда единица?"
+Errors: []
+
+Output:
+{
+  "active_misconception": "Путает основное тригонометрическое тождество с линейной зависимостью",
+  "belief_about_topic": "Студент помнит, что тождество есть, но не уверен в его форме",
+  "predicted_reactions": {
+    "scaffolded": "Проверка на конкретном угле (x=0, x=π/2) даст ответ",
+    "conceptual_repair": "Напоминание о связи с теоремой Пифагора восстановит тождество",
+    "encourage": "Поможет признать неуверенность и перепроверить"
+  },
+  "candidate_misconceptions": ["Не связывает тождество с единичной окружностью"],
+  "confidence": 0.75,
+  "reasoning": "Студент помнит факт, но забыл правильную форму — частичное понимание, не пустое."
+}
+
+### Example 4 (implicit model from confusion — not null!)
+Student: "Обратная функция f^-1(x) это 1/f(x), правильно? Минус один ведь степень."
+Errors: [confuses function inverse with multiplicative inverse]
+
+Output:
+{
+  "active_misconception": "Отождествляет нотацию f^-1 (обратная функция) с степенью -1 (1/f)",
+  "belief_about_topic": "Верхний индекс -1 у функции — это отрицательная степень",
+  "predicted_reactions": {
+    "scaffolded": "Через пример с конкретной функцией (f(x)=2x) увидит разницу",
+    "conceptual_repair": "Прямое разделение нотаций устранит путаницу",
+    "encourage": "Без указания на двойственность нотации останется при своей модели"
+  },
+  "candidate_misconceptions": [],
+  "confidence": 0.90,
+  "reasoning": "Явная ошибочная модель: notational collision воспринимается как тождество операций."
+}
+
+### Example 5 (genuine open question — null misconception)
 Student: "я не понимаю что такое предел, что это значит"
 Errors: []
 
@@ -108,7 +172,7 @@ Output:
   },
   "candidate_misconceptions": [],
   "confidence": 0.7,
-  "reasoning": "Прямое признание непонимания, не конкретная ошибка — нужна опора."
+  "reasoning": "Прямое признание непонимания, без конкретной ошибки — нужна опора."
 }
 """
 
@@ -129,7 +193,10 @@ Recent conversation (last {n_history} turns):
 ## Your task
 Reason in 3 steps internally, then output ONLY the final JSON object:
 
-Step 1: Identify active misconception (check against known list first, null if none)
+Step 1: Identify active misconception — examine message for any wrong belief, \
+over-generalization, sign error, notation confusion, or misremembered formula. \
+Check against known list first. Only use null if student asks a pure open question \
+without demonstrating any wrong model (like Example 5).
 Step 2: State how student models the topic — ONE clear Russian sentence
 Step 3: Predict reactions to each strategy: scaffolded, conceptual_repair, encourage
 
