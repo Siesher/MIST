@@ -176,6 +176,15 @@ def get_learning_frontier(
     if nav is None:
         return json.dumps({"error": "Knowledge graph not available"})
 
+    # Clamp max_results to profile limit
+    try:
+        from src.resource_profiles import get_active_profile
+
+        profile_cap = get_active_profile().navigator_max_frontier
+        max_results = min(max_results, profile_cap)
+    except ImportError:
+        pass
+
     frontier = nav.get_learning_frontier(student_id, max_results=max_results, domain=domain)
 
     result = [

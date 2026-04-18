@@ -186,6 +186,21 @@ class GraphEvolver:
     ):
         self._graph = graph
         self._queue = queue or ProposalQueue()
+
+        # Respect resource profile — disable LLM verifier if profile doesn't enable it
+        if llm_verifier is not None:
+            try:
+                from src.resource_profiles import feature_enabled
+
+                if not feature_enabled("enable_llm_verifier"):
+                    logger.info(
+                        "LLM verifier disabled by active profile; "
+                        "using rule-based verification only"
+                    )
+                    llm_verifier = None
+            except ImportError:
+                pass  # Profile module unavailable — keep verifier
+
         self._llm_verifier = llm_verifier
         self._growth_log_path = growth_log_path or DEFAULT_GROWTH_LOG
 
