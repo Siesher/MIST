@@ -63,9 +63,12 @@ class Settings(BaseSettings):
     # Hardware Configuration (for partial GPU/CPU offload)
     # ─────────────────────────────────────────────────────────────
     GPU_LAYERS: int = Field(
-        default=28,
+        default=99,
         ge=0,
-        description="Layers on GPU. REAP: 28/47 blocks ≈ 7.2GB VRAM (RTX 2080 8GB, tested)",
+        description=(
+            "Layers on GPU. 99 = full offload (auto-fit). For Qwen3.5-9B Q4_K_M (~5.5GB) "
+            "full offload на RTX 2080 8GB работает; partial (28) был legacy для REAP 23B MoE."
+        ),
     )
     CONTEXT_LENGTH: int = Field(
         default=8192, ge=512, description="Maximum context length in tokens"

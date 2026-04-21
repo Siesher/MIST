@@ -15,14 +15,14 @@ Reference:
     arXiv:2504.19874, April 2025.
 """
 
+import logging
 import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-import torch
 import numpy as np
+import torch
 from scipy.special import gamma as gamma_fn
-import logging
 
 # NumPy 2.0 compatibility: trapz was renamed to trapezoid
 _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────
 # Configuration
 # ─────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class TurboQuantConfig:
@@ -51,6 +52,7 @@ class TurboQuantConfig:
         outlier_bits_extra: Extra bits allocated to outlier channels above base.
             E.g. with key_bits=2 and outlier_bits_extra=1, outliers get 3 bits.
     """
+
     key_bits: int = 3
     value_bits: int = 3
     head_dim: int = 128
@@ -62,6 +64,7 @@ class TurboQuantConfig:
 # ─────────────────────────────────────────────────────────────────────
 # Beta distribution PDF for rotated coordinates
 # ─────────────────────────────────────────────────────────────────────
+
 
 def _beta_pdf(x: np.ndarray, d: int) -> np.ndarray:
     """PDF of a coordinate after random rotation of a unit-norm vector in R^d.
@@ -80,12 +83,13 @@ def _beta_pdf(x: np.ndarray, d: int) -> np.ndarray:
     coeff = gamma_fn(d / 2) / (math.sqrt(math.pi) * gamma_fn((d - 1) / 2))
     # Clamp to avoid numerical issues at boundaries
     x_clamp = np.clip(x, -1 + 1e-12, 1 - 1e-12)
-    return coeff * np.power(1 - x_clamp ** 2, (d - 3) / 2)
+    return coeff * np.power(1 - x_clamp**2, (d - 3) / 2)
 
 
 # ─────────────────────────────────────────────────────────────────────
 # Lloyd-Max codebook computation
 # ─────────────────────────────────────────────────────────────────────
+
 
 def compute_codebook(d: int, b: int, n_integration_points: int = 2000) -> np.ndarray:
     """Compute MSE-optimal scalar quantizer centroids via Lloyd-Max iteration.
@@ -101,7 +105,7 @@ def compute_codebook(d: int, b: int, n_integration_points: int = 2000) -> np.nda
     Returns:
         Sorted centroid array of shape (2^b,).
     """
-    num_levels = 2 ** b
+    num_levels = 2**b
     x_grid = np.linspace(-1, 1, n_integration_points)
     pdf_vals = _beta_pdf(x_grid, d)
 
@@ -111,11 +115,13 @@ def compute_codebook(d: int, b: int, n_integration_points: int = 2000) -> np.nda
     # Lloyd-Max iterations
     for _ in range(200):
         # Compute boundaries (midpoints between consecutive centroids)
-        boundaries = np.concatenate([
-            [-1.0],
-            (centroids[:-1] + centroids[1:]) / 2,
-            [1.0],
-        ])
+        boundaries = np.concatenate(
+            [
+                [-1.0],
+                (centroids[:-1] + centroids[1:]) / 2,
+                [1.0],
+            ]
+        )
 
         new_centroids = np.zeros(num_levels)
         for i in range(num_levels):
@@ -168,6 +174,7 @@ def get_codebook(d: int, b: int, device: torch.device = torch.device("cpu")) -> 
 # Random rotation matrix
 # ─────────────────────────────────────────────────────────────────────
 
+
 def generate_rotation_matrix(
     d: int,
     seed: int = 42,
@@ -197,6 +204,7 @@ def generate_rotation_matrix(
 # QJL projection matrix
 # ─────────────────────────────────────────────────────────────────────
 
+
 def generate_qjl_matrix(
     d: int,
     seed: int = 43,
@@ -220,6 +228,7 @@ def generate_qjl_matrix(
 # ─────────────────────────────────────────────────────────────────────
 # TurboQuant Engine
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TurboQuantEngine:
     """Stateful engine holding precomputed matrices and codebooks.
@@ -287,7 +296,7 @@ class TurboQuantEngine:
 
             logger.info(
                 f"TurboQuantEngine initialized: head_dim={d}, "
-                f"key_bits={config.key_bits} (Q_prod: {config.key_bits-1}+1), "
+                f"key_bits={config.key_bits} (Q_prod: {config.key_bits - 1}+1), "
                 f"value_bits={config.value_bits} (Q_mse)"
             )
 
@@ -423,12 +432,8 @@ class TurboQuantEngine:
         if self.use_mixed_precision:
             mask = self._get_outlier_mask(x)
             indices = torch.zeros_like(y, dtype=torch.int16)
-            indices[..., mask] = self._scalar_quantize(
-                y[..., mask], self.value_codebook_outlier
-            )
-            indices[..., ~mask] = self._scalar_quantize(
-                y[..., ~mask], self.value_codebook_regular
-            )
+            indices[..., mask] = self._scalar_quantize(y[..., mask], self.value_codebook_outlier)
+            indices[..., ~mask] = self._scalar_quantize(y[..., ~mask], self.value_codebook_regular)
         else:
             indices = self._scalar_quantize(y, self.value_codebook)
 
@@ -446,9 +451,7 @@ class TurboQuantEngine:
         """
         if self.use_mixed_precision:
             mask = self._outlier_mask
-            y_recon = torch.zeros(
-                *indices.shape, dtype=torch.float32, device=indices.device
-            )
+            y_recon = torch.zeros(*indices.shape, dtype=torch.float32, device=indices.device)
             y_recon[..., mask] = self._scalar_dequantize(
                 indices[..., mask], self.value_codebook_outlier
             )
@@ -494,9 +497,7 @@ class TurboQuantEngine:
         if self.use_mixed_precision:
             mask = self._get_outlier_mask(x)
             mse_indices = torch.zeros_like(y, dtype=torch.int16)
-            mse_indices[..., mask] = self._scalar_quantize(
-                y[..., mask], self.key_codebook_outlier
-            )
+            mse_indices[..., mask] = self._scalar_quantize(y[..., mask], self.key_codebook_outlier)
             mse_indices[..., ~mask] = self._scalar_quantize(
                 y[..., ~mask], self.key_codebook_regular
             )
@@ -570,9 +571,7 @@ class TurboQuantEngine:
 
     # ── Convenience: quantize/dequantize with mode ───────────────────
 
-    def quantize(
-        self, x: torch.Tensor, mode: str = "mse"
-    ) -> Dict[str, torch.Tensor]:
+    def quantize(self, x: torch.Tensor, mode: str = "mse") -> Dict[str, torch.Tensor]:
         """Quantize vectors with specified mode.
 
         Args:
@@ -582,9 +581,14 @@ class TurboQuantEngine:
         Returns:
             Dict with quantized components.
         """
+        # Quantization arithmetic requires fp32 precision; cast and restore afterward
+        input_dtype = x.dtype
+        if input_dtype != torch.float32:
+            x = x.float()
+
         if mode == "mse":
             indices, norms = self.quantize_mse(x)
-            return {"indices": indices, "norms": norms}
+            return {"indices": indices, "norms": norms, "_dtype": input_dtype}
         elif mode == "prod":
             mse_idx, qjl_signs, res_norms, norms = self.quantize_prod(x)
             return {
@@ -592,13 +596,12 @@ class TurboQuantEngine:
                 "qjl_signs": qjl_signs,
                 "residual_norms": res_norms,
                 "norms": norms,
+                "_dtype": input_dtype,
             }
         else:
             raise ValueError(f"Unknown quantization mode: {mode}. Use 'mse' or 'prod'.")
 
-    def dequantize(
-        self, quantized: Dict[str, torch.Tensor], mode: str = "mse"
-    ) -> torch.Tensor:
+    def dequantize(self, quantized: Dict[str, torch.Tensor], mode: str = "mse") -> torch.Tensor:
         """Dequantize vectors from quantized representation.
 
         Args:
@@ -608,10 +611,12 @@ class TurboQuantEngine:
         Returns:
             Reconstructed tensor of shape (..., d).
         """
+        output_dtype = quantized.get("_dtype", torch.float32)
+
         if mode == "mse":
-            return self.dequantize_mse(quantized["indices"], quantized["norms"])
+            result = self.dequantize_mse(quantized["indices"], quantized["norms"])
         elif mode == "prod":
-            return self.dequantize_prod(
+            result = self.dequantize_prod(
                 quantized["mse_indices"],
                 quantized["qjl_signs"],
                 quantized["residual_norms"],
@@ -619,6 +624,8 @@ class TurboQuantEngine:
             )
         else:
             raise ValueError(f"Unknown quantization mode: {mode}. Use 'mse' or 'prod'.")
+
+        return result.to(dtype=output_dtype) if result.dtype != output_dtype else result
 
     # ── Memory estimation ────────────────────────────────────────────
 

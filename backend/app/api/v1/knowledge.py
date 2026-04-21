@@ -1,0 +1,423 @@
+"""Knowledge Forge API — active knowledge graph, not RAG.
+
+Endpoints expose the graph stored in data/knowledge/forge.json and let
+users upload source documents which the LLM extracts into nodes/edges.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.models.database import get_db
+from backend.app.models.tables import SourceTable
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+
+# Lazy-loaded graph to avoid heavy imports during API startup
+_graph = None
+
+
+def get_graph():
+    """Load KnowledgeGraph singleton from data/knowledge/forge.json."""
+    global _graph
+    if _graph is None:
+        from src.knowledge.knowledge_forge import KnowledgeGraph
+
+        forge_path = Path("data/knowledge/forge.json")
+        _graph = KnowledgeGraph(storage_path=forge_path)
+    return _graph
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Schemas
+# ─────────────────────────────────────────────────────────────────────
+
+
+class GraphStats(BaseModel):
+    total_nodes: int
+    total_edges: int
+    domains: dict[str, int]
+    types: dict[str, int]
+
+
+class NodeSummary(BaseModel):
+    id: str
+    title: str
+    title_en: str | None = None
+    type: str
+    domain: str
+    difficulty: float
+    confidence: float
+
+
+class NodeDetail(NodeSummary):
+    content: str
+    tags: list[str]
+    neighbors: dict[str, list[dict[str, Any]]]
+
+
+class SourceCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=255)
+    content: str = Field(min_length=20)
+    kind: str = Field(default="text", pattern="^(text|notes|url|pdf)$")
+    domain: str = Field(default="math", pattern="^(math|physics|chemistry|biology|cs|other)$")
+
+
+class SourceInfo(BaseModel):
+    id: str
+    title: str
+    kind: str
+    domain: str
+    status: str
+    error: str | None
+    nodes_extracted: int
+    edges_extracted: int
+    created_at: datetime
+    extracted_at: datetime | None
+    preview: str
+
+
+class SourceList(BaseModel):
+    sources: list[SourceInfo]
+    total: int
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Graph endpoints
+# ─────────────────────────────────────────────────────────────────────
+
+
+@router.get("/stats", response_model=GraphStats)
+async def get_stats():
+    """Total nodes/edges + histograms by domain and type."""
+    g = get_graph()
+    domains: dict[str, int] = {}
+    types: dict[str, int] = {}
+    for node in g._nodes.values():  # noqa: SLF001
+        domains[node.domain] = domains.get(node.domain, 0) + 1
+        types[node.node_type.value] = types.get(node.node_type.value, 0) + 1
+    return GraphStats(
+        total_nodes=len(g._nodes),
+        total_edges=len(g._edges),
+        domains=domains,
+        types=types,
+    )
+
+
+@router.get("/nodes", response_model=list[NodeSummary])
+async def list_nodes(
+    domain: str | None = None,
+    type: str | None = None,
+    q: str | None = None,
+    limit: int = 100,
+):
+    """List graph nodes with filters."""
+    g = get_graph()
+    nodes = list(g._nodes.values())  # noqa: SLF001
+    if domain:
+        nodes = [n for n in nodes if n.domain == domain]
+    if type:
+        nodes = [n for n in nodes if n.node_type.value == type]
+    if q:
+        ql = q.lower()
+        nodes = [n for n in nodes if ql in n.title.lower() or ql in (n.title_en or "").lower()]
+    return [
+        NodeSummary(
+            id=n.id,
+            title=n.title,
+            title_en=n.title_en,
+            type=n.node_type.value,
+            domain=n.domain,
+            difficulty=n.difficulty,
+            confidence=n.confidence,
+        )
+        for n in nodes[:limit]
+    ]
+
+
+@router.get("/nodes/{node_id}", response_model=NodeDetail)
+async def get_node(node_id: str):
+    """Node detail with categorized neighbors."""
+    g = get_graph()
+    node = g.get_node(node_id)
+    if not node:
+        raise HTTPException(404, f"Node not found: {node_id}")
+    explored = g.explore(node_id) or {}
+    return NodeDetail(
+        id=node.id,
+        title=node.title,
+        title_en=node.title_en,
+        type=node.node_type.value,
+        domain=node.domain,
+        difficulty=node.difficulty,
+        confidence=node.confidence,
+        content=node.content,
+        tags=list(node.tags),
+        neighbors={k: v for k, v in explored.items() if k not in ("id", "title", "type", "domain")},
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Source upload + extraction
+# ─────────────────────────────────────────────────────────────────────
+
+
+async def _run_extraction(source_id: str) -> None:
+    """Background task: extract knowledge from source text via LLM."""
+    from backend.app.models.database import async_session_factory
+    from src.knowledge.source_extractor import SourceExtractor
+    from src.models.llm_client import LLMClient
+
+    async with async_session_factory() as db:
+        src_row = await db.get(SourceTable, source_id)
+        if not src_row:
+            return
+        src_row.status = "extracting"
+        await db.commit()
+
+        try:
+            logger.info(f"Extraction started: {src_row.title}")
+            llm = LLMClient()
+            graph = get_graph()
+            extractor = SourceExtractor(llm_client=llm)
+
+            def _sync_extract():
+                return extractor.extract(
+                    text=src_row.content,
+                    domain=src_row.domain,
+                    source_name=src_row.title,
+                )
+
+            loop = asyncio.get_event_loop()
+            nodes, edges = await loop.run_in_executor(None, _sync_extract)
+
+            # Actually add extracted nodes/edges to the graph
+            added_nodes = 0
+            for node in nodes:
+                if graph.get_node(node.id) is None:
+                    graph.add_node(node)
+                    added_nodes += 1
+
+            added_edges = 0
+            for edge in edges:
+                try:
+                    if not graph.has_edge(edge.source_id, edge.target_id, edge.edge_type):
+                        graph.add_edge(edge)
+                        added_edges += 1
+                except KeyError:
+                    # Edge references a node that wasn't extracted — skip
+                    continue
+
+            # Persist the updated graph to disk
+            graph.save()
+
+            src_row.status = "extracted"
+            src_row.nodes_extracted = added_nodes
+            src_row.edges_extracted = added_edges
+            src_row.extracted_at = datetime.utcnow()
+            logger.info(f"Extraction done: {src_row.title} — +{added_nodes}n +{added_edges}e")
+        except Exception as e:
+            logger.exception(f"Extraction failed: {e}")
+            src_row.status = "failed"
+            src_row.error = str(e)[:500]
+        finally:
+            await db.commit()
+
+
+@router.post("/sources", response_model=SourceInfo, status_code=status.HTTP_201_CREATED)
+async def create_source(
+    payload: SourceCreate,
+    bg: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a source; trigger extraction in background."""
+    row = SourceTable(
+        title=payload.title,
+        kind=payload.kind,
+        domain=payload.domain,
+        content=payload.content,
+        status="pending",
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+
+    bg.add_task(_run_extraction, row.id)
+
+    return _to_info(row)
+
+
+@router.get("/sources", response_model=SourceList)
+async def list_sources(db: AsyncSession = Depends(get_db)):
+    """List uploaded sources with extraction status."""
+    result = await db.execute(select(SourceTable).order_by(SourceTable.created_at.desc()))
+    rows = list(result.scalars())
+    return SourceList(sources=[_to_info(r) for r in rows], total=len(rows))
+
+
+@router.get("/sources/{source_id}", response_model=SourceInfo)
+async def get_source(source_id: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(SourceTable, source_id)
+    if not row:
+        raise HTTPException(404, "Source not found")
+    return _to_info(row)
+
+
+@router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_source(source_id: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(SourceTable, source_id)
+    if not row:
+        raise HTTPException(404, "Source not found")
+    await db.delete(row)
+    await db.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Living KG: auto-evolution proposals
+# ─────────────────────────────────────────────────────────────────────
+
+
+class ProposalInfo(BaseModel):
+    key: str
+    kind: str
+    confidence: float
+    payload: dict[str, Any]
+    evidence: list[dict[str, Any]]
+    reasoning: str | None = None
+
+
+class EvolutionSummary(BaseModel):
+    sessions_analyzed: int
+    proposals_generated: int
+    proposals_accepted: int
+    proposals_rejected: int
+    pending: int
+    last_sweep_at: float
+    last_sweep_stats: dict[str, int]
+
+
+@router.get("/evolution/summary", response_model=EvolutionSummary)
+async def get_evolution_summary() -> EvolutionSummary:
+    """Stats: sessions analyzed, proposals generated/accepted/rejected, pending."""
+    from backend.app.services.kg_evolution_service import get_kg_evolution
+
+    return EvolutionSummary(**get_kg_evolution().summary())
+
+
+@router.get("/proposals", response_model=list[ProposalInfo])
+async def list_proposals() -> list[ProposalInfo]:
+    """All pending graph proposals awaiting review."""
+    from backend.app.services.kg_evolution_service import get_kg_evolution
+
+    items = get_kg_evolution().list_proposals()
+    result = []
+    for p in items:
+        kind = p.get("kind")
+        if hasattr(kind, "value"):
+            kind = kind.value
+        result.append(
+            ProposalInfo(
+                key=f"{kind}:{p.get('payload', {}).get('id', '?')}",
+                kind=str(kind),
+                confidence=p.get("confidence", 0.0),
+                payload=p.get("payload", {}),
+                evidence=p.get("evidence", []),
+                reasoning=p.get("reasoning"),
+            )
+        )
+    return result
+
+
+@router.post("/proposals/{proposal_key}/accept")
+async def accept_proposal(proposal_key: str) -> dict[str, bool]:
+    from backend.app.services.kg_evolution_service import get_kg_evolution
+
+    ok = get_kg_evolution().manual_decision(proposal_key, accept=True)
+    if not ok:
+        raise HTTPException(404, f"Proposal not found: {proposal_key}")
+    return {"accepted": True}
+
+
+@router.post("/proposals/{proposal_key}/reject")
+async def reject_proposal(proposal_key: str) -> dict[str, bool]:
+    from backend.app.services.kg_evolution_service import get_kg_evolution
+
+    ok = get_kg_evolution().manual_decision(proposal_key, accept=False)
+    if not ok:
+        raise HTTPException(404, f"Proposal not found: {proposal_key}")
+    return {"rejected": True}
+
+
+@router.post("/evolution/promote")
+async def promote_proposals(threshold: float = 0.75) -> dict[str, int]:
+    """Trigger auto-promote sweep (admin). Normally runs automatically every N sessions."""
+    from backend.app.services.kg_evolution_service import get_kg_evolution
+
+    return get_kg_evolution().promote_ready(threshold=threshold)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Multi-step verifier trace
+# ─────────────────────────────────────────────────────────────────────
+
+
+class VerifierCheckRequest(BaseModel):
+    session_id: str
+    expected: str
+    actual: str
+    domain: str = "math"  # math | chemistry | general
+
+
+@router.post("/verifier/check")
+async def run_verifier_check(req: VerifierCheckRequest) -> dict[str, Any]:
+    """Run multi-step verification (SymPy + optional ChemPy) and store trace."""
+    from src.agents.multistep_verifier import get_verifier_tracer
+
+    tracer = get_verifier_tracer()
+    result = tracer.verify(
+        session_id=req.session_id,
+        expected_answer=req.expected,
+        student_response=req.actual,
+        domain=req.domain,
+    )
+    return tracer.to_dict(result)
+
+
+@router.get("/verifier/trace/{session_id}")
+async def get_verifier_trace(session_id: str) -> dict[str, Any]:
+    """Last verification trace for a session — for side-panel UI."""
+    from src.agents.multistep_verifier import get_verifier_tracer
+
+    tracer = get_verifier_tracer()
+    result = tracer.get_trace(session_id)
+    if result is None:
+        raise HTTPException(404, f"No verifier trace for session {session_id}")
+    return tracer.to_dict(result)
+
+
+def _to_info(row: SourceTable) -> SourceInfo:
+    preview = (row.content or "")[:160] + ("…" if len(row.content or "") > 160 else "")
+    return SourceInfo(
+        id=row.id,
+        title=row.title,
+        kind=row.kind,
+        domain=row.domain,
+        status=row.status,
+        error=row.error,
+        nodes_extracted=row.nodes_extracted,
+        edges_extracted=row.edges_extracted,
+        created_at=row.created_at,
+        extracted_at=row.extracted_at,
+        preview=preview,
+    )

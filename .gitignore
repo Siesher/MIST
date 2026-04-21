@@ -56,10 +56,17 @@ training/calibration_data/*
 # Models & Checkpoints (root-only — не блокирует src/models/)
 /models/
 !/models/Modelfile.*
+data/models/
 checkpoints/
 *.gguf
 *.bin
 *.safetensors
+
+# Archives (design_handoff.zip/7z generated from design_handoff/)
+*.7z
+*.zip
+!frontend/public/*.zip
+!New_style/*.zip
 
 # Training data (large files)
 training/data/*.jsonl

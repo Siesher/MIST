@@ -19,6 +19,8 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
   const setIsLoading = useChatStore((s) => s.setIsLoading);
   const setSessionState = useChatStore((s) => s.setSessionState);
   const setSessionMode = useChatStore((s) => s.setSessionMode);
+  const beginStream = useChatStore((s) => s.beginStream);
+  const finalizeStreamMetrics = useChatStore((s) => s.finalizeStreamMetrics);
 
   const handleWSMessage = useCallback(
     (msg: WSServerMessage) => {
@@ -42,6 +44,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
 
         case "response_complete": {
           console.log("[Chat] Response complete");
+          finalizeStreamMetrics(sessionId);
           setIsStreaming(false);
           setStreamingMessage(null);
           setSessionState(sessionId, msg.session_state);
@@ -100,7 +103,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
           break;
       }
     },
-    [sessionId, addMessage, setStreamingMessage, appendStreamingContent, setIsStreaming, setIsLoading, setSessionState, setSessionMode],
+    [sessionId, addMessage, setStreamingMessage, appendStreamingContent, setIsStreaming, setIsLoading, setSessionState, setSessionMode, finalizeStreamMetrics],
   );
 
   const {
@@ -125,6 +128,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
       };
       addMessage(sessionId, userMsg);
       setIsLoading(true);
+      beginStream();
 
       if (useStreaming && wsConnected) {
         wsSendMessage(content);
@@ -151,7 +155,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
         }
       }
     },
-    [sessionId, useStreaming, wsConnected, wsSendMessage, addMessage, setIsLoading, setSessionState],
+    [sessionId, useStreaming, wsConnected, wsSendMessage, addMessage, setIsLoading, setSessionState, beginStream],
   );
 
   const requestHint = useCallback(async () => {

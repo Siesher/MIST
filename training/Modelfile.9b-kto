@@ -1,10 +1,11 @@
-# MITS KTO Tutor — Ollama Modelfile (Qwen3.5-9B, KTO stage 2)
+# MITS KTO Tutor — Ollama Modelfile (Qwen3.5-9B, KTO stage 2, Q4_K_M)
 # Usage:
-#   1. Download: huggingface-cli download Siesher/mits-qwen3-9b-kto --local-dir training/models/mits-kto
-#   2. Create:   ollama create mits-tutor-9b-kto -f training/Modelfile.9b-kto --quantize q4_k_m
-#   3. Run:      ollama run mits-tutor-9b-kto
+#   1. Convert: python tools/llama.cpp/convert_hf_to_gguf.py training/models/mits-kto/ --outfile training/models/mits-kto.f16.gguf --outtype f16
+#   2. Quantize: tools/llama.cpp/bin/llama-quantize training/models/mits-kto.f16.gguf training/models/mits-kto.q4km.gguf Q4_K_M
+#   3. Create:  ollama create mits-tutor-9b-kto -f training/Modelfile.9b-kto
+#   4. Run:     ollama run mits-tutor-9b-kto
 
-FROM C:\Work\MITS\training\models\mits-kto
+FROM C:\Work\MITS\training\models\mits-kto.q4km.gguf
 
 # Enable Qwen3.5 thinking support (RENDERER/PARSER)
 RENDERER qwen3.5

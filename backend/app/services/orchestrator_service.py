@@ -5,16 +5,17 @@ Provides async-friendly interface for FastAPI endpoints.
 Sessions and messages are persisted to SQLite via SQLAlchemy.
 """
 
-import sys
-import os
 import json
-import uuid
 import logging
-from typing import Optional, Dict, Any, List, AsyncGenerator
+import os
+import sys
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from sqlalchemy import select, func as sa_func, update
+from sqlalchemy import func as sa_func
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -23,7 +24,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from backend.app.models.tables import SessionTable, MessageTable  # noqa: E402
+from backend.app.models.tables import MessageTable, SessionTable  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Thinking tag utilities (supports GLM and Qwen3 formats)
 # ---------------------------------------------------------------------------
+
 
 def parse_thinking_tags(text: str) -> tuple:
     """Parse thinking tags from model response.
@@ -46,22 +48,22 @@ def parse_thinking_tags(text: str) -> tuple:
     import re
 
     # Qwen3 format: <think>...</think>
-    think_match = re.search(r'<think>(.*?)</think>', text, re.DOTALL)
+    think_match = re.search(r"<think>(.*?)</think>", text, re.DOTALL)
     if think_match:
         thinking = think_match.group(1).strip()
-        visible = text[think_match.end():].strip()
+        visible = text[think_match.end() :].strip()
         return visible, thinking
 
     # GLM format: various thinking markers
     for pattern in [
-        r'<\|思考\|>(.*?)<\|/思考\|>',
-        r'<thinking>(.*?)</thinking>',
-        r'<thought>(.*?)</thought>',
+        r"<\|思考\|>(.*?)<\|/思考\|>",
+        r"<thinking>(.*?)</thinking>",
+        r"<thought>(.*?)</thought>",
     ]:
         match = re.search(pattern, text, re.DOTALL)
         if match:
             thinking = match.group(1).strip()
-            visible = text[match.end():].strip()
+            visible = text[match.end() :].strip()
             return visible, thinking
 
     return text, None
@@ -85,6 +87,7 @@ def strip_thinking(text: str, show_thinking: bool = False) -> str:
 @dataclass
 class ModeConfig:
     """Configuration for a chat mode."""
+
     system_prompt_key: str  # Key to look up in prompts module
     use_rag: bool = True
     track_hints: bool = True
@@ -127,6 +130,7 @@ MODE_DISPLAY_NAMES = {
 @dataclass
 class StoredMessage:
     """Message DTO (maps to/from MessageTable)."""
+
     id: str
     role: str  # user, tutor, system
     content: str
@@ -139,6 +143,7 @@ class StoredMessage:
 @dataclass
 class StoredSession:
     """Session DTO (maps to/from SessionTable)."""
+
     id: str
     created_at: datetime
     updated_at: datetime
@@ -159,18 +164,28 @@ def _row_to_session(row: SessionTable) -> StoredSession:
     """Convert ORM row to DTO."""
     messages = [
         StoredMessage(
-            id=m.id, role=m.role, content=m.content,
-            timestamp=m.timestamp, move_type=m.move_type,
-            is_correct=m.is_correct, thinking=m.thinking,
+            id=m.id,
+            role=m.role,
+            content=m.content,
+            timestamp=m.timestamp,
+            move_type=m.move_type,
+            is_correct=m.is_correct,
+            thinking=m.thinking,
         )
         for m in (row.messages or [])
     ]
     return StoredSession(
-        id=row.id, created_at=row.created_at, updated_at=row.updated_at,
-        topic=row.topic, difficulty=row.difficulty,
-        status=row.status, mode=row.mode,
-        is_solved=row.is_solved, hints_used=row.hints_used,
-        attempts=row.attempts, messages=messages,
+        id=row.id,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        topic=row.topic,
+        difficulty=row.difficulty,
+        status=row.status,
+        mode=row.mode,
+        is_solved=row.is_solved,
+        hints_used=row.hints_used,
+        attempts=row.attempts,
+        messages=messages,
         task=json.loads(row.task_json) if row.task_json else None,
         task_id=json.loads(row.task_json).get("id") if row.task_json else None,
         user_id=row.user_id,
@@ -197,32 +212,87 @@ class OrchestratorService:
             return
 
         try:
-            from src.models.llm_client import LLMClient
             from backend.app.config import backend_settings
+            from src.models.llm_client import LLMClient
 
-            # Select model: auto-detect, fine-tuned, or base
+            self._backend_kind = "ollama"
+            self._backend_info: Dict[str, Any] = {}
             model_name = None
-            if backend_settings.AUTO_SELECT_MODEL:
+
+            # ─── EXPERIMENTAL: HuggingFace backend with TurboQuant ───
+            if getattr(backend_settings, "USE_HF_BACKEND", False):
+                logger.info("HF backend requested (USE_HF_BACKEND=True)")
                 try:
-                    from backend.app.services.hardware_detector import detect_hardware, select_model
-                    hw = detect_hardware(backend_settings.OLLAMA_HOST)
-                    selection = select_model(hw)
-                    if selection["available"]:
-                        model_name = selection["name"]
-                        logger.info(f"Auto-selected model: {model_name} ({selection['reason']})")
-                    else:
-                        logger.info(f"Auto-selected model {selection['name']} not available, falling back to config")
+                    from src.inference.model_config import get_model_config
+                    from src.models.hf_client import create_client_from_config
+
+                    cfg_name = backend_settings.HF_MODEL_CONFIG
+                    cfg = get_model_config(cfg_name)
+                    if cfg is None:
+                        raise ValueError(f"Unknown HF_MODEL_CONFIG: {cfg_name}")
+
+                    logger.info(f"Loading HF client ({cfg.display_name}) — this may take 30-60s...")
+                    self._llm_client = create_client_from_config(cfg_name)
+                    self._backend_kind = "huggingface"
+                    self._backend_info = {
+                        "kind": "huggingface",
+                        "model": cfg.hf_model_path,
+                        "turbo_quant": cfg.turbo_quant_enabled,
+                        "key_bits": cfg.turbo_quant_key_bits if cfg.turbo_quant_enabled else None,
+                        "value_bits": cfg.turbo_quant_value_bits
+                        if cfg.turbo_quant_enabled
+                        else None,
+                        "context_length": cfg.context_length,
+                        "display_name": cfg.display_name,
+                    }
+                    model_name = cfg.hf_model_path
+                    logger.info(f"HF backend ready: {cfg.display_name}")
                 except Exception as e:
-                    logger.warning(f"Hardware auto-detection failed: {e}")
+                    logger.warning(f"HF backend init failed, falling back to Ollama: {e}")
+                    self._llm_client = None  # reset for ollama path
 
-            if model_name is None and backend_settings.USE_FINETUNED and backend_settings.MODEL_FINETUNED:
-                model_name = backend_settings.MODEL_FINETUNED
-                logger.info(f"Using fine-tuned model: {model_name}")
-            elif model_name is None and backend_settings.MODEL_NAME:
-                model_name = backend_settings.MODEL_NAME
-                logger.info(f"Using base model: {model_name}")
+            # ─── Ollama backend (default) ───
+            if self._llm_client is None:
+                # Select model: auto-detect, fine-tuned, or base
+                if backend_settings.AUTO_SELECT_MODEL:
+                    try:
+                        from backend.app.services.hardware_detector import (
+                            detect_hardware,
+                            select_model,
+                        )
 
-            self._llm_client = LLMClient(model=model_name) if model_name else LLMClient()
+                        hw = detect_hardware(backend_settings.OLLAMA_HOST)
+                        selection = select_model(hw)
+                        if selection["available"]:
+                            model_name = selection["name"]
+                            logger.info(
+                                f"Auto-selected model: {model_name} ({selection['reason']})"
+                            )
+                        else:
+                            logger.info(
+                                f"Auto-selected model {selection['name']} not available, falling back to config"
+                            )
+                    except Exception as e:
+                        logger.warning(f"Hardware auto-detection failed: {e}")
+
+                if (
+                    model_name is None
+                    and backend_settings.USE_FINETUNED
+                    and backend_settings.MODEL_FINETUNED
+                ):
+                    model_name = backend_settings.MODEL_FINETUNED
+                    logger.info(f"Using fine-tuned model: {model_name}")
+                elif model_name is None and backend_settings.MODEL_NAME:
+                    model_name = backend_settings.MODEL_NAME
+                    logger.info(f"Using base model: {model_name}")
+
+                self._llm_client = LLMClient(model=model_name) if model_name else LLMClient()
+                self._backend_info = {
+                    "kind": "ollama",
+                    "model": model_name,
+                    "turbo_quant": False,
+                    "context_length": 4096,
+                }
 
             from src.agents.orchestrator import AgentOrchestrator, OrchestratorMode
             from src.agents.profiler import ProfilerAgent
@@ -242,6 +312,7 @@ class OrchestratorService:
 
             try:
                 from src.agents.task_generator import TaskGeneratorAgent
+
                 self._task_generator = TaskGeneratorAgent(self._llm_client)
             except Exception as e:
                 logger.warning(f"TaskGenerator not available: {e}")
@@ -251,6 +322,7 @@ class OrchestratorService:
 
             # Warm up model in background (don't block server startup)
             import threading
+
             def warmup():
                 try:
                     logger.info("Warming up LLM model in background...")
@@ -258,6 +330,7 @@ class OrchestratorService:
                     logger.info("LLM model warmed up and ready")
                 except Exception as e:
                     logger.warning(f"Model warmup failed: {e}")
+
             threading.Thread(target=warmup, daemon=True).start()
 
         except Exception as e:
@@ -274,11 +347,14 @@ class OrchestratorService:
         config = self._get_mode_config(mode)
         try:
             from src.models import prompts as prompt_module
+
             return getattr(prompt_module, config.system_prompt_key, "")
         except Exception:
             return ""
 
-    async def change_mode(self, db: AsyncSession, session_id: str, new_mode: str) -> Optional[Dict[str, Any]]:
+    async def change_mode(
+        self, db: AsyncSession, session_id: str, new_mode: str
+    ) -> Optional[Dict[str, Any]]:
         """Change the mode of an existing session."""
         row = await db.get(SessionTable, session_id)
         if not row:
@@ -298,13 +374,30 @@ class OrchestratorService:
         }
 
     def _check_llm_available(self) -> bool:
-        """Check if LLM client is connected."""
+        """Check if LLM client is connected.
+
+        Result is cached for 30 seconds — avoids hammering Ollama on every
+        /health request (which happens once per 20s from StatusBar).
+        Under load, Ollama's /api/tags can block 2+ sec if model is cold.
+        """
+        import time as _time
+
         if not self._llm_client:
             return False
+
+        cached_at = getattr(self, "_llm_health_cached_at", 0.0)
+        cached_val = getattr(self, "_llm_health_cached", None)
+        if cached_val is not None and (_time.time() - cached_at) < 30.0:
+            return cached_val
+
         try:
-            return self._llm_client.check_connection()
+            val = self._llm_client.check_connection()
         except Exception:
-            return False
+            val = False
+
+        self._llm_health_cached = val
+        self._llm_health_cached_at = _time.time()
+        return val
 
     # --- Session Management ---
 
@@ -326,6 +419,7 @@ class OrchestratorService:
         if user_id:
             try:
                 from backend.app.services.experiment_service import get_experiment_service
+
                 exp_service = await get_experiment_service()
                 group_info = await exp_service.get_user_group(db, user_id)
                 if group_info:
@@ -351,12 +445,15 @@ class OrchestratorService:
         elif topic and self._task_generator:
             try:
                 from src.data.schemas import Difficulty as DiffEnum
+
                 diff = DiffEnum(difficulty) if difficulty else DiffEnum.MEDIUM
                 task = self._task_generator.generate_task(topic=topic, difficulty=diff)
                 task_data = {
                     "id": task.id,
                     "topic": task.topic,
-                    "difficulty": task.difficulty.value if hasattr(task.difficulty, "value") else str(task.difficulty),
+                    "difficulty": task.difficulty.value
+                    if hasattr(task.difficulty, "value")
+                    else str(task.difficulty),
                     "problem": task.problem,
                     "hints": task.hints[:3],
                     "skills": task.skills,
@@ -379,6 +476,7 @@ class OrchestratorService:
         if task_data and topic:
             try:
                 from src.inference.hint_prefetcher import get_hint_prefetcher
+
                 prefetcher = get_hint_prefetcher()
                 if not prefetcher._running:
                     prefetcher.start()
@@ -416,21 +514,50 @@ class OrchestratorService:
         db.add(welcome_msg)
         await db.commit()
 
+        # Kick off background hint prefetch for this session's task.
+        # Hints get ready in the cache while student is reading the problem;
+        # when /hint endpoint fires, response is instant (no LLM wait).
+        if task_data:
+            try:
+                from src.inference.hint_prefetcher import get_hint_prefetcher
+
+                prefetcher = get_hint_prefetcher()
+                if not prefetcher._running:  # lazy start
+                    prefetcher.start()
+                prefetcher.prefetch_for_problem(
+                    problem=task_data.get("problem", ""),
+                    topic=topic,
+                    hints=task_data.get("hints"),
+                )
+            except Exception as e:
+                logger.debug(f"Hint prefetch skipped: {e}")
+
         # Return DTO
         session = StoredSession(
-            id=session_id, created_at=now, updated_at=now,
-            topic=topic, difficulty=difficulty, mode=session_mode,
+            id=session_id,
+            created_at=now,
+            updated_at=now,
+            topic=topic,
+            difficulty=difficulty,
+            mode=session_mode,
             task=task_data,
             task_id=task_data["id"] if task_data else None,
             user_id=user_id,
-            messages=[StoredMessage(
-                id=welcome_msg.id, role="tutor", content=welcome,
-                timestamp=now, move_type="encourage",
-            )],
+            messages=[
+                StoredMessage(
+                    id=welcome_msg.id,
+                    role="tutor",
+                    content=welcome,
+                    timestamp=now,
+                    move_type="encourage",
+                )
+            ],
         )
         return session
 
-    def _generate_welcome(self, topic: Optional[str], task: Optional[Dict], mode: str = "guided_learning") -> str:
+    def _generate_welcome(
+        self, topic: Optional[str], task: Optional[Dict], mode: str = "guided_learning"
+    ) -> str:
         """Generate a mode-specific welcome message."""
         if mode == "chat":
             return "Привет! Я твой ассистент. Спрашивай о чём угодно — математика, программирование, наука или любая другая тема."
@@ -453,8 +580,12 @@ class OrchestratorService:
         return "Привет! Я твой математический репетитор. С какой задачей поможем сегодня?"
 
     async def list_sessions(
-        self, db: AsyncSession, page: int = 1, limit: int = 20,
-        status: Optional[str] = None, user_id: Optional[str] = None,
+        self,
+        db: AsyncSession,
+        page: int = 1,
+        limit: int = 20,
+        status: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """List sessions with pagination."""
         query = select(SessionTable)
@@ -471,8 +602,7 @@ class OrchestratorService:
         pages = max(1, (total + limit - 1) // limit)
 
         query = (
-            query
-            .options(selectinload(SessionTable.messages))
+            query.options(selectinload(SessionTable.messages))
             .order_by(SessionTable.updated_at.desc())
             .offset((page - 1) * limit)
             .limit(limit)
@@ -518,16 +648,25 @@ class OrchestratorService:
 
     async def _save_message(self, db: AsyncSession, session_id: str, msg: StoredMessage) -> None:
         """Persist a message to DB."""
-        db.add(MessageTable(
-            id=msg.id, session_id=session_id, role=msg.role,
-            content=msg.content, move_type=msg.move_type,
-            is_correct=msg.is_correct, thinking=msg.thinking,
-            timestamp=msg.timestamp,
-        ))
+        db.add(
+            MessageTable(
+                id=msg.id,
+                session_id=session_id,
+                role=msg.role,
+                content=msg.content,
+                move_type=msg.move_type,
+                is_correct=msg.is_correct,
+                thinking=msg.thinking,
+                timestamp=msg.timestamp,
+            )
+        )
 
     async def _update_session_state(
-        self, db: AsyncSession, session_id: str,
-        attempts: Optional[int] = None, hints_used: Optional[int] = None,
+        self,
+        db: AsyncSession,
+        session_id: str,
+        attempts: Optional[int] = None,
+        hints_used: Optional[int] = None,
         is_solved: Optional[bool] = None,
     ) -> None:
         """Update session counters in DB."""
@@ -538,9 +677,7 @@ class OrchestratorService:
             values["hints_used"] = hints_used
         if is_solved is not None:
             values["is_solved"] = is_solved
-        await db.execute(
-            update(SessionTable).where(SessionTable.id == session_id).values(**values)
-        )
+        await db.execute(update(SessionTable).where(SessionTable.id == session_id).values(**values))
 
     async def process_message(
         self, db: AsyncSession, session_id: str, content: str
@@ -554,7 +691,10 @@ class OrchestratorService:
 
         # Add student message
         student_msg = StoredMessage(
-            id=str(uuid.uuid4()), role="user", content=content, timestamp=now,
+            id=str(uuid.uuid4()),
+            role="user",
+            content=content,
+            timestamp=now,
         )
         session.messages.append(student_msg)
         session.attempts += 1
@@ -571,6 +711,7 @@ class OrchestratorService:
         if self._orchestrator:
             try:
                 from src.agents.orchestrator import TurnContext
+
                 history = [
                     {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
                     for m in session.messages[-10:]
@@ -598,14 +739,19 @@ class OrchestratorService:
 
             except Exception as e:
                 logger.error(f"Orchestrator error: {e}")
-                tutor_content = "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
+                tutor_content = (
+                    "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
+                )
                 move_type = "scaffolding"
         else:
-            tutor_content = "Хороший вопрос! Давай подумаем вместе. Какие формулы ты знаешь по этой теме?"
+            tutor_content = (
+                "Хороший вопрос! Давай подумаем вместе. Какие формулы ты знаешь по этой теме?"
+            )
             move_type = "scaffolding"
 
         # Parse thinking tags from response (Qwen3 / GLM)
         from backend.app.config import backend_settings
+
         visible_content, parsed_thinking = parse_thinking_tags(tutor_content)
         if parsed_thinking and not thinking:
             thinking = parsed_thinking
@@ -613,9 +759,13 @@ class OrchestratorService:
 
         # Add tutor response
         tutor_msg = StoredMessage(
-            id=str(uuid.uuid4()), role="tutor", content=display_content,
-            timestamp=datetime.utcnow(), move_type=move_type,
-            is_correct=is_correct, thinking=thinking,
+            id=str(uuid.uuid4()),
+            role="tutor",
+            content=display_content,
+            timestamp=datetime.utcnow(),
+            move_type=move_type,
+            is_correct=is_correct,
+            thinking=thinking,
         )
         await self._save_message(db, session_id, tutor_msg)
         if session.is_solved:
@@ -639,7 +789,11 @@ class OrchestratorService:
         }
 
     async def get_hint(self, db: AsyncSession, session_id: str) -> Optional[Dict[str, Any]]:
-        """Get next hint for session."""
+        """Get next hint for session.
+
+        First tries the HintPrefetcher cache (pre-generated in background after
+        session start). Falls back to task-bank static hints.
+        """
         session = await self.get_session(db, session_id)
         if not session or not session.task:
             return None
@@ -648,14 +802,41 @@ class OrchestratorService:
         if session.hints_used >= len(hints):
             return None
 
-        hint_text = hints[session.hints_used]
+        # Try prefetcher first — may have richer LLM-enhanced variant
+        hint_text = None
+        try:
+            from src.inference.hint_prefetcher import get_hint_prefetcher
+
+            prefetcher = get_hint_prefetcher()
+            levels = ["conceptual", "procedural", "specific"]
+            level = levels[min(session.hints_used, 2)]
+            cached = prefetcher.get_hint(
+                topic=session.topic or "general",
+                level=level,
+                index=session.hints_used,
+            )
+            if cached:
+                hint_text = cached
+                logger.info(
+                    f"Hint cache hit (topic={session.topic}, level={level}, "
+                    f"idx={session.hints_used})"
+                )
+        except Exception as e:
+            logger.debug(f"Hint prefetch lookup skipped: {e}")
+
+        # Fallback to task-bank
+        if hint_text is None:
+            hint_text = hints[session.hints_used]
+
         session.hints_used += 1
 
         # Save hint message
         hint_msg = StoredMessage(
-            id=str(uuid.uuid4()), role="tutor",
+            id=str(uuid.uuid4()),
+            role="tutor",
             content=f"Подсказка {session.hints_used}: {hint_text}",
-            timestamp=datetime.utcnow(), move_type="hint",
+            timestamp=datetime.utcnow(),
+            move_type="hint",
         )
         await self._save_message(db, session_id, hint_msg)
         await self._update_session_state(db, session_id, hints_used=session.hints_used)
@@ -677,9 +858,11 @@ class OrchestratorService:
         answer = session.task.get("answer", "Ответ недоступен")
 
         sol_msg = StoredMessage(
-            id=str(uuid.uuid4()), role="tutor",
+            id=str(uuid.uuid4()),
+            role="tutor",
             content=f"Решение:\n{solution}\n\nОтвет: {answer}",
-            timestamp=datetime.utcnow(), move_type="tell",
+            timestamp=datetime.utcnow(),
+            move_type="tell",
         )
         await self._save_message(db, session_id, sol_msg)
         await self._update_session_state(db, session_id)
@@ -703,6 +886,11 @@ class OrchestratorService:
         """
         import asyncio
 
+        from backend.app.services.tracing import get_tracer
+
+        tracer = get_tracer()
+        correlation_id = tracer.new_correlation_id()
+
         session = await self.get_session(db, session_id)
         if not session:
             yield {"type": "error", "code": "SESSION_NOT_FOUND", "message": "Сессия не найдена"}
@@ -712,7 +900,10 @@ class OrchestratorService:
 
         # Add student message
         student_msg = StoredMessage(
-            id=str(uuid.uuid4()), role="user", content=content, timestamp=now,
+            id=str(uuid.uuid4()),
+            role="user",
+            content=content,
+            timestamp=now,
         )
         session.messages.append(student_msg)
         session.attempts += 1
@@ -721,14 +912,23 @@ class OrchestratorService:
         await self._update_session_state(db, session_id, attempts=session.attempts)
         await db.commit()
 
-        # Check LLM response cache before calling LLM
-        try:
-            from backend.app.services.cache_service import get_cache_service
-            cache = get_cache_service()
-            cached_response = cache.get(content, session.mode)
-        except Exception:
-            cache = None
-            cached_response = None
+        # Check LLM response cache before calling LLM (traced)
+        with tracer.span(
+            "cache_check",
+            session_id=session_id,
+            correlation_id=correlation_id,
+            mode=session.mode,
+        ) as _cache_span:
+            try:
+                from backend.app.services.cache_service import get_cache_service
+
+                cache = get_cache_service()
+                cached_response = cache.get(content, session.mode)
+                _cache_span.set_attr("cache.hit", cached_response is not None)
+            except Exception:
+                cache = None
+                cached_response = None
+                _cache_span.set_attr("cache.hit", False)
 
         if cached_response:
             message_id = str(uuid.uuid4())
@@ -738,8 +938,11 @@ class OrchestratorService:
 
             # Persist cached response
             tutor_msg = StoredMessage(
-                id=message_id, role="tutor", content=cached_response,
-                timestamp=datetime.utcnow(), move_type=move_type,
+                id=message_id,
+                role="tutor",
+                content=cached_response,
+                timestamp=datetime.utcnow(),
+                move_type=move_type,
             )
             await self._save_message(db, session_id, tutor_msg)
             await db.commit()
@@ -747,13 +950,18 @@ class OrchestratorService:
             yield {
                 "type": "response_complete",
                 "message_id": message_id,
-                "response": {"content": cached_response, "move_type": move_type, "is_correct": None},
+                "response": {
+                    "content": cached_response,
+                    "move_type": move_type,
+                    "is_correct": None,
+                },
                 "session_state": {
                     "is_solved": session.is_solved,
                     "hints_used": session.hints_used,
                     "attempts": session.attempts,
                 },
             }
+            tracer.finalize_session(session_id)
             return
 
         # Determine mode and config
@@ -779,11 +987,17 @@ class OrchestratorService:
                 if len(session.messages) > 10:
                     try:
                         from src.inference.context_compressor import compress_if_needed
+
                         full_history = [
-                            {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
+                            {
+                                "role": m.role if m.role != "tutor" else "assistant",
+                                "content": m.content,
+                            }
                             for m in session.messages
                         ]
-                        compressed_msgs, compression_info = compress_if_needed(session_id, full_history)
+                        compressed_msgs, compression_info = compress_if_needed(
+                            session_id, full_history
+                        )
                         if compression_info:
                             history = compressed_msgs
                             logger.info(
@@ -806,40 +1020,63 @@ class OrchestratorService:
                 plan = None
                 rag_context = None
 
-                # Profiler
+                # Profiler (traced)
                 try:
-                    profile = self._orchestrator.profiler.diagnose(
-                        problem=context.problem,
-                        correct_approach=context.correct_answer or "",
-                        student_response=context.student_input,
-                        history=context.history
-                    )
+                    with tracer.span(
+                        "profiler",
+                        session_id=session_id,
+                        correlation_id=correlation_id,
+                    ) as _prof_span:
+                        profile = self._orchestrator.profiler.diagnose(
+                            problem=context.problem,
+                            correct_approach=context.correct_answer or "",
+                            student_response=context.student_input,
+                            history=context.history,
+                        )
+                        if profile:
+                            _prof_span.set_attr("student.level", getattr(profile, "level", None))
+                            _prof_span.set_attr("error_type", getattr(profile, "error_type", None))
                 except Exception as e:
                     logger.warning(f"Profiler error in stream: {e}")
 
-                # Planner
+                # Planner (traced)
                 try:
-                    planner_ctx = PlannerSessionContext(
-                        topic=context.topic or "general",
-                        difficulty="medium",
-                        turn_number=0,
-                    )
-                    plan = self._orchestrator.planner.create_plan(
-                        profile=profile or StudentProfile(),
-                        context=planner_ctx,
-                    )
-                    move_type = plan.primary_move.value
+                    with tracer.span(
+                        "planner",
+                        session_id=session_id,
+                        correlation_id=correlation_id,
+                    ) as _plan_span:
+                        planner_ctx = PlannerSessionContext(
+                            topic=context.topic or "general",
+                            difficulty="medium",
+                            turn_number=0,
+                        )
+                        plan = self._orchestrator.planner.create_plan(
+                            profile=profile or StudentProfile(),
+                            context=planner_ctx,
+                        )
+                        move_type = plan.primary_move.value
+                        _plan_span.set_attr("move_type", move_type)
                 except Exception as e:
                     logger.warning(f"Planner error in stream: {e}")
 
-                # RAG
+                # RAG (traced)
                 if self._orchestrator.rag:
                     try:
-                        rag_context = self._orchestrator.rag.retrieve_context(
-                            problem=context.problem,
-                            student_response=context.student_input,
-                            topic=context.topic
-                        )
+                        with tracer.span(
+                            "rag",
+                            session_id=session_id,
+                            correlation_id=correlation_id,
+                        ) as _rag_span:
+                            rag_context = self._orchestrator.rag.retrieve_context(
+                                problem=context.problem,
+                                student_response=context.student_input,
+                                topic=context.topic,
+                            )
+                            _rag_span.set_attr(
+                                "retrieved",
+                                len(rag_context.chunks) if rag_context else 0,
+                            )
                     except Exception as e:
                         logger.warning(f"RAG error in stream: {e}")
 
@@ -851,10 +1088,10 @@ class OrchestratorService:
 
             # Send thinking content (profiler/planner output)
             thinking_content = []
-            if profile and hasattr(profile, 'error_type') and profile.error_type:
+            if profile and hasattr(profile, "error_type") and profile.error_type:
                 thinking_content.append(f"Анализ: обнаружена ошибка типа '{profile.error_type}'")
-            if profile and hasattr(profile, 'knowledge_gaps') and profile.knowledge_gaps:
-                gaps = ', '.join(profile.knowledge_gaps[:3])
+            if profile and hasattr(profile, "knowledge_gaps") and profile.knowledge_gaps:
+                gaps = ", ".join(profile.knowledge_gaps[:3])
                 thinking_content.append(f"Пробелы в знаниях: {gaps}")
             if plan:
                 thinking_content.append(f"Стратегия: {move_type}")
@@ -882,7 +1119,7 @@ class OrchestratorService:
         message_id = str(uuid.uuid4())
         logger.info(f"Starting LLM streaming for session {session_id}")
 
-        if self._llm_client and hasattr(self._llm_client, 'generate_stream'):
+        if self._llm_client and hasattr(self._llm_client, "generate_stream"):
             try:
                 import concurrent.futures
 
@@ -920,15 +1157,13 @@ class OrchestratorService:
                                 content_count += 1
                                 if content_count == 1:
                                     logger.info("First token received from LLM")
-                                loop.call_soon_threadsafe(
-                                    queue.put_nowait, ("content", item)
-                                )
-                        logger.info(f"LLM complete: {thinking_count} thinking + {content_count} content tokens")
+                                loop.call_soon_threadsafe(queue.put_nowait, ("content", item))
+                        logger.info(
+                            f"LLM complete: {thinking_count} thinking + {content_count} content tokens"
+                        )
                     except Exception as e:
                         logger.error(f"LLM producer error: {e}")
-                        loop.call_soon_threadsafe(
-                            queue.put_nowait, Exception(f"LLM error: {e}")
-                        )
+                        loop.call_soon_threadsafe(queue.put_nowait, Exception(f"LLM error: {e}"))
                     finally:
                         loop.call_soon_threadsafe(queue.put_nowait, None)
 
@@ -967,7 +1202,9 @@ class OrchestratorService:
 
             except Exception as e:
                 logger.error(f"LLM streaming error: {e}")
-                full_response = "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
+                full_response = (
+                    "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
+                )
                 yield {
                     "type": "token",
                     "content": full_response,
@@ -985,6 +1222,7 @@ class OrchestratorService:
         tutor_content = full_response.strip()
         visible_content, stream_thinking = parse_thinking_tags(tutor_content)
         from backend.app.config import backend_settings
+
         display_content = visible_content if not backend_settings.SHOW_THINKING else tutor_content
         extracted_move = move_type  # Use planner's move type
 
@@ -1003,8 +1241,11 @@ class OrchestratorService:
 
         # Persist tutor response (store visible content, thinking separately)
         tutor_msg = StoredMessage(
-            id=message_id, role="tutor", content=display_content,
-            timestamp=datetime.utcnow(), move_type=extracted_move,
+            id=message_id,
+            role="tutor",
+            content=display_content,
+            timestamp=datetime.utcnow(),
+            move_type=extracted_move,
             is_correct=is_correct,
             thinking=stream_thinking,
         )
@@ -1029,28 +1270,86 @@ class OrchestratorService:
             },
         }
 
+        # Finalize trace: move active spans to completed buffer for inspection
+        tracer.finalize_session(session_id)
+
+        # Living KG: trigger background session analysis → graph proposals
+        try:
+            from backend.app.services.kg_evolution_service import analyze_session_async
+
+            # Extract signals from session for SessionTrace
+            concepts = [session.topic] if session.topic else []
+            errors = []
+            if not session.is_solved and session.attempts > 1:
+                errors.append(
+                    {
+                        "concept_id": session.topic or "unknown",
+                        "description": f"attempts={session.attempts} without success",
+                        "turn": len(session.messages),
+                    }
+                )
+
+            asyncio.create_task(
+                analyze_session_async(
+                    session_id=session_id,
+                    student_id=session.user_id or "anonymous",
+                    topic_id=session.topic or "general",
+                    concepts_touched=concepts,
+                    errors=errors,
+                    hints_given=session.hints_used,
+                    resolved=session.is_solved,
+                )
+            )
+        except Exception as e:
+            logger.debug(f"KG evolution hook skipped: {e}")
+
     # --- Tasks ---
 
     def get_available_topics(self) -> List[Dict[str, Any]]:
         """Get list of available topics."""
         topics = [
-            {"id": "derivatives", "name": "Derivatives", "name_ru": "Производные",
-             "difficulties": ["easy", "medium", "hard", "olympiad"]},
-            {"id": "integrals", "name": "Integrals", "name_ru": "Интегралы",
-             "difficulties": ["easy", "medium", "hard", "olympiad"]},
-            {"id": "limits", "name": "Limits", "name_ru": "Пределы",
-             "difficulties": ["easy", "medium", "hard", "olympiad"]},
-            {"id": "series", "name": "Series", "name_ru": "Ряды",
-             "difficulties": ["medium", "hard", "olympiad"]},
-            {"id": "equations", "name": "Equations", "name_ru": "Уравнения",
-             "difficulties": ["easy", "medium", "hard"]},
-            {"id": "linear_algebra", "name": "Linear Algebra", "name_ru": "Линейная алгебра",
-             "difficulties": ["easy", "medium", "hard"]},
+            {
+                "id": "derivatives",
+                "name": "Derivatives",
+                "name_ru": "Производные",
+                "difficulties": ["easy", "medium", "hard", "olympiad"],
+            },
+            {
+                "id": "integrals",
+                "name": "Integrals",
+                "name_ru": "Интегралы",
+                "difficulties": ["easy", "medium", "hard", "olympiad"],
+            },
+            {
+                "id": "limits",
+                "name": "Limits",
+                "name_ru": "Пределы",
+                "difficulties": ["easy", "medium", "hard", "olympiad"],
+            },
+            {
+                "id": "series",
+                "name": "Series",
+                "name_ru": "Ряды",
+                "difficulties": ["medium", "hard", "olympiad"],
+            },
+            {
+                "id": "equations",
+                "name": "Equations",
+                "name_ru": "Уравнения",
+                "difficulties": ["easy", "medium", "hard"],
+            },
+            {
+                "id": "linear_algebra",
+                "name": "Linear Algebra",
+                "name_ru": "Линейная алгебра",
+                "difficulties": ["easy", "medium", "hard"],
+            },
         ]
 
         # Try to get from task bank
         try:
             from src.data.task_bank import TaskBank
+
             bank = TaskBank()
             if hasattr(bank, "get_topics"):
                 bank_topics = bank.get_topics()
@@ -1068,6 +1367,7 @@ class OrchestratorService:
         if self._task_generator:
             try:
                 from src.data.schemas import Difficulty as DiffEnum
+
                 diff = DiffEnum(difficulty)
                 task = self._task_generator.generate_task(topic=topic, difficulty=diff)
                 return {
@@ -1091,7 +1391,9 @@ class OrchestratorService:
 
     # --- Student Profile ---
 
-    async def get_student_profile(self, db: AsyncSession, user_id: Optional[str] = None) -> Dict[str, Any]:
+    async def get_student_profile(
+        self, db: AsyncSession, user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Get student profile data from DB."""
         query = select(SessionTable)
         if user_id:
@@ -1116,7 +1418,9 @@ class OrchestratorService:
             "recommended_topic": "derivatives",
         }
 
-    async def get_analytics(self, db: AsyncSession, period: str = "week", user_id: Optional[str] = None) -> Dict[str, Any]:
+    async def get_analytics(
+        self, db: AsyncSession, period: str = "week", user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Get analytics data from DB."""
         query = select(SessionTable)
         if user_id:
@@ -1149,10 +1453,26 @@ class OrchestratorService:
 
     def get_health(self) -> Dict[str, Any]:
         """Get system health status."""
+        from backend.app.config import backend_settings
+
         llm_ok = self._check_llm_available()
 
+        backend_info = getattr(self, "_backend_info", {}) or {}
+        backend_kind = backend_info.get("kind", "ollama")
+        model_name = backend_info.get("model") or (
+            backend_settings.MODEL_FINETUNED
+            if backend_settings.USE_FINETUNED
+            else backend_settings.MODEL_NAME
+        )
+
         components = {
-            "llm": {"status": "healthy" if llm_ok else "unhealthy", "model": "glm-4.7-flash"},
+            "llm": {
+                "status": "healthy" if llm_ok else "unhealthy",
+                "model": model_name,
+                "backend": backend_kind,
+                "turbo_quant": backend_info.get("turbo_quant", False),
+                "context_length": backend_info.get("context_length", 4096),
+            },
             "database": {"status": "healthy"},
             "rag": {"status": "healthy"},
         }

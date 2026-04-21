@@ -10,10 +10,10 @@ the TurboQuant algorithm (arXiv:2504.19874).
 Compatible with transformers >= 4.36 Cache API.
 """
 
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
-import logging
 
 from src.inference.turbo_quant import TurboQuantConfig, TurboQuantEngine
 
@@ -46,6 +46,7 @@ class TurboQuantCache:
         config: TurboQuantConfig,
         max_batch_size: int = 1,
         device: Optional[torch.device] = None,
+        layer_types: Optional[List[str]] = None,
     ):
         """Initialize TurboQuant KV cache.
 
@@ -53,6 +54,8 @@ class TurboQuantCache:
             config: TurboQuant configuration.
             max_batch_size: Maximum batch size (for pre-allocation).
             device: Device for computation.
+            layer_types: List of "full_attention"/"linear_attention" per layer
+                (for hybrid transformer-Mamba models like Qwen3.5).
         """
         self.config = config
         self.device = device or torch.device("cpu")
@@ -68,17 +71,53 @@ class TurboQuantCache:
         # Track sequence lengths per layer
         self._seen_tokens: int = 0
 
+        # Hybrid model support (Qwen3.5 linear attention / Mamba layers)
+        self.layer_types: Optional[List[str]] = layer_types
+        if layer_types is not None:
+            num_layers = len(layer_types)
+            self.conv_states: List[Optional[torch.Tensor]] = [None] * num_layers
+            self.recurrent_states: List[Optional[torch.Tensor]] = [None] * num_layers
+            # Plain KV cache for full_attention layers (filled by update())
+            self.key_cache: List[Optional[torch.Tensor]] = [None] * num_layers
+            self.value_cache: List[Optional[torch.Tensor]] = [None] * num_layers
+            self.transformer_layers = [
+                i for i in range(num_layers) if layer_types[i] == "full_attention"
+            ]
+            self.last_linear_layer = num_layers - 1 - layer_types[::-1].index("linear_attention")
+        else:
+            self.conv_states = []
+            self.recurrent_states = []
+            self.key_cache = []
+            self.value_cache = []
+            self.transformer_layers = []
+            self.last_linear_layer = -1
+
         logger.info(
             f"TurboQuantCache initialized: key_bits={config.key_bits}, "
             f"value_bits={config.value_bits}, head_dim={config.head_dim}"
+            + (f", hybrid={len(self.transformer_layers)} attn layers" if layer_types else "")
         )
+
+    @property
+    def has_previous_state(self) -> bool:
+        """Whether the last linear (conv) layer was already updated.
+
+        Required by Qwen3.5 hybrid linear attention layers.
+        """
+        if self.last_linear_layer < 0:
+            return False
+        return self.conv_states[self.last_linear_layer] is not None
 
     def __len__(self) -> int:
         """Number of layers in the cache."""
+        if self.layer_types is not None:
+            return len(self.layer_types)
         return len(self._key_cache)
 
     def __bool__(self) -> bool:
         """Cache is truthy if it has any stored states."""
+        if self.layer_types is not None:
+            return self._seen_tokens > 0
         return len(self._key_cache) > 0 and self._seen_tokens > 0
 
     def __getitem__(self, layer_idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -91,8 +130,10 @@ class TurboQuantCache:
             Tuple of (key_states, value_states), both shape
             (batch_size, num_heads, seq_len, head_dim).
         """
-        if layer_idx >= len(self._key_cache):
-            raise IndexError(f"Layer {layer_idx} not in cache (have {len(self._key_cache)} layers)")
+        if layer_idx >= len(self._key_cache) or self._key_cache[layer_idx] is None:
+            raise IndexError(
+                f"Layer {layer_idx} not in cache (non-attention layer or not yet populated)"
+            )
 
         key_states = self.engine.dequantize(self._key_cache[layer_idx], mode="prod")
         value_states = self.engine.dequantize(self._value_cache[layer_idx], mode="mse")
@@ -137,25 +178,49 @@ class TurboQuantCache:
         new_value_q = self.engine.quantize(value_states, mode="mse")
 
         if layer_idx >= len(self._key_cache):
-            # New layer — initialize
-            self._key_cache.append(new_key_q)
-            self._value_cache.append(new_value_q)
+            # Pad with None for skipped layers (hybrid Mamba+Attention models)
+            while len(self._key_cache) <= layer_idx:
+                self._key_cache.append(None)
+                self._value_cache.append(None)
+            self._key_cache[layer_idx] = new_key_q
+            self._value_cache[layer_idx] = new_value_q
         else:
             # Append along sequence dimension (dim=2 for (B, H, S, D))
             existing_key = self._key_cache[layer_idx]
             existing_value = self._value_cache[layer_idx]
             self._key_cache[layer_idx] = _concat_quantized(existing_key, new_key_q, mode="prod")
-            self._value_cache[layer_idx] = _concat_quantized(existing_value, new_value_q, mode="mse")
+            self._value_cache[layer_idx] = _concat_quantized(
+                existing_value, new_value_q, mode="mse"
+            )
 
-        # Track tokens (only count once, from layer 0)
-        if layer_idx == 0:
+        # Track tokens (only count once, from the first attention layer)
+        first_attn = self.transformer_layers[0] if self.transformer_layers else 0
+        if layer_idx == first_attn:
             self._seen_tokens += key_states.shape[2]
 
         # Return full dequantized cache for attention computation
-        return self[layer_idx]
+        full_key, full_value = self[layer_idx]
 
-    def get_seq_length(self, layer_idx: int = 0) -> int:
+        # Also update plain key_cache/value_cache for hybrid model compatibility
+        if self.layer_types is not None:
+            self.key_cache[layer_idx] = full_key
+            self.value_cache[layer_idx] = full_value
+
+        return full_key, full_value
+
+    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
         """Get current sequence length in the cache."""
+        # Hybrid mode: use plain key_cache from a transformer layer
+        if self.layer_types is not None:
+            layer_idx = (
+                self.transformer_layers[0]
+                if layer_idx not in self.transformer_layers
+                else layer_idx
+            )
+            if layer_idx >= len(self.key_cache) or self.key_cache[layer_idx] is None:
+                return 0
+            return self.key_cache[layer_idx].shape[-2]
+
         if not self._key_cache:
             return 0
         # Infer from the stored tensor shape
@@ -173,6 +238,28 @@ class TurboQuantCache:
         """No maximum length constraint."""
         return None
 
+    def get_max_cache_shape(self) -> Optional[int]:
+        """No maximum cache shape constraint."""
+        return None
+
+    def get_mask_sizes(self, cache_position: torch.Tensor, layer_idx: int) -> tuple:
+        """Return (kv_length, kv_offset) for mask creation.
+
+        Required by transformers >= 5.0 masking_utils.
+        """
+        kv_offset = 0
+        query_length = cache_position.shape[0]
+        past_seen_tokens = self.get_seq_length(layer_idx)
+        kv_length = query_length + past_seen_tokens
+        return kv_length, kv_offset
+
+    @property
+    def layers(self) -> list:
+        """Layers list for transformers 5.x Cache API compatibility."""
+        if self.layer_types is not None:
+            return list(range(len(self.layer_types)))
+        return list(range(len(self._key_cache)))
+
     @property
     def seen_tokens(self) -> int:
         """Total tokens processed."""
@@ -183,6 +270,32 @@ class TurboQuantCache:
         self._key_cache.clear()
         self._value_cache.clear()
         self._seen_tokens = 0
+        if self.layer_types is not None:
+            num_layers = len(self.layer_types)
+            self.conv_states = [None] * num_layers
+            self.recurrent_states = [None] * num_layers
+            self.key_cache = [None] * num_layers
+            self.value_cache = [None] * num_layers
+
+    def reorder_cache(self, beam_idx: torch.LongTensor) -> None:
+        """Reorder cache for beam search (hybrid model compatibility)."""
+        for layer_idx in range(len(self.key_cache)):
+            if self.key_cache[layer_idx] is not None:
+                device = self.key_cache[layer_idx].device
+                self.key_cache[layer_idx] = self.key_cache[layer_idx].index_select(
+                    0, beam_idx.to(device)
+                )
+                self.value_cache[layer_idx] = self.value_cache[layer_idx].index_select(
+                    0, beam_idx.to(device)
+                )
+            if self.conv_states[layer_idx] is not None:
+                device = self.conv_states[layer_idx].device
+                self.conv_states[layer_idx] = self.conv_states[layer_idx].index_select(
+                    0, beam_idx.to(device)
+                )
+                self.recurrent_states[layer_idx] = self.recurrent_states[layer_idx].index_select(
+                    0, beam_idx.to(device)
+                )
 
     def get_memory_stats(self) -> Dict[str, Any]:
         """Get memory usage statistics.
@@ -255,6 +368,7 @@ class TurboQuantCache:
 # Helpers
 # ─────────────────────────────────────────────────────────────────────
 
+
 def _concat_quantized(
     existing: Dict[str, torch.Tensor],
     new: Dict[str, torch.Tensor],
@@ -278,6 +392,10 @@ def _concat_quantized(
     for key in existing:
         e = existing[key]
         n = new[key]
+
+        if not isinstance(e, torch.Tensor):
+            result[key] = e  # preserve metadata (_dtype, etc.)
+            continue
 
         if e.ndim >= 3:
             # (B, H, S, ...) → concat on dim 2 (sequence)
@@ -306,6 +424,7 @@ def _get_first_tensor(d: Dict[str, torch.Tensor]) -> Optional[torch.Tensor]:
 # ─────────────────────────────────────────────────────────────────────
 # Factory
 # ─────────────────────────────────────────────────────────────────────
+
 
 def create_turbo_quant_cache(
     head_dim: int = 128,

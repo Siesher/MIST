@@ -115,7 +115,7 @@ SYSTEM_PROMPT = (
 def query_model(
     model: str,
     problem: str,
-    timeout: int = 120,
+    timeout: int = 300,
 ) -> Dict[str, Any]:
     """Query Ollama model and return response + timing."""
     start = time.time()
@@ -129,7 +129,7 @@ def query_model(
                     {"role": "user", "content": problem},
                 ],
                 "stream": False,
-                "options": {"num_predict": 4096},
+                "options": {"num_predict": 2048},
             },
             timeout=timeout,
         )

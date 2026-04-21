@@ -244,6 +244,21 @@ class LLMClient:
             max_tok = max_tokens if max_tokens is not None else self._max_tokens
             options["num_predict"] = max_tok
 
+        # Speculative decoding (arXiv 2302.01318): draft model proposes N tokens,
+        # main model verifies in one batched forward. 1.5-3x speedup on predictable
+        # sequences (math/code). No quality loss - final tokens match greedy main model.
+        try:
+            from backend.app.config import backend_settings as _bs
+
+            if getattr(_bs, "SPECULATIVE_DECODING", False):
+                draft = getattr(_bs, "SPECULATIVE_DRAFT_MODEL", None)
+                num_draft = getattr(_bs, "SPECULATIVE_NUM_DRAFT", 5)
+                if draft:
+                    options["draft_model"] = draft
+                    options["num_draft"] = int(num_draft)
+        except Exception:
+            pass  # backend settings not available — fine, skip
+
         return options
 
     def generate(
