@@ -461,3 +461,189 @@ kbd {
 
 /* Text balance */
 .text-balance { text-wrap: balance; }
+
+/* =========================================================
+   Claude-desktop-inspired minimalist layer (grimoire theme)
+   — soft edges, calm surfaces, sans-by-default, no scan/glitch
+   ========================================================= */
+:root[data-theme="grimoire"] {
+  --font-ui: var(--font-inter), 'Inter', var(--font-space-grotesk), 'Space Grotesk',
+    -apple-system, system-ui, sans-serif;
+}
+
+:root[data-theme="grimoire"] body,
+:root[data-theme="grimoire"] html,
+:root[data-theme="grimoire"] main,
+:root[data-theme="grimoire"] aside,
+:root[data-theme="grimoire"] .panel {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* Keep monospace only for code, math, chips, terminals */
+:root[data-theme="grimoire"] code,
+:root[data-theme="grimoire"] pre,
+:root[data-theme="grimoire"] .font-mono,
+:root[data-theme="grimoire"] .chip,
+:root[data-theme="grimoire"] kbd,
+:root[data-theme="grimoire"] .up {
+  font-family: var(--font-mono);
+}
+
+/* Kill decorative treatments on grimoire */
+:root[data-theme="grimoire"] .cyber-scene::after { display: none; }
+:root[data-theme="grimoire"] .cyber-scene::before { opacity: 0.5; }
+:root[data-theme="grimoire"] .crt { animation: none; }
+:root[data-theme="grimoire"] .scan-bar { display: none; }
+
+/* Hide corner brackets by default */
+:root[data-theme="grimoire"] .cornered::before,
+:root[data-theme="grimoire"] .cornered::after,
+:root[data-theme="grimoire"] .cornered > .corner-tl,
+:root[data-theme="grimoire"] .cornered > .corner-br { display: none; }
+
+/* Rounded, calmer panels */
+:root[data-theme="grimoire"] .panel {
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(26, 16, 41, 0.35), rgba(14, 8, 24, 0.45)) !important;
+  border: 1px solid rgba(165, 131, 255, 0.08) !important;
+  backdrop-filter: blur(12px) saturate(1.1);
+}
+
+/* Refined inputs — rounded, soft focus */
+:root[data-theme="grimoire"] input,
+:root[data-theme="grimoire"] textarea,
+:root[data-theme="grimoire"] .cinput {
+  border-radius: 8px !important;
+  background: rgba(14, 8, 24, 0.5) !important;
+  border: 1px solid rgba(165, 131, 255, 0.12) !important;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+:root[data-theme="grimoire"] input:focus,
+:root[data-theme="grimoire"] textarea:focus,
+:root[data-theme="grimoire"] .cinput:focus {
+  border-color: rgba(165, 131, 255, 0.4) !important;
+  box-shadow: 0 0 0 3px rgba(165, 131, 255, 0.08) !important;
+  outline: none;
+}
+
+/* Buttons — rounded, calm transitions */
+:root[data-theme="grimoire"] .cbtn {
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  transition: background 140ms, color 140ms, border-color 140ms, transform 80ms;
+}
+:root[data-theme="grimoire"] .cbtn-ghost {
+  background: transparent;
+  border: 1px solid rgba(165, 131, 255, 0.12);
+  color: var(--text-dim);
+}
+:root[data-theme="grimoire"] .cbtn-ghost:hover {
+  background: rgba(165, 131, 255, 0.06);
+  color: var(--text);
+  border-color: rgba(165, 131, 255, 0.25);
+}
+
+/* Chip pills — rounded, soft */
+:root[data-theme="grimoire"] .chip {
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* Dot indicators — cleaner, less glow */
+:root[data-theme="grimoire"] .dot {
+  box-shadow: none;
+}
+
+/* Scrollbars — thinner, calmer */
+:root[data-theme="grimoire"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:root[data-theme="grimoire"] ::-webkit-scrollbar-thumb {
+  background: rgba(165, 131, 255, 0.15);
+  border-radius: 999px;
+}
+:root[data-theme="grimoire"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(165, 131, 255, 0.3);
+}
+
+/* Neon text — very faint halo, Claude Desktop style */
+:root[data-theme="grimoire"] .neon-v {
+  text-shadow: none;
+  color: var(--violet-bright);
+}
+:root[data-theme="grimoire"] .neon-y {
+  text-shadow: none;
+  color: var(--yellow) !important;
+}
+
+/* Formula block — flatter, calm */
+:root[data-theme="grimoire"] .formula-block {
+  border-radius: 8px;
+  background: rgba(14, 8, 24, 0.5);
+  border-left: 2px solid rgba(232, 198, 104, 0.5);
+  box-shadow: none;
+}
+
+/* Message bubbles — chat — soft rounded, no harsh borders */
+.msg-user {
+  background: linear-gradient(135deg, rgba(165, 131, 255, 0.14), rgba(165, 131, 255, 0.06));
+  border: 1px solid rgba(165, 131, 255, 0.18);
+  border-radius: 14px 14px 4px 14px;
+  padding: 12px 16px;
+}
+.msg-tutor {
+  background: rgba(14, 8, 24, 0.4);
+  border: 1px solid rgba(165, 131, 255, 0.08);
+  border-radius: 14px 14px 14px 4px;
+  padding: 12px 16px;
+}
+
+/* Hide particles on grimoire by default */
+:root[data-theme="grimoire"] canvas[data-role="particles"] {
+  display: none;
+}
+
+/* Status bar — very quiet on grimoire */
+:root[data-theme="grimoire"] [data-status-bar] {
+  background: rgba(10, 6, 18, 0.6) !important;
+  border-bottom: 1px solid rgba(165, 131, 255, 0.07) !important;
+}
+
+/* Glitch replacement: subtle chromatic flicker, no ghost clones */
+:root[data-theme="grimoire"] .glitch::before,
+:root[data-theme="grimoire"] .glitch::after {
+  display: none !important;
+}
+:root[data-theme="grimoire"][data-glitch="on"] .glitch {
+  animation: glitchFlick 6s infinite;
+}
+@keyframes glitchFlick {
+  0%, 92%, 100% {
+    text-shadow: none;
+    filter: none;
+  }
+  93% {
+    text-shadow: -1px 0 rgba(207, 127, 184, 0.7), 1px 0 rgba(141, 212, 220, 0.5);
+    filter: blur(0.2px);
+  }
+  94% {
+    text-shadow: 2px 0 rgba(207, 127, 184, 0.8), -2px 0 rgba(141, 212, 220, 0.5);
+  }
+  95% {
+    text-shadow: -1px 0 rgba(207, 127, 184, 0.6), 2px 0 rgba(141, 212, 220, 0.6);
+  }
+  96% {
+    text-shadow: none;
+  }
+  97% {
+    text-shadow: 1px 0 rgba(207, 127, 184, 0.5);
+  }
+}

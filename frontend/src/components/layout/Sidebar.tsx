@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,20 @@ export function Sidebar() {
       ? "settings"
       : null;
 
+  // Auto-hide sidebar with hover trigger, pinnable (localStorage persisted).
+  // Classic Claude Desktop behaviour: thin rail at rest, full panel on hover.
+  const [pinned, setPinned] = useState<boolean>(false);
+  const [hovered, setHovered] = useState<boolean>(false);
+  const open = pinned || hovered;
+
+  useEffect(() => {
+    const saved = localStorage.getItem("mits_sidebar_pinned");
+    if (saved === "1") setPinned(true);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("mits_sidebar_pinned", pinned ? "1" : "0");
+  }, [pinned]);
+
   const handleNewChat = useCallback(async () => {
     try {
       const preferredMode =
@@ -110,18 +124,63 @@ export function Sidebar() {
   );
 
   return (
-    <aside
-      className="flex flex-col relative z-[2]"
-      style={{
-        width: 240,
-        flex: "0 0 240px",
-        borderRight: "1px solid var(--line)",
-        background: "rgba(0,0,0,0.3)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        boxShadow: "inset 0 1px 0 rgba(196, 169, 255, 0.06), inset -1px 0 0 rgba(165, 131, 255, 0.06)",
-      }}
-    >
+    <>
+      {/* Hover trigger strip — thin invisible strip on left edge to reveal sidebar */}
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 32,
+          bottom: 0,
+          width: 12,
+          zIndex: 9,
+        }}
+      />
+      {/* Rail indicator when sidebar closed */}
+      {!open && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 3,
+            height: 42,
+            borderRadius: "0 3px 3px 0",
+            background: "var(--violet)",
+            opacity: 0.25,
+            pointerEvents: "none",
+            zIndex: 8,
+          }}
+        />
+      )}
+
+      <aside
+        className="flex flex-col relative"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          width: open ? 240 : 0,
+          flex: open && pinned ? "0 0 240px" : "0 0 0px",
+          position: pinned ? "relative" : "fixed",
+          left: 0,
+          top: pinned ? "auto" : 32,
+          bottom: pinned ? "auto" : 0,
+          height: pinned ? "auto" : "calc(100vh - 32px)",
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          transition:
+            "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          borderRight: "1px solid var(--line)",
+          background: pinned ? "rgba(18, 10, 31, 0.6)" : "rgba(14, 8, 24, 0.92)",
+          backdropFilter: "blur(20px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          zIndex: pinned ? 2 : 10,
+          boxShadow:
+            "inset 0 1px 0 rgba(196, 169, 255, 0.06), inset -1px 0 0 rgba(165, 131, 255, 0.06)",
+        }}
+      >
       {/* Brand */}
       <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--line)" }}>
         <div className="flex items-center gap-3">
@@ -249,10 +308,22 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div style={{ padding: 12, borderTop: "1px solid var(--line)" }}>
+      <div
+        className="flex items-center gap-2"
+        style={{ padding: 12, borderTop: "1px solid var(--line)" }}
+      >
+        <button
+          onClick={() => setPinned((p) => !p)}
+          className="cbtn cbtn-ghost !px-2 !py-1"
+          title={pinned ? "Открепить (авто-скрытие)" : "Закрепить"}
+          aria-label="toggle sidebar pin"
+          style={{ fontSize: 14 }}
+        >
+          {pinned ? "📌" : "📍"}
+        </button>
         {isAuthenticated ? (
           <button
-            className="cbtn cbtn-ghost w-full justify-center text-[10px]"
+            className="cbtn cbtn-ghost flex-1 justify-center text-[10px]"
             onClick={async () => {
               await logout();
               router.push("/");
@@ -263,13 +334,14 @@ export function Sidebar() {
         ) : (
           <Link
             href="/auth/login"
-            className="cbtn cbtn-ghost w-full justify-center text-[10px]"
+            className="cbtn cbtn-ghost flex-1 justify-center text-[10px]"
             style={{ textDecoration: "none" }}
           >
             ◆ {t("auth_login")}
           </Link>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

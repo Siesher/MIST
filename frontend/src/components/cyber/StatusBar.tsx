@@ -133,6 +133,7 @@ export function StatusBar({ view = "home" }: Props) {
 
   return (
     <div
+      data-status-bar
       className="flex items-center gap-7 px-5 text-[10px] uppercase tracking-[0.18em] text-cyber-text-dim border-b whitespace-nowrap overflow-hidden relative z-10"
       style={{
         height: 32,

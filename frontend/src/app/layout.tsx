@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/components/cyber/ThemeProvider";
 import { Scene } from "@/components/cyber/Scene";
@@ -16,6 +16,15 @@ const jetbrainsMono = JetBrains_Mono({
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space-grotesk",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+// Inter — Claude-desktop-style primary UI font (sans-serif). Used on grimoire
+// theme for body text, buttons, nav. Mono font kept for code/chips/terminals.
+const inter = Inter({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-inter",
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
@@ -40,7 +49,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${jetbrainsMono.variable} ${spaceGrotesk.variable} antialiased crt`}
+        className={`${jetbrainsMono.variable} ${spaceGrotesk.variable} ${inter.variable} antialiased crt`}
       >
         <Scene />
         <Particles enabled={true} />

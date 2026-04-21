@@ -70,6 +70,7 @@ export function Particles({ enabled = true, density = 60 }: Props) {
   return (
     <canvas
       ref={ref}
+      data-role="particles"
       aria-hidden
       style={{
         position: "fixed",

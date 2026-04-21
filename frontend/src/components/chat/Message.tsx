@@ -55,13 +55,15 @@ export function Message({
           justifyContent: "center",
           color: "var(--yellow)",
           fontSize: 12,
-          borderRadius: 3,
+          borderRadius: 999,
         }}
       >
         {isTutor ? <MitsMark size={18} animated={false} /> : ">_"}
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div
+        className={`flex-1 min-w-0 ${isTutor ? "msg-tutor" : "msg-user"}`}
+      >
         <div className="flex items-center gap-2 mb-1.5">
           <span
             className="up"
