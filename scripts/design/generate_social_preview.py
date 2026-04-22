@@ -2,6 +2,7 @@
 
 import math
 import random
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -206,6 +207,6 @@ draw.text(
 )
 
 # --- Save ---
-output_path = "C:/Work/MITS/figures/social_preview.png"
+output_path = Path(__file__).resolve().parents[2] / "figures" / "social_preview.png"
 img.save(output_path, "PNG", quality=95)
 print(f"Saved: {output_path} ({img.size[0]}x{img.size[1]})")

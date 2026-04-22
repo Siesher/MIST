@@ -139,9 +139,9 @@ Feature flags: `enable_rubert_affect`, `enable_dkt`, `enable_llm_verifier`,
 
 | File | Purpose |
 |------|---------|
-| `migrate_to_forge.py` | One-time migration: skill_graph + SKI → forge.json |
-| `grow_knowledge_graph.py` | Run Living KG on synthetic (or real) sessions |
-| `detect_resources.py` | Print recommended resource profile |
+| `db/migrate_to_forge.py` | One-time migration: skill_graph + SKI → forge.json |
+| `knowledge/grow_knowledge_graph.py` | Run Living KG on synthetic (or real) sessions |
+| `ollama/detect_resources.py` | Print recommended resource profile |
 
 ### `training/`
 
