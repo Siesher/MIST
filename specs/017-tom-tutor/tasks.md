@@ -143,8 +143,8 @@
 
 - [ ] T044 [P] Запустить `ruff check src/agents/mental_model_agent.py src/knowledge/navigator.py src/agents/planner.py src/agents/orchestrator.py src/data/schemas.py src/resource_profiles.py evaluation/tom_ab_eval.py tests/test_mental_model_agent.py tests/test_tom_integration.py` и исправить все замечания
 - [ ] T045 [P] Добавить type hints ко всем публичным методам в `src/agents/mental_model_agent.py` согласно PEP 484
-- [ ] T046 [P] Создать `docs/TOM_TUTOR.md` на русском — описание архитектуры агента, промпт-стратегии per profile, примеры использования, troubleshooting
-- [ ] T047 Обновить `docs/ARCHITECTURE.md` — пометить фичу 017 как DONE в Feature Timeline, добавить ссылки на `docs/TOM_TUTOR.md` и `evaluation/reports/tom_ab_*.md`
+- [ ] T046 [P] Создать `docs/architecture/TOM_TUTOR.md` на русском — описание архитектуры агента, промпт-стратегии per profile, примеры использования, troubleshooting
+- [ ] T047 Обновить `docs/architecture/ARCHITECTURE.md` — пометить фичу 017 как DONE в Feature Timeline, добавить ссылки на `docs/architecture/TOM_TUTOR.md` и `evaluation/reports/tom_ab_*.md`
 - [ ] T048 Запустить весь набор тестов — `python -m pytest tests/test_knowledge_forge.py tests/test_navigator.py tests/test_navigator_tools.py tests/test_graph_evolution.py tests/test_resource_profiles.py tests/test_source_extractor.py tests/test_mental_model_agent.py tests/test_tom_integration.py -v` и убедиться, что все проходят
 - [ ] T049 Валидировать quickstart.md — выполнить все code blocks из `specs/017-tom-tutor/quickstart.md` и исправить расхождения с реальной реализацией
 - [ ] T050 Обновить `CLAUDE.md` Recent Changes — добавить суммари по ToM-Tutor (архитектура, метрики, ключевые решения)
@@ -221,14 +221,14 @@
 | 3 | Фаза 3 тесты + T009-T013 | MVP готов, re-run baseline_eval |
 | 4 | Фаза 4 + Фаза 5 | Planner + orchestrator + degradation |
 | 5 | Фаза 6 (T037-T042) | A/B evaluation артефакт |
-| 6 | Фаза 7 + verification | docs/TOM_TUTOR.md, всё на месте |
+| 6 | Фаза 7 + verification | docs/architecture/TOM_TUTOR.md, всё на месте |
 | 7 | Буфер / запасной | Исправление багов, повторный A/B |
 
 ---
 
 ## Заметки
 
-- Все коммиты на английском по проектной конвенции (CLAUDE.md), но комментарии в тестах и docs/TOM_TUTOR.md — на русском, согласно запросу пользователя
+- Все коммиты на английском по проектной конвенции (CLAUDE.md), но комментарии в тестах и docs/architecture/TOM_TUTOR.md — на русском, согласно запросу пользователя
 - [P] = разные файлы, без зависимостей
 - [Story] метка связывает задачу с конкретной user story для трассировки
 - Каждая user story должна быть независимо тестируема

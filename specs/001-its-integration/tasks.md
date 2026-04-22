@@ -270,7 +270,7 @@
 ### Documentation
 
 - [ ] T100 Update README.md with quickstart instructions
-- [ ] T101 Create docs/MODEL_SELECTION.md documenting Qwen2.5-7B choice
+- [ ] T101 Create docs/architecture/MODEL_SELECTION.md documenting Qwen2.5-7B choice
 - [ ] T102 Run quickstart.md validation end-to-end
 
 ---

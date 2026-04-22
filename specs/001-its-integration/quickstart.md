@@ -223,4 +223,4 @@ User Input → Gradio UI → Orchestrator
 
 - GitHub Issues: [https://github.com/your-org/MITS/issues](https://github.com/your-org/MITS/issues)
 - Documentation: `docs/` directory
-- Model Selection Guide: `docs/MODEL_SELECTION.md`
+- Model Selection Guide: `docs/architecture/MODEL_SELECTION.md`

@@ -243,7 +243,7 @@ student_message
 
 **Want to see how the graph grows?** → `src/knowledge/session_analyzer.py` + `src/knowledge/graph_evolution.py`
 
-**Want to see resource scaling?** → `src/resource_profiles.py` + `docs/RESOURCE_PROFILES.md`
+**Want to see resource scaling?** → `src/resource_profiles.py` + `docs/architecture/RESOURCE_PROFILES.md`
 
 **Want to see baseline metrics?** → `evaluation/baseline_eval.py` + `evaluation/reports/baseline_*.md`
 
@@ -257,10 +257,10 @@ student_message
 
 | Doc | Scope |
 |-----|-------|
-| [`docs/RESOURCE_PROFILES.md`](RESOURCE_PROFILES.md) | 3-tier resource system (lite/standard/max) |
-| `docs/TOM_TUTOR.md` | **TBD (017)** Theory-of-Mind agent details |
-| [`docs/TRAINING_PIPELINE.md`](TRAINING_PIPELINE.md) | GSPO → KTO → DPO fine-tuning |
-| `docs/MODEL_SELECTION.md` | Rationale for Qwen3.5-9B choice |
+| [`docs/architecture/RESOURCE_PROFILES.md`](RESOURCE_PROFILES.md) | 3-tier resource system (lite/standard/max) |
+| `docs/architecture/TOM_TUTOR.md` | **TBD (017)** Theory-of-Mind agent details |
+| [`docs/training/TRAINING_PIPELINE.md`](../training/TRAINING_PIPELINE.md) | GSPO → KTO → DPO fine-tuning |
+| `docs/architecture/MODEL_SELECTION.md` | Rationale for Qwen3.5-9B choice |
 
 ---
 

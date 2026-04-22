@@ -82,7 +82,7 @@ docs/
 └── TOM_TUTOR.md                     # NEW — detailed feature docs
 ```
 
-**Structure Decision**: Extends existing `src/agents/`, `src/knowledge/`, and `evaluation/` directories. No new top-level packages. Central `docs/ARCHITECTURE.md` added as navigation index for long-term orientation across all features (016, 017, and future).
+**Structure Decision**: Extends existing `src/agents/`, `src/knowledge/`, and `evaluation/` directories. No new top-level packages. Central `docs/architecture/ARCHITECTURE.md` added as navigation index for long-term orientation across all features (016, 017, and future).
 
 ## Complexity Tracking
 

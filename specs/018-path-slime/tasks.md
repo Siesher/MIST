@@ -117,8 +117,8 @@
   - Metrics: diversity_score, path validity %, latency p50/p95
   - Output: `evaluation/reports/path_slime_YYYY-MM-DD.md`
 - [ ] T036 Запустить eval: `python -X utf8 evaluation/path_slime_eval.py`
-- [ ] T037 [P] Создать `docs/PATH_SLIME.md` — описание алгоритма, references, example outputs, troubleshooting
-- [ ] T038 [P] Обновить `docs/ARCHITECTURE.md` — пометить фичу 018 как DONE, добавить ссылки на eval
+- [ ] T037 [P] Создать `docs/architecture/PATH_SLIME.md` — описание алгоритма, references, example outputs, troubleshooting
+- [ ] T038 [P] Обновить `docs/architecture/ARCHITECTURE.md` — пометить фичу 018 как DONE, добавить ссылки на eval
 - [ ] T039 `ruff check src/knowledge/path_slime.py src/knowledge/levy_sampler.py src/tools/navigator_tools.py tests/test_path_slime.py` — lint clean
 - [ ] T040 Полный прогон тестов: `pytest tests/test_path_slime.py tests/test_navigator.py tests/test_knowledge_forge.py -v`
 
