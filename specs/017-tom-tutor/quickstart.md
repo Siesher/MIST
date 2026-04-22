@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Completed feature 016 (Knowledge Forge + Living KG + Resource Profiles) — this is on main now
-- `data/knowledge/forge.json` generated (via `scripts/migrate_to_forge.py`)
+- `data/knowledge/forge.json` generated (via `scripts/db/migrate_to_forge.py`)
 - Ollama running with `mits-tutor-9b-kto` (or equivalent Qwen3.5-9B)
 - Python venv activated
 
@@ -11,7 +11,7 @@
 
 ```bash
 # Check profile detection:
-python scripts/detect_resources.py --list
+python scripts/ollama/detect_resources.py --list
 
 # Check Ollama:
 curl -s http://localhost:11434/api/tags | python -m json.tool
@@ -102,7 +102,7 @@ pytest tests/test_mental_model_agent.py tests/test_tom_integration.py -v
 - Check logs in `data/logs/` for `tom.fallback` entries
 
 **If latency is too high:**
-- Verify current profile: `python scripts/detect_resources.py`
+- Verify current profile: `python scripts/ollama/detect_resources.py`
 - On lite, the `num_predict` cap should be ≤150
 - Check Ollama model: `ollama list` — should show Q4_K_M for lite
 

@@ -159,7 +159,7 @@ def drop_all_tables(conn: sqlite3.Connection) -> None:
 def run_migrations(conn: sqlite3.Connection, migrations_dir: Path = None) -> None:
     """Run SQL migration files from migrations directory."""
     if migrations_dir is None:
-        migrations_dir = Path(__file__).parent / "migrations"
+        migrations_dir = Path(__file__).parent.parent / "migrations"
 
     if not migrations_dir.exists():
         print(f"[WARN] Migrations directory not found: {migrations_dir}")

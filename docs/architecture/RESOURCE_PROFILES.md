@@ -8,11 +8,11 @@ quantization, context length, and feature set.
 
 ```bash
 # Detect recommended profile automatically:
-python scripts/detect_resources.py --list
+python scripts/ollama/detect_resources.py --list
 
 # Override explicitly:
 export MITS_PROFILE=lite        # or: standard, max
-python scripts/detect_resources.py --verbose
+python scripts/ollama/detect_resources.py --verbose
 ```
 
 ## Profile Matrix
@@ -101,7 +101,7 @@ Valid values: `lite`, `standard`, `max`.
 
 ## Profile Detection
 
-The detector at `scripts/detect_resources.py` uses `psutil` for RAM and
+The detector at `scripts/ollama/detect_resources.py` uses `psutil` for RAM and
 `torch.cuda` for VRAM. It picks the largest profile whose minimum
 requirements are satisfied.
 

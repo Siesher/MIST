@@ -120,7 +120,7 @@ python evaluation/path_slime_eval.py  # будет использовать k=2
 
 **truncated=True постоянно**:
 - Уменьшите k или iterations
-- Профайл неправильно определён: `python scripts/detect_resources.py`
+- Профайл неправильно определён: `python scripts/ollama/detect_resources.py`
 
 **Пути невалидны** (fail prerequisite check):
 - Check `test_path_slime.py::test_path_slime_validity` — скорее всего bug в repair step

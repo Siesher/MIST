@@ -76,7 +76,7 @@ LOG_LEVEL=INFO
 
 ```bash
 # Run database initialization
-python scripts/init_db.py
+python scripts/db/init_db.py
 ```
 
 ---

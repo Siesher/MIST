@@ -11,7 +11,7 @@
 Run the migration to convert existing skill_graph + SKI cards into the forge graph:
 
 ```bash
-python scripts/migrate_to_forge.py
+python scripts/db/migrate_to_forge.py
 ```
 
 This creates `data/knowledge/forge.json` with ~40 CONCEPT nodes, prerequisite edges, and linked FORMULA/EXAMPLE/METHOD/MISCONCEPTION nodes from SKI cards.
@@ -84,5 +84,5 @@ cd src && pytest tests/test_knowledge_forge.py tests/test_navigator.py -v
 | `src/knowledge/navigator.py` | Personalized navigator: frontier, gaps, paths |
 | `src/tools/navigator_tools.py` | Ollama tool definitions for tutor |
 | `src/knowledge/source_extractor.py` | LLM document extraction |
-| `scripts/migrate_to_forge.py` | Seed graph from existing data |
+| `scripts/db/migrate_to_forge.py` | Seed graph from existing data |
 | `data/knowledge/forge.json` | Persisted knowledge graph |

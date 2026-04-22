@@ -237,7 +237,7 @@ student_message
 
 **Want to understand tutoring logic?** → `src/agents/orchestrator.py` (pipeline coordinator)
 
-**Want to add/modify knowledge?** → `data/knowledge/forge.json` + `scripts/migrate_to_forge.py`
+**Want to add/modify knowledge?** → `data/knowledge/forge.json` + `scripts/db/migrate_to_forge.py`
 
 **Want to see how Knowledge Forge works?** → `src/knowledge/knowledge_forge.py` + `src/knowledge/navigator.py`
 
@@ -335,11 +335,11 @@ research trail for the diploma.
 
 ```bash
 # Environment
-python scripts/detect_resources.py --list     # check profile
+python scripts/ollama/detect_resources.py --list     # check profile
 
 # Knowledge Forge
-python scripts/migrate_to_forge.py            # seed graph from skill_graph
-python scripts/grow_knowledge_graph.py        # run Living KG on synthetic sessions
+python scripts/db/migrate_to_forge.py            # seed graph from skill_graph
+python scripts/knowledge/grow_knowledge_graph.py        # run Living KG on synthetic sessions
 
 # Evaluation
 python evaluation/baseline_eval.py            # run 4 deterministic metrics
