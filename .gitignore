@@ -143,5 +143,4 @@ training/Modelfile.*-update
 
 # Cleanup additions 2026-04-22
 ~$*
-figures/readme/*.png
-!figures/readme/.gitkeep
+# figures/readme/*.png tracked intentionally — embedded in README

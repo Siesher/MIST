@@ -16,7 +16,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-C4B5FD?style=for-the-badge)](LICENSE)
 
-[Демо](#быстрый-старт) · [Архитектура](#архитектура) · [Training Pipeline](#training-pipeline) · [Evaluation](#evaluation) · [Документация](docs/)
+[Демо](#быстрый-старт) · [Архитектура](#архитектура) · [Training Pipeline](#training-pipeline) · [Evaluation](#evaluation) · [Документация](docs/INDEX.md)
 
 </div>
 
@@ -54,7 +54,32 @@ MITS — система, которая учит решать, а не даёт 
 
 ---
 
+## ✨ Ключевые фичи 2026
+
+<div align="center">
+
+<img src="figures/readme/feature_timeline.png" alt="Feature Timeline" width="85%" />
+
+</div>
+
+| Feature | Что делает | Ключевая метрика | Spec |
+|:---|:---|:---|:---|
+| **016 Knowledge Forge** | Живой граф знаний: 83 узла × 88 рёбер, 6 типов узлов × 10 типов рёбер, self-completion из сессий | Path validity 100% · Frontier violation 0% | [specs/016](specs/016-knowledge-forge/) |
+| **017 ToM-Tutor** | Theory-of-Mind агент: моделирует пробелы и заблуждения студента, re-rank навигатора | Root-hit 70% → **95%** · 0 регрессий на 20 сценариях | [specs/017](specs/017-tom-tutor/) |
+| **018 PathSlime** | Lévy-Gaussian SMA: k разных траекторий обучения, bio-inspired diversity | 3 diverse paths (k=3, α=1.5) | [specs/018](specs/018-path-slime/) |
+
+---
+
 ## Архитектура
+
+<div align="center">
+
+<img src="figures/diploma/courseware_fig_2_architecture.png" alt="MITS Architecture" width="90%" />
+
+</div>
+
+<details>
+<summary>ASCII-fallback диаграмма архитектуры</summary>
 
 ```
                     ┌─────────────────────────────────────────────┐
@@ -87,6 +112,8 @@ MITS — система, которая учит решать, а не даёт 
                     │        Token-by-token streaming          │
                     └─────────────────────────────────────────┘
 ```
+
+</details>
 
 **Три режима работы:**
 
@@ -138,6 +165,58 @@ MITS — система, которая учит решать, а не даёт 
 - `data/training/dialogs.jsonl` — 3 875 сократических диалогов
 - `training/data/preference_pairs.jsonl` — 12 597 пар предпочтений
 - Evaluation benchmark — 3 678 задач (MGSM Russian + ruMMLU STEM + custom)
+
+---
+
+## 📊 Результаты обучения
+
+<div align="center">
+
+<img src="figures/readme/domain_heatmap.png" alt="Per-domain accuracy" width="75%" />
+
+</div>
+
+**Accuracy по доменам** (стратифицированный subset n=143, локальный бенчмарк):
+
+| Domain | Base | GSPO | KTO | DPO |
+|:---|:---:|:---:|:---:|:---:|
+| Math | 100.0% | 82.6% | — | — |
+| Physics | 96.7% | 90.0% | — | — |
+| Chemistry | 90.0% | 96.6% | — | — |
+| Biology | 80.0% | 80.0% | — | — |
+| CS | 86.2% | 89.7% | — | — |
+| **Overall** | **90.2%** | **87.9%** | — | — |
+
+> ⚠️ **Small sample honesty.** 143-задачный subset, single run. GSPO показывает
+> mixed effects: снижение на math (100% → 82.6%), но прирост на chemistry
+> (+6.6%) и CS (+3.5%). Full-benchmark eval (n=3678) и стадии KTO/DPO —
+> в работе. Источник: `evaluation/reports/compare_base_vs_gspo_20260331_115146.json`.
+
+### 📈 ToM-Tutor A/B evaluation
+
+| Метрика | Baseline | ToM | Delta |
+|:---|:---:|:---:|:---:|
+| Root-hit rate | 70.0% | **95.0%** | **+25.0%** |
+| Any-hit rate | 100.0% | 100.0% | ±0 |
+| Misconception accuracy | — | 90.0% | — |
+| Regressed scenarios | — | 0 / 20 | — |
+| Avg confidence | — | 0.89 | — |
+
+*20 сценариев в 4 категориях (explicit_misconception, confused, open_question,
+confident_wrong). Latency p50 11.5 s, p95 147 s — узкое место.
+Источник: `evaluation/reports/tom_ab_2026-04-18.md`.*
+
+### 📉 Knowledge Forge baseline
+
+| Метрика | Value |
+|:---|:---:|
+| Gap Diagnosis (root-hit) | 60.0% (5 сценариев) |
+| Gap Diagnosis (any-hit) | 100.0% |
+| Frontier Violation Rate | 0.0% (lower = better) |
+| Path Validity (invalid-pair rate) | 0.0% (7 пар) |
+| Graph growth | 83 → 83 узлов, 88 → 88 рёбер (1 rejected) |
+
+*Источник: `evaluation/reports/baseline_2026-04-18.md`.*
 
 ---
 
@@ -217,7 +296,7 @@ MITS/
 │   └── app/models/              #   SQLAlchemy ORM
 │
 ├── src/                         # Core Python — агенты и модели
-│   ├── agents/                  #   Profiler, Planner, Tutor, Verifier и др.
+│   ├── agents/                  #   Profiler, Planner, Tutor, Verifier
 │   ├── models/                  #   LLM client, KT, detectors, prompts
 │   ├── knowledge/               #   RAG, SKI, few-shot bank
 │   ├── tools/                   #   SKI tool adapters
@@ -225,19 +304,38 @@ MITS/
 │
 ├── training/                    # ML training pipeline
 │   ├── scripts/                 #   evaluate_stage, stem_rewards, export
-│   └── data/                    #   Datasets, benchmark
+│   ├── data/                    #   Datasets, benchmark
+│   └── Modelfile*               #   Ollama templates (9b GSPO/KTO)
 │
 ├── notebooks/                   # Colab training notebooks
 │   ├── grpo_qwen3.5_9b.ipynb    #   Stage 1: GSPO
 │   ├── kto_qwen3.5_9b.ipynb     #   Stage 2: KTO
 │   ├── dpo_polish_qwen3.5_9b.ipynb  # Stage 3: DPO
-│   └── archive/                 #   Legacy (Qwen3-4B)
+│   └── archive/                 #   Legacy (Qwen3-4B, GLM)
 │
-├── evaluation/                  # Evaluation reports + benchmarks
-├── data/                        # Knowledge bases (RAG, skill graph)
-├── docs/                        # Documentation
-├── specs/                       # Feature specs (001–016)
-└── tests/                       # Unit & integration tests
+├── evaluation/                  # Reports + benchmarks
+├── data/                        # Knowledge bases (forge.json, RAG, skills)
+│
+├── docs/
+│   ├── diploma/                 #   НИР 2026 + Курсовой 2026 (+ PDF exports)
+│   ├── architecture/            #   ARCHITECTURE, MODEL_SELECTION, ...
+│   ├── training/                #   TRAINING_PIPELINE, GSPO_TECHNIQUES
+│   ├── guides/                  #   quickstart, PROJECT_STATUS
+│   └── archive/                 #   pre-2026, nir-drafts
+│
+├── scripts/
+│   ├── db/                      #   init_db, migrate_to_forge
+│   ├── knowledge/               #   grow_graph, ingest_pdf, embeddings
+│   ├── ollama/                  #   TurboQuant + Ollama automation
+│   ├── design/                  #   design handoff, social preview
+│   └── diploma/                 #   one-shot diploma generators (already ran)
+│
+├── figures/
+│   ├── diploma/                 #   Figures for НИР + Курсовой
+│   └── readme/                  #   feature_timeline, domain_heatmap
+│
+├── specs/                       # 001–018 feature specs
+└── tests/                       # Unit & integration
 ```
 
 ---
@@ -253,6 +351,58 @@ MITS/
 | **Evaluation** | SymPy · ChemPy · 3 678-problem benchmark |
 | **Knowledge** | ChromaDB · sentence-transformers · BKT · DKT |
 | **Deploy** | Docker Compose |
+
+---
+
+## ❓ FAQ / Troubleshooting
+
+<details>
+<summary><b>Модель долго грузится / отвечает.</b></summary>
+
+Используй профили из `src/resource_profiles.py` (`lite` / `standard` / `max`) —
+они подбирают `num_ctx` и `num_predict` под железо. TurboQuant KV compression
+ускоряет inference в 1.7–2× на RTX 4090. Подробнее:
+[docs/architecture/RESOURCE_PROFILES.md](docs/architecture/RESOURCE_PROFILES.md).
+
+</details>
+
+<details>
+<summary><b>/health endpoint таймаутит.</b></summary>
+
+В `backend/app/services/orchestrator_service.py` включён 30-секундный TTL-cache
+на `_check_llm_available()`. Если всё равно медленно — проверь, что Ollama
+запущена (`ollama ps`) и модель подтянута (`ollama list`).
+
+</details>
+
+<details>
+<summary><b>Ollama падает при inference или OOM.</b></summary>
+
+Запусти `scripts/ollama/optimize_ollama.ps1` — он применяет safe defaults
+для num_ctx / num_gpu / num_thread. Для моделей ≥17 GB single-shard
+`ollama create --quantize` может зависнуть — используй `scripts/ollama/activate_turbo_quant.ps1` вместо этого.
+
+</details>
+
+<details>
+<summary><b>Word lock files (<code>~$*.docx</code>) в docs/diploma/.</b></summary>
+
+```powershell
+Get-Process WINWORD -ErrorAction SilentlyContinue | Stop-Process -Force
+Remove-Item docs/diploma/~$*.docx -Force
+```
+
+</details>
+
+<details>
+<summary><b>Frontend не подключается к backend по WebSocket.</b></summary>
+
+Проверь:
+1. Backend запущен на порту 8000 (`cd backend && uvicorn app.main:app --reload --port 8000`)
+2. В `.env` переменная `NEXT_PUBLIC_WS_URL=ws://localhost:8000/api/v1/ws`
+3. JWT токен не истёк (в dev-режиме срок жизни = 24 часа)
+
+</details>
 
 ---
 
