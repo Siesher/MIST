@@ -70,6 +70,9 @@ checkpoints/
 # Training data (large files)
 training/data/*.jsonl
 training/data/curriculum/
+# ...except eval benchmarks — small, version-controlled for reproducibility (Phase 0 honest re-eval)
+!training/data/eval_dataset.jsonl
+!training/data/eval_dataset.meta.json
 
 # Logs
 logs/
