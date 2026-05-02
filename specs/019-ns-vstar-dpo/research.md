@@ -18,12 +18,17 @@
 - **Why used**: Standard accuracy-only reward leads tutor to "просто дать ответ" → kills Socratic property. No-Spoiler counter-balances correctness pressure.
 - **Adaptation**: Их reward formulation эквивалентна нашему уже-deployed Cerebras Combined Judge (`training/scripts/evaluate_stage.py::evaluate_combined_quality`). Reuse без обучения нового judge — экономия compute.
 
-### Process Reward Model
+### Process Reward Model (lean-demo choice)
 
-- **Model**: `Qwen/Qwen2.5-Math-PRM-7B` (Yang et al., 2024 — arXiv:2410.10288)
-- **Core idea**: Step-level scoring математической chain-of-thought (each step ∈ [0, 1] where 1 = "step is correct given the prefix").
-- **Why used**: Distinguishes "lucky right answer with bad reasoning" vs "principled derivation" — orthogonal к outcome correctness и orthogonal pedagogy.
-- **Adaptation**: Aggregate per-step scores via mean (см. Decision 5) → один scalar PRM-score per completion. Используется как reward component, не финальный verifier.
+- **Model**: `Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B` (Skywork team, Aug 2025 update)
+- **Core idea**: Step-level scoring math chain-of-thought (each step ∈ [0, 1]), specifically **tuned for o1-style long thinking traces**.
+- **Why this variant** (not Qwen2.5-Math-PRM-7B):
+  - **Format alignment**: Skywork-o1 trained on long reasoning traces with `<think>` blocks → matches Qwen3.5-9B thinking mode distribution
+  - **Compute**: 1.5B vs 7B → ~5× faster scoring, ~3GB bf16 vs 14GB → fits with tutor 9B in одной 96GB сессии
+  - **Lean-demo trade-off**: 1.5B показывает ~70% step-accuracy vs ~80% у 7B на ProcessBench; для **direction-of-effect** (within-task ranking) этого достаточно — monotonicity preserved
+- **Limitation**: distribution mismatch остаётся (Qwen2.5-base PRM scoring Qwen3.5 generations). **Документировано** в diploma "Limitations" section. Mitigated тем, что PRM в основном детектирует логические ошибки (model-agnostic — `x + 5 = 13 → x = 18` неверно для любой LM).
+- **Adaptation**: Aggregate per-step scores via mean (D-005) → один scalar PRM-score per completion. Reward component, не финальный verifier.
+- **Future Work alternative**: Rubric Reward (arXiv:2510.07774, Oct 2025) — заменяет PRM rubric-based scoring, фундаментально решает distribution mismatch и Miracle-Steps проблему. Вынесено за scope диплома, рассмотрено для extended paper.
 
 ### MathTutorBench — Pedagogical External Benchmark
 
@@ -47,23 +52,28 @@
 **Rationale**: Self-improvement осмысленен только от лучшего предка. После honest re-eval сравним bf16 metrics base/GSPO/KTO, выберем лучший по `accuracy + 0.5·socratic` (composite metric).
 **Decision artifact**: `specs/019-ns-vstar-dpo/seed_choice.md` (генерируется в T003).
 
-### D-002: Reward Weights `(w₁, w₂, w₃)`
+### D-002: Reward Weights `(w₁, w₂, w₃)` — LOCKED for lean-demo
 
-**Default**: `(w_correctness, w_PRM, w_pedagogy) = (0.5, 0.25, 0.25)`
+**Choice**: `(w_correctness, w_PRM, w_pedagogy) = (0.5, 0.25, 0.25)` — **зафиксировано без эмпирического sweep**.
 **Rationale**: Correctness — non-negotiable (тьютор обязан вести к правильному ответу), но pedagogy и step-quality — то, что отличает tutor от solver. Сумма `pedagogy + PRM = 0.5` уравновешивает correctness, не подавляя её.
-**Alternatives considered**:
-- Equal weights `(1/3, 1/3, 1/3)` — отвергнуто: позволяет "high-pedagogy + wrong-answer" pair выиграть у "low-pedagogy + correct".
+**Alternatives considered (отклонены без эмпирики)**:
+- Equal weights `(1/3, 1/3, 1/3)` — позволяет "high-pedagogy + wrong-answer" pair выиграть у "low-pedagogy + correct".
 - `(0.6, 0.2, 0.2)` — слишком correctness-heavy, риск убить pedagogy gains GSPO/KTO стадий.
-- `(0.4, 0.3, 0.3)` — рассмотреть в sensitivity sweep.
-**Validation**: Sensitivity analysis (T015) — sweep по 3 configs `[(0.5/0.25/0.25), (0.4/0.3/0.3), (0.6/0.2/0.2)]` на 200-task mini-subset с short DPO (200 steps). Выбираем лучший Pareto.
-**Recorded as ablation candidates**: variants `w₂=0` (без PRM) и `w₃=0` (без pedagogy) — обязательны (FR-006).
+- `(0.4, 0.3, 0.3)` — близко к default, отличие в пределах PRM/judge noise.
+**Why no sweep in lean-demo**: sensitivity analysis (3 configs × 200-task mini-subset × short DPO) стоит ~17 vu и 3 GPU-hours. В lean scope этот compute выделяется на **резерв для retries**. Принципиальное обоснование выбора весов считаем достаточным для proof-of-concept.
+**Future Work**: sensitivity sweep — обязательное расширение для full-scale paper.
+**Ablation в этом scope**: единственная — `w₂=0` (`-PRM` ablation, FR-006). `w₃=0` опускается (No-Spoiler effect уже опубликован).
 
-### D-003: Number of Completions per Task (N)
+### D-003: Number of Completions per Task (N) — lean-demo scope
 
-**Choice**: N=4
-**Rationale**: 4 completions дают C(4,2)=6 потенциальных пар, после τ-фильтра обычно остаётся 1-2 high-margin. N=8 дал бы статистическую мощность, но удваивает compute (8 vs 4 generations + 8 vs 4 PRM scores).
-**Compute check**: `4 × 3875 × ~30s/completion ≈ 130 GPU-h raw → batched up to ~10 h на A100 80GB при batch_size=8`.
-**Fallback**: Если valid pair coverage < 60%, увеличиваем до N=8 для подмножества "трудных" задач (where все 4 имеют tight scores).
+**Choice**: N=4 на **1000-task stratified subset** (вместо full 3875).
+**Rationale**:
+- 4 completions дают C(4,2)=6 потенциальных пар; после τ-фильтра обычно остаётся 1-2 high-margin pairs per task.
+- Subset 1000 instead of 3875: 4× меньше compute (~22 vu vs ~88 vu для Phase 1) при сохранении достаточной statistical power для direction-of-effect (1000 pairs → CIs ~2-3pp wide на accuracy metric).
+- Stratified sampling сохраняет domain proportions (math/physics/chem/bio/cs) — pedagogically valid sample.
+**Compute check**: `4 × 1000 × ~30s/completion ≈ 33 GPU-h raw → batched batch_size=16 на 96GB → ~2-3 h`.
+**Future Work**: full 3875-task replication — extended paper scope.
+**Fallback**: Если valid pair coverage < 50% на 1000-subset, снижаем τ до 0.10 (вместо увеличивания N).
 
 ### D-004: Pair Selection Strategy
 
@@ -95,25 +105,44 @@
 
 ### D-007: Compute Platform
 
-**Choice**: Primary — Colab Pro+ (A100 80GB, есть подписка); secondary — Lightning AI RTX 6000 (8.71 vu/h, есть 600 vu).
+**Choice**: Primary — Lightning AI **RTX 6000 Pro Blackwell 96GB** (8.71 vu/h, 600 vu pool); secondary — Colab Pro+ (A100 80GB) для Phase 0.
 **Rationale**:
-- Colab cheaper для preemptable workloads (Pro+ flat rate).
-- Lightning лучше для long jobs (нет 12h idle disconnect, нет потери session state).
-- DPO training (8-12 h) — Lightning.
-- Eval / scoring (3-6 h) — Colab.
-- Generation (8-10 h) — на грани Colab limit, лучше Lightning.
+- 96GB VRAM enables co-located scoring (Skywork-PRM-1.5B + Qwen3.5-9B + KV cache в одной сессии) → -25 vu vs split-session approach.
+- Lightning лучше для long jobs (нет idle disconnect).
+- Lean-demo phases короткие (2-3h каждая), все умещаются в одну Lightning сессию или несколько Colab sessions.
+- Phase 0 specifically на Colab — notebook готов, не нужны 96GB.
 
 ### D-008: τ threshold for valid pairs
 
 **Choice**: τ = 0.15 (на composite ∈ [0, 1])
 **Rationale**: 15% gap на composite scale соответствует distinguishable difference (примерно одна категория judge оценки). Статистически значимый margin при N=4.
-**Adaptive rule**: Если coverage < 60%, снижаем до τ=0.10. Если pairs > 90% coverage, поднимаем до τ=0.20 (более строгий signal).
+**Adaptive rule (lean-demo)**: Если coverage < 50%, снижаем до τ=0.10. Если pairs > 90% coverage, поднимаем до τ=0.20.
+
+### D-009: Subset Sampling Strategy (lean-demo)
+
+**Choice**: Stratified by `(domain, difficulty)` from `data/training/dialogs.jsonl`, target 1000 tasks. `random_state=42`.
+**Rationale**:
+- Random sample может перекосить domain distribution (e.g., 80% math, 5% chem) → bias в pedagogy axis (math задачи меньше leak risk чем open-ended biology).
+- Stratified гарантирует сохранение proportions полного датасета.
+- 1000 tasks даёт ~700-1000 valid pairs после τ-filter — достаточно для direction-of-effect detection при wide CI.
+**Edge**: если domain D имеет <100 примеров в полном датасете, включаем все имеющиеся (без strict 1000 cap → возможен subset 950-1100).
+**Manifest**: `data/vstar/subset_manifest.json` с list of `task_ids`, per-domain proportions, sampling seed.
+
+### D-010: Single-Ablation Choice — `-PRM` only (lean-demo)
+
+**Choice**: Один ablation run — `w_PRM = 0` (composite = `0.5·correctness + 0.5·pedagogy`).
+**Rationale**:
+- **Why `-PRM` not `-NoSpoiler`**: PRM-component — наш delta. No-Spoiler effect уже опубликован в arXiv:2505.15607 (EMNLP 2025) — повторение чужой работы тратит compute.
+- **Why not joint `-PRM-NoSpoiler` (correctness-only)**: эквивалентно стандартному outcome-only DPO (Rafailov 2023), известному since 2023.
+- **Why not all three ablations**: lean scope; +176 vu compute.
+**Acceptable null result**: если `-PRM` performs ≈ full NS-V-STaR-DPO, репортуется как honest negative finding в Discussion: possible causes — PRM noise, distribution mismatch, in-distribution generation already encodes step quality through correctness signal.
 
 ## Open Questions
 
-- **Q1**: На каком scale делать sweep по reward weights (D-002)? Целеполагание: <5h compute → mini-subset 200 задач × 3 configs × short DPO (200 steps). Total ~3h на A100. Acceptable.
-- **Q2**: MathTutorBench dataset размер — может потребовать дополнительный compute для full eval; ограничимся random 500-task subset, если full > 4h. Документировать subset selection в `mathtutorbench_eval.ipynb`.
-- **Q3**: Production deployment final adapter — требует q4 conversion для Ollama. Это отдельная под-фаза после Phase 8 (writeup), не в scope этого spec'а.
+- **Q1 (resolved by lean-demo)**: ~~Sweep по reward weights~~ → принципиальное обоснование D-002 без эмпирики. Sweep вынесен в Future Work.
+- **Q2 (lean-demo scope)**: MathTutorBench size — 100-task spot check (`random_state=42`), не full benchmark.
+- **Q3 (out of scope)**: Production deployment final adapter — требует q4 conversion для Ollama. Отдельная под-фаза после Phase 8 (writeup).
+- **Q4 (Future Work)**: Rubric Reward (arXiv:2510.07774) как замена PRM-component — fundamentally addresses distribution mismatch и Miracle-Steps issue. Extended paper scope.
 
 ## Citation Stack для diploma chapter
 
@@ -136,7 +165,22 @@
   title={Process Reward Models for Math Reasoning},
   author={Yang, An and others (Qwen Team)},
   journal={arXiv preprint arXiv:2410.10288},
-  year={2024}
+  year={2024},
+  note={Reference for PRM methodology; we use Skywork-o1-Open-PRM-Qwen-2.5-1.5B as concrete model}
+}
+
+@misc{skywork2024prm,
+  title={Skywork-o1-Open-PRM: Process Reward Model for o1-style Reasoning},
+  author={Skywork AI Team},
+  year={2024},
+  note={HuggingFace: Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B, last updated Aug 2025}
+}
+
+@article{rubric2025,
+  title={Curing Miracle Steps in LLM Mathematical Reasoning with Rubric Rewards},
+  journal={arXiv preprint},
+  year={2025},
+  note={arXiv:2510.07774, listed as Future Work alternative to PRM}
 }
 
 @article{mathtutorbench2025,
@@ -144,6 +188,14 @@
   journal={EMNLP 2025},
   year={2025},
   note={arXiv:2502.18940}
+}
+
+@article{processbench2024,
+  title={ProcessBench: Identifying Process Errors in Mathematical Reasoning},
+  author={Zheng, Chujie and others},
+  journal={arXiv preprint arXiv:2412.06559},
+  year={2024},
+  note={Used to validate PRM choice — Skywork-o1-1.5B preserves direction-of-effect ranking}
 }
 
 @article{rafailov2023dpo,

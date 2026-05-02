@@ -81,7 +81,7 @@
   "<sha256(model_id + prompt + completion)>": {
     "component": "prm",
     "value": 0.78,
-    "model_version": "Qwen/Qwen2.5-Math-PRM-7B",
+    "model_version": "Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B",
     "details": {
       "step_scores": [0.9, 0.85, 0.7, 0.65, 0.8],
       "aggregation": "mean"
@@ -89,6 +89,37 @@
     "timestamp": "2026-05-XX",
     "run_id": "<run hash>"
   }
+}
+```
+
+### Subset Manifest (lean-demo)
+
+`data/vstar/subset_manifest.json` — produced by `training/scripts/build_subset.py`
+
+```json
+{
+  "manifest_version": "1.0",
+  "feature": "019-ns-vstar-dpo",
+  "scope": "lean-demo",
+  "source_dataset": "data/training/dialogs.jsonl",
+  "source_size": 3875,
+  "target_size": 1000,
+  "actual_size": 1014,
+  "stratify_by": ["domain", "difficulty"],
+  "random_state": 42,
+  "task_ids": ["<uuid_1>", "<uuid_2>", "..."],
+  "proportions": {
+    "by_domain": {"math": 0.40, "physics": 0.20, "chem": 0.15, "bio": 0.15, "cs": 0.10},
+    "by_difficulty": {"easy": 0.30, "medium": 0.50, "hard": 0.20},
+    "by_domain_difficulty": {
+      "math_easy": 0.12, "math_medium": 0.20, "math_hard": 0.08,
+      "physics_easy": 0.06, "...": "..."
+    }
+  },
+  "edge_cases_applied": [
+    {"domain": "cs", "difficulty": "hard", "available": 67, "target": 80, "action": "include_all_67"}
+  ],
+  "git_commit": "<hash>"
 }
 ```
 

@@ -5,7 +5,7 @@
 
 ## Summary
 
-Завершение MITS-пайплайна научно-новым этапом: после `GSPO + KTO` применить **NS-V-STaR-DPO** — single-method композицию V-STaR self-improvement, No-Spoiler pedagogy reward и PRM step-level scoring в один DPO-loss с within-task pairing. Перед этим — обязательный honest bf16 re-eval всех чекпоинтов для устранения inference artifact. Бюджет 600 vu / 8.71 ≈ 68.9 GPU-hours на Google Colab Pro+ (A100 80GB) с резервом на Lightning AI (RTX 6000) для long jobs.
+Завершение MITS-пайплайна научно-новым этапом (lean-demo scope): после `GSPO + KTO` применить **NS-V-STaR-DPO** — single-method композицию V-STaR self-improvement, No-Spoiler pedagogy reward и PRM step-level scoring в один DPO-loss с within-task pairing. Перед этим — обязательный honest bf16 re-eval всех чекпоинтов для устранения inference artifact. **Lean-demo target**: ~140 vu / ~16 GPU-hours на RTX 6000 Pro 96GB (Lightning AI) — proof-of-concept demonstration с резервом 460 vu для retries и debugging. Полномасштабная репликация — fixed как Future Work в diploma.
 
 ## Technical Context
 
@@ -16,7 +16,7 @@
 - `torch>=2.4` bf16, `datasets`, `huggingface_hub`
 - `openai>=1.50` (Cerebras Combined Judge через OpenAI-compatible endpoint)
 - Existing: `training/scripts/evaluate_stage.py::evaluate_combined_quality`, `training/cerebras_client.py`
-- New external model: `Qwen/Qwen2.5-Math-PRM-7B` (~14GB bf16)
+- New external model: `Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B` (~3GB bf16) — tuned для o1-style thinking traces, lean-demo выбор
 
 **Storage**:
 - HF Hub — adapters, datasets, model cards
@@ -28,23 +28,25 @@
 - Integration: mini-pipeline на 200-task subset E2E
 - Eval: honest benchmark (218 task) + MathTutorBench
 
-**Target Platform**: Google Colab Pro+ (A100 80GB) primary, Lightning AI (RTX 6000 / A100 80GB) для long jobs (DPO training, ablations)
+**Target Platform**: Lightning AI RTX 6000 Pro 96GB primary (long jobs + co-located PRM+tutor); Google Colab Pro+ (A100 80GB) для Phase 0 honest eval
 
-**Project Type**: Final stage of training pipeline (replaces "DPO polish" из original `Qwen3.5-9B → GSPO → KTO → DPO` плана)
+**Project Type**: Final stage of training pipeline (replaces "DPO polish" из original `Qwen3.5-9B → GSPO → KTO → DPO` плана), lean-demo scope
 
-**Performance Goals**: Pareto improvement (см. SC-002, SC-003, SC-004 в spec.md)
+**Performance Goals**: Direction-of-effect demonstration (см. SC-002, SC-003 — lean-demo targets, не SOTA)
 
 **Constraints**:
-- ≤ 600 vu compute budget (RTX 6000 @ 8.71/h)
+- ≤ 200 vu compute target (lean scope), ≤ 600 vu hard cap (full budget с резервом на retries)
 - bf16-only inference (no q4 quantization в eval/training — production q4 deploy после успеха в отдельной фазе)
 - All judge / PRM calls cached → одна и та же оценка для одного и того же completion
 - Cerebras key rotation (10 keys) для rate limits
+- 96GB enables co-located inference: Skywork-PRM-1.5B + Qwen3.5-9B + KV cache в одной сессии
 
-**Scale/Scope**:
-- 3875 socratic dialog tasks (`data/training/dialogs.jsonl`) — V-STaR generation source
-- 218 calc-subset (143 numeric/latex_boxed) — honest eval benchmark
-- N=4 completions per task → 15,500 generations
-- Up to 3,875 DPO pairs (within-task top-vs-bottom, 1 pair per task)
+**Scale/Scope (lean-demo)**:
+- **1000 stratified-by-(domain, difficulty) subset** из 3875 socratic dialog tasks
+- 218 calc-subset (143 numeric/latex_boxed) — honest eval benchmark (полный, не cut)
+- N=4 completions per task → ~4000 generations
+- Up to 1000 DPO pairs (within-task top-vs-bottom, 1 pair per task)
+- 100-task MathTutorBench spot check для external validity sanity
 
 ## Constitution Check
 
@@ -112,45 +114,50 @@ docs/
 
 **Structure Decision**: Изолируем новые модули в `src/scoring/` (3 scorer файла, чистые функциональные обёртки) и `src/data/`. Тренировочные скрипты — в `training/scripts/` для совместимости с существующим pipeline. Notebooks для интерактивных stages (Colab-friendly), `.py`-скрипты для batch-операций. Никаких изменений в `backend/`/`frontend/` — это чисто training feature.
 
-## Phase Plan
+## Phase Plan (lean-demo)
 
 | Phase | Описание | Compute | Длительность | vu (≈) |
 |---|---|---|---|---|
-| 0 | Honest bf16 re-eval (notebook готов) | A100 / RTX 6000 | 3.6–4.5 h | ~32 |
-| 1 | V-STaR generation (N=4 × 3875 = 15,500 completions) | A100 80GB | 8–10 h | ~88 |
-| 2 | PRM scoring (15,500 completions × Qwen2.5-Math-PRM-7B) | A100 40GB+ | 4–5 h | ~40 |
-| 3 | Pedagogy scoring (Cerebras judge, async, cached) | API only | 6–8 h (rate-limited) | ~0 |
-| 4 | Composite scoring + DPO pair build + sensitivity sweep | CPU + 1 short DPO run | 1–2 h + sweep | ~17 |
-| 5 | NS-V-STaR-DPO training (1–2 epochs DPO) | A100 80GB | 8–12 h | ~88 |
-| 6 | Ablations (−PRM, −NoSpoiler, 2 runs) | A100 80GB | 16–24 h | ~175 |
-| 7 | Eval on honest + MathTutorBench (всего 6 моделей) | A100 / RTX 6000 | 6–8 h | ~70 |
+| 0 | Honest bf16 re-eval (notebook готов, full 218 problems) | A100 / RTX 6000 Pro | 3.6–4.5 h | ~32 |
+| 1 | V-STaR generation (N=4 × **1000-task subset** = ~4000 completions) | RTX 6000 Pro 96GB | 2–3 h | ~22 |
+| 2 | PRM scoring (Skywork-1.5B, **co-located** с Phase 1) | RTX 6000 Pro 96GB | overlap with Phase 1 | ~5 |
+| 3 | Pedagogy scoring (Cerebras judge, async, cached) | API only | 1.5–2.5 h (rate-limited) | ~0 |
+| 4 | Composite scoring + DPO pair build (no sweep, fixed weights) | CPU | <30 min | ~0 |
+| 5 | NS-V-STaR-DPO training (1 epoch on ~1000 pairs) | RTX 6000 Pro 96GB | 2–3 h | ~22 |
+| 6 | **Single ablation `-PRM`** (one run) | RTX 6000 Pro 96GB | 2–3 h | ~22 |
+| 7 | Eval honest 218 ×3 + MathTutorBench-100 ×3 | A100 / RTX 6000 Pro | 3–4 h | ~32 |
 | 8 | Pareto + diploma writeup | CPU | manual | ~0 |
-| **Total** | | | **~52–72 GPU-h** | **~510 vu** |
+| **Total** | | | **~16 GPU-h** | **~135 vu** |
 
-Бюджет 600 vu укладывается с резервом ~90 vu на retries и неожиданные расходы.
+**Резерв ~465 vu** для retries, debug, scale-up if нужно (например, добавить второй ablation или расширить subset).
+
+Бюджет 200 vu комфортно укладывается; 600 vu hard cap не достигается.
 
 ## Complexity Tracking
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | GSPO/KTO worse than base после honest re-eval | medium | Pivot V-STaR seed to whichever is best (base/GSPO/KTO); spec уже допускает в edge cases. `seed_choice.md` фиксирует решение детерминистично. |
-| PRM 7B + tutor 9B OOM на одной GPU | high | Score completions offline в отдельной Colab-сессии, persist scores в JSON, training session не нуждается в PRM. |
+| PRM 1.5B distribution mismatch с Qwen3.5 | medium | Skywork-o1 tuned для o1-style thinking traces (≈ Qwen3.5 thinking mode). Limitation документируется в diploma "Limitations". В worst case — null result в `-PRM` ablation, репортуется честно. |
 | Cerebras rate limits | high | Rotating pool 10 keys, exponential backoff, async scoring with cache. Уже реализовано в `training/cerebras_client.py`. |
-| Within-task pairing → too few pairs (<60% tasks с valid pair) | medium | Threshold τ adaptive: если 60% задач не дают valid pair при τ=0.15, снижаем до 0.10 или увеличиваем N с 4 до 8 (+15-20% compute). |
-| MathTutorBench Russian-coverage limited | high | Использовать English subset для external validity; custom benchmark — для in-language claims. Документировать в `research.md`. |
+| Within-task pairing → too few pairs (<50% tasks с valid pair на 1000-subset) | medium | Threshold τ adaptive: если <50% задач дают valid pair при τ=0.15, снижаем до 0.10. Запас compute (резерв 460 vu) позволяет повторить с N=6 если нужно. |
+| MathTutorBench coverage limited | low | 100-task spot check — sanity, не peer claim. Документируется в `research.md` как scope decision. |
 | DPO training divergence (NaN, loss explosion) | low | β=0.1 default conservative; `bf16` forward, fp32 master weights; gradient clipping 1.0; eval каждые 200 steps с early stop. |
-| Compute overrun >600 vu | medium | Fallback: сократить N с 4 до 2 (потеряем некоторые pairs); в худшем — только −PRM ablation. |
+| Single ablation null result | medium | Acceptable как honest negative finding для proof-of-concept diploma. Discussion section обсуждает possible causes (PRM noise, distribution mismatch). |
+| Compute overrun >200 vu (lean target) | low | Резерв 400+ vu делает overrun практически невозможным; в крайнем случае cut subset 1000 → 500. |
 
 **No constitution violations.**
 
 ## Decision Hooks
 
-Following decisions are deferred to runtime, recorded in `research.md` или `seed_choice.md`:
+Following decisions are deferred to runtime, recorded в `research.md` или `seed_choice.md`:
 
 1. **Seed checkpoint** (D-001): best of base/GSPO/KTO в bf16 — определяется по Phase 0 results.
-2. **Composite weights** (D-002): default `(0.5, 0.25, 0.25)`, validated через sweep в Phase 4.
-3. **PRM aggregation** (D-005): default mean; sensitivity check на geometric mean при подозрении на длинно-зависимые artifacts.
-4. **τ threshold** (D-008): default 0.15, adaptive если valid pair coverage < 60%.
+2. **Composite weights** (D-002): **зафиксированы** на `(0.5, 0.25, 0.25)` (no sweep в lean scope).
+3. **PRM aggregation** (D-005): default mean; sensitivity check вынесен в Future Work.
+4. **τ threshold** (D-008): default 0.15, adaptive если valid pair coverage < 50%.
+5. **PRM model** (D-005-bis): `Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B` — lean-demo выбор (3GB, fast, o1-tuned).
+6. **Subset sampling** (D-009): stratified by `(domain, difficulty)`, target 1000 tasks, fallback all-available если domain имеет <100 примеров.
 
 ## Cross-references
 

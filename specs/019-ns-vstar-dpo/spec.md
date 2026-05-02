@@ -37,13 +37,13 @@
 
 ### User Story 2 — NS-V-STaR-DPO training (Priority: P1)
 
-После Phase 0 запускается основная новая методология: с GSPO-чекпоинта (или иного, выбранного на основе honest eval как лучшего предка для self-training) генерируется N=4 ответа на каждую из 3875 сократических задач (`data/training/dialogs.jsonl`), каждый ответ оценивается тремя независимыми компонентами:
+После Phase 0 запускается основная новая методология (lean-demo scope): с seed-чекпоинта (выбранного на основе honest eval как лучшего предка для self-training) генерируется N=4 ответа на **1000 stratified-by-(domain, difficulty) задач** из 3875 сократических диалогов, каждый ответ оценивается тремя независимыми компонентами:
 
 1. **Correctness** — programmatic verify (SymPy/ChemPy) + final-answer match с `ground_truth`
-2. **Step-level reasoning** — Qwen2.5-Math-PRM-7B aggregate score по шагам
+2. **Step-level reasoning** — `Skywork/Skywork-o1-Open-PRM-Qwen-2.5-1.5B` aggregate score по шагам (1.5B — fast, tuned для o1-style thinking traces)
 3. **Pedagogy** — Cerebras Combined Judge (no_answer_leak, scaffolding, engagement)
 
-Композитный score = `w₁·correctness + w₂·PRM + w₃·pedagogy`. **Within-task pairing**: top-vs-bottom 1 пара per task → до 3875 DPO-пар (или 0, если top-bottom margin < τ). Тренируется final adapter `Siesher/mits-qwen3-9b-nsvstar-dpo` на A100 80GB.
+Композитный score = `w₁·correctness + w₂·PRM + w₃·pedagogy` с **зафиксированными весами `(0.5, 0.25, 0.25)`** по принципиальному обоснованию (Decision 2 в research.md), без emпирического sweep (резерв compute → reserve для retries). **Within-task pairing**: top-vs-bottom 1 пара per task → до 1000 DPO-пар (или 0, если top-bottom margin < τ). Тренируется final adapter `Siesher/mits-qwen3-9b-nsvstar-dpo` на A100 80GB / RTX 6000 Pro 96GB.
 
 **Why this priority**: Это main contribution — метод, защищаемый в дипломе. Содержит весь scientific novelty.
 
@@ -58,18 +58,20 @@
 
 ---
 
-### User Story 3 — Ablations: −PRM, −NoSpoiler (Priority: P2)
+### User Story 3 — Single ablation `-PRM` (Priority: P2)
 
-Чтобы доказать **каждую** компоненту научной новизны (а не "просто работает"), нужны ablation runs: тренировка с `w₂=0` (без PRM) и `w₃=0` (без No-Spoiler). Это изолирует вклад каждой идеи и позволяет писать в дипломе "PRM contributes +X pp на reasoning subset, No-Spoiler contributes +Y pp на pedagogy axis".
+Чтобы доказать **наш delta** относительно литературы (а не "просто работает"), нужен один ablation run: тренировка с `w₂=0` (без PRM-component, остаются correctness + pedagogy). Это изолирует вклад **PRM-добавки** — нашей основной научной новизны поверх уже опубликованной No-Spoiler RL работы (arXiv:2505.15607). `-NoSpoiler` ablation **не делаем** — pedagogy-reward effect уже доказан в No-Spoiler paper, повторять не нужно.
 
-**Why this priority**: Без ablations научное утверждение weak — рецензент справедливо спросит "а что именно из трёх идей даёт прирост?". Это standard requirement для EMNLP/NeurIPS-уровня contribution.
+**Why this priority**: Без `-PRM` ablation рецензент справедливо спросит "а PRM-component реально что-то добавляет, или composite reward работает только за счёт No-Spoiler части?". Single ablation отвечает на этот вопрос с минимальным compute.
 
-**Independent Test**: Получить три adapter: full NS-V-STaR-DPO, −PRM, −NoSpoiler. На едином benchmark измерить axis-by-axis вклад. Differences интерпретируемы.
+**Why NOT `-NoSpoiler`**: повторяет опубликованную работу. **Why NOT joint `-PRM-NoSpoiler` (correctness-only DPO)**: тоже эквивалентно стандартному outcome-only DPO, известному с 2023.
+
+**Independent Test**: Получить два adapter: full NS-V-STaR-DPO, −PRM. На едином benchmark измерить разницу. Difference интерпретируется как "вклад PRM-component".
 
 **Acceptance Scenarios**:
 
-1. **Given** all three adapters trained, **When** evaluated на honest benchmark + MathTutorBench, **Then** results можно представить как 2D bar chart (accuracy / pedagogy axes).
-2. **Given** ablation results, **When** statistical analysis на 218-task benchmark, **Then** confidence intervals подтверждают direction-of-effect для каждой компоненты.
+1. **Given** оба adapters trained, **When** evaluated на honest benchmark + MathTutorBench-spot, **Then** results показывают direction-of-effect для PRM-component.
+2. **Given** ablation result, **When** statistical analysis на 218-task benchmark, **Then** даже с wide CI (lean scope) сохраняется monotonic ordering: full > -PRM > seed_baseline (или фиксируется null result с честным репортом).
 
 ---
 
@@ -101,26 +103,29 @@
 
 - **GSPO checkpoint хуже base после honest re-eval**: переключаемся на base/KTO как seed для V-STaR (whichever is best). Composite scorer тогда отбирает best generations from новой seed.
 - **Все 4 completions per task имеют одинаковый score** (degenerate generation): пропускаем task, не создаём пару — никакого random tie-breaking.
-- **PRM 7B + tutor 9B OOM на одной GPU**: PRM scoring запускается отдельной сессией, scores персистятся в JSON cache → training session не нуждается в PRM.
+- **PRM 1.5B + tutor 9B на 96GB GPU**: 3GB + 22GB + KV cache 30GB ≈ 55GB → comfortable headroom; co-located scoring в одной сессии.
 - **Cerebras rate limit при judge calls**: rotating pool из 10 ключей (уже реализован в `training/cerebras_client.py`), exponential backoff, persistent cache scores → JSON.
-- **MathTutorBench не имеет Russian split**: используем English subset как external validity, custom benchmark остаётся primary для in-language claims; документировать в `research.md`.
-- **Compute budget overrun (>600 vu)**: fallback — сократить N с 4 до 2 (потеряем некоторые pairs, но сохраним ablations); в худшем случае сделать только −PRM ablation, без −NoSpoiler.
+- **MathTutorBench не имеет Russian split**: используем English 100-task spot check как external validity sanity, custom 218-task benchmark остаётся primary для in-language claims; документировать в `research.md`.
+- **Stratified 1000-subset не покрывает редкие домены**: если в `dialogs.jsonl` есть domain c <100 примеров, включаем все имеющиеся (без strict 1000 cap); документируем в `subset_manifest.json`.
+- **Single-ablation null result** (`-PRM` adapter ≈ full): репортуем честно как negative finding, обсуждаем в Discussion как possible cause (PRM-component уже учится из correctness via in-distribution generation; PRM добавка noise-level). Это **acceptable for diploma** — научная честность.
+- **Compute budget overrun (>200 vu в lean scope)**: fallback — N=4 → N=3 (теряем 25% pairs); далее — subset 1000 → 500 tasks. Резерв 460 vu обеспечивает comfortable retry buffer.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST произвести bf16 re-eval base/GSPO/KTO с identical decoding protocol до любого нового обучения.
-- **FR-002**: System MUST генерировать N=4 completions per task через V-STaR loop от выбранного seed checkpoint.
-- **FR-003**: System MUST оценивать каждый completion тремя независимыми компонентами (correctness, PRM, pedagogy).
+- **FR-002**: System MUST генерировать N=4 completions per task через V-STaR loop от выбранного seed checkpoint, на **stratified-by-(domain, difficulty) 1000-task subset** из 3875 dialogs.
+- **FR-003**: System MUST оценивать каждый completion тремя независимыми компонентами (correctness, PRM via **Skywork-o1-Open-PRM-Qwen-2.5-1.5B**, pedagogy via Cerebras Combined Judge).
 - **FR-004**: System MUST формировать DPO pairs только within-task (chosen и rejected — completions одной задачи) для устранения cross-task confounders.
-- **FR-005**: System MUST обучать adapter с минимум одной epoch на 80GB GPU без NaN, output loadable через PEFT.
-- **FR-006**: System MUST производить минимум 2 ablations (−PRM, −NoSpoiler) для атрибуции вклада компонентов.
-- **FR-007**: System MUST evaluate финальный adapter на (а) custom 218-task honest benchmark, (б) MathTutorBench external benchmark.
-- **FR-008**: System MUST сохранять Cerebras judge scores и PRM scores в JSON-кэш с ключом sha256(prompt+completion) — повторные запуски используют кэш.
-- **FR-009**: System MUST публиковать всё на HF Hub (`Siesher/mits-qwen3-9b-nsvstar-dpo`, `*-ablation-noprm`, `*-ablation-nospoiler`) с model card, описывающим composite reward weights.
-- **FR-010**: System MUST документировать composite reward weights и обоснование их выбора в `research.md` (decision log + sensitivity sweep).
+- **FR-005**: System MUST обучать adapter с минимум одной epoch на 80GB+ GPU без NaN, output loadable через PEFT.
+- **FR-006**: System MUST производить **минимум 1 ablation (`-PRM`)** для атрибуции вклада PRM-component относительно baseline No-Spoiler работы.
+- **FR-007**: System MUST evaluate финальный adapter на (а) custom 218-task honest benchmark, (б) **100-task MathTutorBench spot check** (external validity sanity).
+- **FR-008**: System MUST сохранять Cerebras judge scores и PRM scores в JSON-кэш с ключом sha256(model_id+prompt+completion) — повторные запуски используют кэш.
+- **FR-009**: System MUST публиковать на HF Hub (`Siesher/mits-qwen3-9b-nsvstar-dpo`, `*-ablation-noprm`) с model card, описывающим composite reward weights и subset manifest.
+- **FR-010**: System MUST документировать composite reward weights `(0.5, 0.25, 0.25)` как **principled defaults** (Decision 2) — без эмпирического sensitivity sweep в lean scope.
 - **FR-011**: System MUST детерминистично восстанавливать seed_choice (best of base/GSPO/KTO) на основе Phase 0 honest report через `specs/019-ns-vstar-dpo/seed_choice.md`.
+- **FR-012**: System MUST publish stratified subset manifest (`data/vstar/subset_manifest.json`) с list of task_ids и proportion per (domain, difficulty) — для воспроизводимости и пояснения lean scope в diploma.
 
 ### Key Entities
 
@@ -136,10 +141,10 @@
 ### Measurable Outcomes
 
 - **SC-001**: Phase 0 honest re-eval завершён — известны bf16 `accuracy / socratic_score / leak_rate` для base/GSPO/KTO в едином протоколе. Заносится в `evaluation/reports/honest_full_precision_YYYYMMDD.json`.
-- **SC-002**: NS-V-STaR-DPO adapter улучшает Pareto front: либо `accuracy ≥ baseline + 1pp` без `socratic_drop > 2pp`, либо `socratic ≥ baseline + 2pp` без `accuracy_drop > 1pp` (на honest benchmark).
-- **SC-003**: Ablation −PRM показывает заметное падение (≥0.5pp) по reasoning-heavy подмножеству (multi-step problems в benchmark) — изолирует вклад PRM.
-- **SC-004**: Ablation −NoSpoiler показывает рост `leak_rate` (≥3pp) при сохранении accuracy — изолирует вклад pedagogy reward.
-- **SC-005**: На MathTutorBench финальная модель в worst case паритетна seed baseline, в best case — улучшает на ≥2pp (external validity).
-- **SC-006**: Бюджет вычислений ≤ 600 vu (RTX 6000 @ 8.71/h) → суммарно ≤ 68.9 GPU-hours включая generation, scoring, training, evaluations и ablations.
-- **SC-007**: Полная воспроизводимость: dataset cards на HF + commit hashes + JSON cache scores + Modelfile/training notebook коммитнуты в репозиторий.
-- **SC-008**: Diploma chapter (~10–12 pages в .docx) с honest numbers, Pareto chart, ablation table, discussion — готов к показу научному руководителю не позднее чем за 2 недели до защиты.
+- **SC-002**: NS-V-STaR-DPO adapter показывает direction-of-effect (lean-demo target, не SOTA): любое монотонное улучшение хотя бы по одной axis (accuracy ≥ baseline + 0.5pp ИЛИ socratic ≥ baseline + 1pp) без катастрофической регрессии (≤2pp drop) по другой. Wide CI допустим — задача demonstrate workability.
+- **SC-003**: Ablation `-PRM` показывает наблюдаемую разницу (≥0.3pp по reasoning subset ИЛИ изменение pedagogy ≥0.3pp) — direction-of-effect для PRM-component, даже если CI не пересекает ноль с p<0.05 на 1000-subset.
+- **SC-004**: На MathTutorBench-100 spot check финальная модель не показывает крупной деградации (worst case паритетна seed baseline на ±2pp) — sanity check external validity, без претензии на peer-comparable claim.
+- **SC-005**: Бюджет вычислений ≤ 200 vu (RTX 6000 Pro 96GB @ 8.71/h) → суммарно ≤ 23 GPU-hours; реальная цель ~140 vu, остальное — резерв на retries.
+- **SC-006**: Полная воспроизводимость: dataset cards на HF (subset manifest c task_ids) + commit hashes + JSON cache scores + training notebook коммитнуты в репозиторий.
+- **SC-007**: Diploma chapter (~10–12 pages в .docx) с honest numbers, Pareto chart, single-ablation table, **explicit "Limitations" section** обсуждающий lean-scope decisions — готов к показу научному руководителю не позднее чем за 2 недели до защиты.
+- **SC-008**: Section "Future Work" в diploma chapter включает: full-scale 3875-task replication, second ablation `-NoSpoiler` для completeness, multi-seed V-STaR, sensitivity sweep по reward weights — фиксирует scope для extended paper версии.
