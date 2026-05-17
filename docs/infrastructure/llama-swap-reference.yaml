@@ -1,0 +1,187 @@
+# llama-swap config с TurboQuant KV cache compression
+# Использовать ПОСЛЕ сборки .\scripts\build-turboquant.ps1 -Replace
+#
+# Активация: переименуй этот файл в llama-swap.yaml (предварительно
+# забекапь текущий) или скопируй:
+#   Copy-Item .\llama-swap\llama-swap.turbo.example.yaml `
+#             .\llama-swap\llama-swap.yaml -Force
+#
+# Что изменилось vs обычного llama-swap.yaml:
+#   --cache-type-k q4_0 → --cache-type-k turbo3   (3-bit KV)
+#   --cache-type-v q4_0 → --cache-type-v turbo3
+#   --ctx-size 262144   → --ctx-size 393216      (увеличен из-за экономии)
+#
+# Ожидаемые выигрыши (только при сборке с TurboQuant):
+#   - KV-кэш в 2.5-4× меньше vs q8_0, в 1.5-2× меньше vs q4_0
+#   - Качество на длинном контексте лучше чем q4_0 (near-lossless 3-bit)
+#   - Attention compute до 2× быстрее на Turing (4-8× на H100/Blackwell)
+
+healthCheckTimeout: 600
+logLevel: info
+
+models:
+
+  qwen36-short:
+    # Короткий контекст: оставляем q8_0 (память не критична, скорость в приоритете)
+    cmd: |
+      "C:/OpenCode/llama.cpp/llama-server.exe"
+      --model "C:/OpenCode/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf"
+      --model-draft "C:/OpenCode/Qwen3.5-0.8B-Q4_K_M.gguf"
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 65536
+      --ctx-size-draft 65536
+      -ngl 99
+      -ngld 99
+      --override-tensor "blk\.[0-9]+\.ffn_(up|down|gate)_exps\.weight=CPU"
+      --threads 16
+      --batch-size 2048
+      --ubatch-size 1024
+      --flash-attn on
+      --cache-type-k q8_0
+      --cache-type-v q8_0
+      --jinja
+      --parallel 1
+      --cache-ram 5120
+      --no-context-shift
+      --samplers "top_k;top_p;min_p;dry;temperature"
+      --dry-multiplier 0.3
+      --dry-base 1.5
+      --dry-allowed-length 4
+      --slot-save-path "C:/OpenCode/llama-cache"
+      --spec-draft-n-max 8
+      --spec-draft-n-min 4
+      --spec-draft-p-min 0.4
+    ttl: 1800
+
+  qwen36-mid:
+    # Средний контекст: turbo3 — 3-bit KV cache, ctx можно увеличить до 192K
+    cmd: |
+      "C:/OpenCode/llama.cpp/llama-server.exe"
+      --model "C:/OpenCode/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf"
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 196608
+      -ngl 99
+      --override-tensor "blk\.[0-9]+\.ffn_(up|down|gate)_exps\.weight=CPU"
+      --threads 16
+      --batch-size 2048
+      --ubatch-size 1024
+      --flash-attn on
+      --cache-type-k turbo3
+      --cache-type-v turbo3
+      --jinja
+      --parallel 1
+      --cache-ram 6144
+      --no-context-shift
+      --samplers "top_k;top_p;min_p;dry;temperature"
+      --dry-multiplier 0.3
+      --dry-base 1.5
+      --dry-allowed-length 4
+      --slot-save-path "C:/OpenCode/llama-cache"
+    ttl: 1800
+
+  qwen36-long:
+    # Длинный контекст: turbo3 + ctx 384K (раньше было 256K).
+    # Reasoning: q8_0@256K=3GB → turbo3@384K=~1.1GB на KV, всё ещё меньше старого.
+    cmd: |
+      "C:/OpenCode/llama.cpp/llama-server.exe"
+      --model "C:/OpenCode/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf"
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 393216
+      -ngl 99
+      --override-tensor "blk\.[0-9]+\.ffn_(up|down|gate)_exps\.weight=CPU"
+      --threads 16
+      --batch-size 2048
+      --ubatch-size 1024
+      --flash-attn on
+      --cache-type-k turbo3
+      --cache-type-v turbo3
+      --jinja
+      --parallel 1
+      --cache-ram 8192
+      --no-context-shift
+      --samplers "top_k;top_p;min_p;dry;temperature"
+      --dry-multiplier 0.3
+      --dry-base 1.5
+      --dry-allowed-length 4
+      --slot-save-path "C:/OpenCode/llama-cache"
+    ttl: 1800
+
+  # ─── MITS diploma eval configs (Phase 0a honest re-eval) ────────────
+  # Same TurboQuant turbo3 stack as production qwen36-* — eval mirrors deploy precision.
+  # Single config per stage; think/nothink controlled via API `chat_template_kwargs.enable_thinking`.
+  # Self-consistency batching via --parallel 3 (3 concurrent samples per problem).
+
+  mits-eval-base:
+    cmd: |
+      "C:/OpenCode/llama.cpp/llama-server.exe"
+      --model "C:/Work/MITS/training/models/mits-base.q4km.gguf"
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 32768
+      -ngl 99
+      --threads 16
+      --batch-size 2048
+      --ubatch-size 1024
+      --flash-attn on
+      --cache-type-k turbo3
+      --cache-type-v turbo3
+      --jinja
+      --parallel 3
+      --no-context-shift
+      --samplers "top_k;top_p;min_p;dry;temperature"
+      --dry-multiplier 0.3
+      --dry-base 1.5
+      --dry-allowed-length 4
+      --slot-save-path "C:/OpenCode/llama-cache"
+    ttl: 1800
+
+  mits-eval-gspo:
+    cmd: |
+      "C:/OpenCode/llama.cpp/llama-server.exe"
+      --model "C:/Work/MITS/training/models/mits-gspo.q4km.gguf"
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 32768
+      -ngl 99
+      --threads 16
+      --batch-size 2048
+      --ubatch-size 1024
+      --flash-attn on
+      --cache-type-k turbo3
+      --cache-type-v turbo3
+      --jinja
+      --parallel 3
+      --no-context-shift
+      --samplers "top_k;top_p;min_p;dry;temperature"
+      --dry-multiplier 0.3
+      --dry-base 1.5
+      --dry-allowed-length 4
+      --slot-save-path "C:/OpenCode/llama-cache"
+    ttl: 1800
+
+  mits-eval-kto:
+    cmd: |
+      "C:/OpenCode/llama.cpp/llama-server.exe"
+      --model "C:/Work/MITS/training/models/mits-kto.q4km.gguf"
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 32768
+      -ngl 99
+      --threads 16
+      --batch-size 2048
+      --ubatch-size 1024
+      --flash-attn on
+      --cache-type-k turbo3
+      --cache-type-v turbo3
+      --jinja
+      --parallel 3
+      --no-context-shift
+      --samplers "top_k;top_p;min_p;dry;temperature"
+      --dry-multiplier 0.3
+      --dry-base 1.5
+      --dry-allowed-length 4
+      --slot-save-path "C:/OpenCode/llama-cache"
+    ttl: 1800
