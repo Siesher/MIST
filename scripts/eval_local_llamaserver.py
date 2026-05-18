@@ -58,21 +58,18 @@ SYSTEM_PROMPT_CALC = (
     "Ты — репетитор по STEM. Реши задачу пошагово и запиши ОДИН финальный ответ в \\boxed{}."
 )
 
-# Adaptive sampling configs — temperature/top_k/etc. mirror llama-swap.yaml server defaults.
-# Server's DRY sampler handles anti-repetition; client only specifies sampling diversity.
-#
-# THINK mode: NO max_tokens — production-aligned. Model self-terminates via <|im_end|>
-# after </think> + final answer. DRY sampler prevents pathological loops.
-# Effective ceiling = --ctx-size 32768 (set in llama-swap.yaml).
+# Production config — Phase 0a honest re-eval at May 17 proven baseline.
+# Tested both T=0.7 (May 17 smoke: base+gspo 0.667) and T=0.65 (May 18 smoke: all 0.333).
+# T=0.7 won on symbolic emergence ($v_0$) — wider exploration helps escape numeric basin.
+# DRY sampler server-side handles anti-repetition.
 DECODING_CONFIG_THINK = {
-    # max_tokens intentionally omitted — let model self-terminate (production parity)
+    # max_tokens omitted — model self-terminates (production parity для thinking phase)
     "temperature": 0.7,
     "top_p": 0.95,
     "top_k": 20,
     "min_p": 0,
 }
 
-# NOTHINK mode: keep cap — purpose is fast direct answer, 4K plenty для commit.
 DECODING_CONFIG_NOTHINK = {
     "max_tokens": 4096,
     "temperature": 0.7,
@@ -87,9 +84,13 @@ PER_TOKEN_TIMEOUT_S = 60
 WALLCLOCK_CAP_S = 1200
 MAX_CONSECUTIVE_ERRORS = 2
 
+# Self-consistency N=3..5 — empirically proven baseline (May 17 smoke).
+# Tried N=5..7 + stride=7 + T=0.65 (May 18 smoke): all variants regressed
+# (lost GSPO Problem 2 $v_0$ commitment). Reverted к known-good config.
 MIN_SAMPLES = 3
 MAX_SAMPLES = 5
 BASE_SEED = 42
+SEED_STRIDE = 1
 
 EARLY_STOP_BOXED_RE = re.compile(r"\\boxed\{[^{}]*[^.\s{}][^{}]*\}")
 
@@ -416,6 +417,11 @@ def call_llama_server_stream(
             "content": full_content,
         }
 
+    # Fallback approximation если llama.cpp build не emits usage в SSE chunks.
+    # ~4 chars per token average для multilingual (Russian + English math).
+    if n_tokens == 0 and (full_thinking or full_content):
+        n_tokens = (len(full_thinking) + len(full_content)) // 4
+
     return {
         "elapsed_s": time.time() - t0,
         "tokens": n_tokens,
@@ -478,7 +484,7 @@ def eval_stage(stage_name: str, problems: list[dict]) -> dict:
                         call_llama_server_stream,
                         model_tag,
                         prompt,
-                        BASE_SEED + idx,
+                        BASE_SEED + idx * SEED_STRIDE,
                         enable_thinking,
                     ): idx
                     for idx in indices
@@ -487,7 +493,7 @@ def eval_stage(stage_name: str, problems: list[dict]) -> dict:
 
             for idx in sorted(results.keys()):
                 r = results[idx]
-                seed_i = BASE_SEED + idx
+                seed_i = BASE_SEED + idx * SEED_STRIDE
 
                 if r["done_reason"] == "error" and r["tokens"] == 0 and r["elapsed_s"] < 10:
                     consecutive_errors += 1
