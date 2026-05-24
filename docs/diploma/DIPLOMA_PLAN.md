@@ -117,7 +117,7 @@
 - **Sequence diagram** стриминга (диаграмма 7)
 
 #### 2.7. Проектирование пайплайна обучения (~2 стр.)
-- 3-стадийная архитектура: GSPO → RAFT++ → DPO
+- 4-стадийная архитектура: GSPO → KTO → DPO → V-STaR-DPO
 - Обоснование удаления SFT (Instruct-модель уже умеет диалог)
 - **Блок-схема** пайплайна (диаграмма 3)
 - Потоки данных (диаграмма 4)
@@ -157,17 +157,47 @@
 - Кеширование: TTL-based, prompt hash
 - Batch processing и оптимизации
 
-#### 3.5. Реализация пайплайна обучения (~4 стр.)
-- Stage 1 — GSPO: 7 оптимизаций (Dr.GRPO, ReDit, GDPO, LEAD, Clip-Higher, Zero-Var, Seq-IS)
-- Stage 2 — RAFT++: GVM динамическая аллокация, negative saving, `native_matmul()` оптимизация
-- Stage 3 — DPO: preference pairs из RAFT++ негативов
-- Таблица гиперпараметров для каждой стадии
-- Инфраструктура: Google Colab A100, HuggingFace Hub, checkpoint recovery
+#### 3.5. Stage 1 — GSPO с тройной GDPO-наградой (~3 стр.)
+- Группы по G=8-16 completions на промпт, sequence-level importance sampling (ε=3e-4)
+- Тройная GDPO-нормированная награда: correctness 0.7 + format 0.15 + Socratic 0.15
+- 7 оптимизаций: Dr.GRPO, ReDit (reward dithering σ=0.05), GDPO, LEAD, Clip-Higher, Zero-Var Mask, Seq-IS
+- ThinkingBudgetProcessor: гарантированное завершение `</think>` (бюджет 1500 токенов)
+- Curriculum: easy → medium → hard
+- Гиперпараметры: LoRA r=16/α=32, lr=5e-7, MAX_COMPLETION=2048
+- Чекпойнт: HF `Siesher/mits-qwen3-9b-gspo`
 
-#### 3.6. Бенчмарк и инструменты оценки (~2 стр.)
+#### 3.6. Stage 2 — KTO Socratic alignment (~3 стр.)
+- Теория KTO (Kahneman-Tversky Optimization, Ethayarajh 2024): выравнивание через value-функцию из prospect theory (Tversky & Kahneman 1992) вместо парного DPO-лосса
+- Ключевое преимущество над RAFT++/DPO: **unpaired** preferences — каждый пример помечается desirable/undesirable независимо, не требует chosen/rejected пар
+- Loss aversion: асимметричные веса desirable (λ_D) vs undesirable (λ_U) сигналов
+- Датасет: `data/training/dialogs.jsonl` (3875 Socratic dialogues) + `training/data/preference_pairs.jsonl` (12597 pairs, разложены в unpaired)
+- Цель стадии: повысить долю ответов с сократическими вопросами (наводящие vs прямой ответ)
+- Гиперпараметры: LoRA r=16, lr=5e-7, β=0.1, batch=8, 2 epochs
+- Чекпойнт: HF `Siesher/mits-qwen3-9b-kto`
+
+#### 3.7. Stage 3 — DPO базовая polish (~2 стр.)
+- Direct Preference Optimization (Rafailov 2023): финальная полировка формата и стиля
+- Preference pairs из контрастов KTO-выходов (desirable vs undesirable генерации)
+- Фокус: устранение остаточных format-нарушений, стабилизация длины ответа
+- Гиперпараметры: β=0.1, lr=5e-7, 1 epoch
+- Чекпойнт: HF `Siesher/mits-qwen3-9b-final`
+
+#### 3.8. Stage 4 — V-STaR-DPO composite (Phase 019) (~3-4 стр.)
+- Теория V-STaR (Hosseini 2024): Variational STaR — генерация N траекторий на задачу, отбор verifier'ом → within-task preference pairs
+- **Composite scorer**: `correctness × 0.5 + PRM × 0.3 + no_spoiler_judge × 0.2`
+  - correctness — SymPy/ChemPy верификация финального ответа
+  - PRM — **process** reward (Skywork-o1-Open-PRM-Qwen-2.5-1.5B, Math-Shepherd-style): оценивает корректность reasoning-шагов, не только финальный ответ
+  - no_spoiler_judge — LLM-судья педагогической пригодности (наводит, не выдаёт решение; Daheim 2024)
+- **Hard-only pivot** (Option B): фокус на failure mode регрессии Phase 0a — обучение только на hard-задачах
+- Within-task pairing: best vs worst траектория из N=4 на одну задачу → DPO-пара
+- Subset: 426 hard-задач (math 100, physics 100, chemistry 48, biology 78, cs 100) → 1692 траектории
+- Источник subset: `rl_combined.jsonl`, 0% overlap с eval (verified)
+- Чекпойнт: HF `Siesher/mits-qwen3-9b-vstar` (planned)
+
+#### 3.9. Бенчмарк и инструменты оценки (~2 стр.)
 - build_eval_benchmark.py: сборка из MGSM + ruMMLU + custom (3678 задач)
 - evaluate_stage.py: inference + verify (SymPy, ChemPy) + report
-- Структура отчетов: per-domain accuracy, answer extraction rate
+- Структура отчетов: per-domain accuracy, answer extraction rate, truncation rate
 
 **Выводы по главе 3:** система полностью реализована и готова к экспериментальной оценке
 
@@ -188,28 +218,41 @@
 - Анализ: сильные/слабые стороны, типичные ошибки
 
 #### 4.3. Результаты по стадиям обучения (~5 стр.)
-- **Таблица:** Accuracy per stage per domain (Base → GSPO → RAFT++ → DPO)
-- **Графики:** Кривые обучения, convergence plots
-- Stage 1 (GSPO): RL with verifiable rewards + curriculum
-- Stage 2 (RAFT++): rejection sampling + quality filtering
-- Stage 3 (DPO): preference learning + format polishing
+- **Таблица:** Accuracy per stage per domain — колонки: Domain | Base | GSPO | KTO | DPO | V-STaR-DPO (4 stage-колонки + Base)
+- **Графики:** Кривые обучения, convergence plots по стадиям
+- Stage 1 (GSPO): RL with verifiable rewards + curriculum — +8.4 п.п. (55.1% → 63.5%)
+- Stage 2 (KTO): Socratic alignment — +1.3 п.п. (63.5% → 64.8%)
+- Stage 3 (DPO): format polish — +1.7 п.п. (64.8% → 66.5%)
+<!-- TODO[V-STaR-final]: Заменить после full run -->
+- Stage 4 (V-STaR-DPO): +X.X п.п. (66.5% → Y.Y%)
 
 #### 4.4. Ablation study (~3 стр.)
-- Вклад каждой из 7 оптимизаций GSPO
+- Вклад каждой из 7 оптимизаций GSPO (Dr.GRPO, ReDit, GDPO, LEAD, Clip-Higher, Zero-Var, Seq-IS)
+- Эффект ThinkingBudgetProcessor: с ним 14.3% обрезок vs 100% без него
 - Эффект curriculum learning (easy→hard vs random)
-- Эффект GVM dynamic allocation vs flat generation
-- Эффект negative saving для DPO
+- **KTO β-tuning**: влияние β и асимметрии λ_D/λ_U на долю сократических вопросов
+- **V-STaR composite weights**: ablation весов scorer (correctness/PRM/no-spoiler), вариант −PRM (lean-demo)
+- Эффект hard-only pivot vs полный difficulty mix
 
 #### 4.5. Качественный анализ (~3 стр.)
 - Примеры сократических диалогов (2-3 примера: math, physics, chemistry)
 - Сравнение: базовая модель vs дообученная (стиль, точность, метод)
 - Анализ move types: scaffolding, problematize, rectify, encourage
+- Примеры V-STaR within-task pairs: best vs worst траектория одной hard-задачи (различия в reasoning quality и no-spoiler соблюдении)
 - Качество thinking-рассуждений
 
 #### 4.6. Анализ Knowledge Tracing (~2 стр.)
 - Точность предсказания BKT vs DKT vs combined
 - Корреляция mastery score и реальной успеваемости
 - Adaptive difficulty: работает ли подстройка сложности
+
+#### 4.7. Детальный анализ V-STaR-DPO (~3 стр.)
+- **Pareto-фронт**: trade-off correctness vs no-spoiler score — показать что composite scoring находит решения, недостижимые при оптимизации одной метрики
+- Per-domain V-STaR gains: какие домены выиграли больше от hard-only обучения
+<!-- TODO[V-STaR-final]: Заменить после full run -->
+- Hard subset accuracy: A.A% → B.B%
+- Анализ yield: доля usable траекторий (~33% на sanity), распределение по N=4
+- Эффект PRM: корреляция process-reward и финальной корректности на hard-задачах
 
 **Выводы по главе 4:** подтверждение эффективности пайплайна дообучения (+11.4%) и мультиагентной архитектуры
 
@@ -253,6 +296,30 @@
 14. Ames et al. (2024). Clip-Higher: Asymmetric Clipping for GRPO. *arXiv*.
 15. Bloom (1956). Taxonomy of Educational Objectives. *Longmans*.
 16. Vygotsky (1978). Mind in Society: Development of Higher Psychological Processes. *Harvard UP*.
+17. Koedinger, K. R., & Anderson, J. R. (1997). Intelligent Tutoring Goes To School in the Big City. *International Journal of Artificial Intelligence in Education*, 8.
+18. Aleven, V., et al. (2016). Instruction Based on Adaptive Learning Technologies. In *Handbook of Research on Learning and Instruction* (2nd ed.). Routledge.
+19. Wood, D., Bruner, J. S., & Ross, G. (1976). The Role of Tutoring in Problem Solving. *Journal of Child Psychology and Psychiatry*, 17(2).
+20. Chi, M. T. H. (2009). Active-Constructive-Interactive: A Conceptual Framework. *Topics in Cognitive Science*, 1(1).
+21. Vaswani, A., et al. (2017). Attention is All You Need. *NeurIPS*.
+22. Brown, T., et al. (2020). Language Models are Few-Shot Learners (GPT-3). *NeurIPS*.
+23. Wei, J., et al. (2022). Chain-of-Thought Prompting Elicits Reasoning in LLMs. *NeurIPS*.
+24. Wang, X., et al. (2022). Self-Consistency Improves Chain-of-Thought Reasoning. *ICLR 2023*. arXiv:2203.11171.
+25. Guo, D., et al. (2025). DeepSeek-R1: Incentivizing Reasoning Capability via RL. arXiv:2501.12948.
+26. Schulman, J., et al. (2017). Proximal Policy Optimization Algorithms. arXiv:1707.06347.
+27. Ouyang, L., et al. (2022). Training Language Models to Follow Instructions with Human Feedback (InstructGPT). *NeurIPS*.
+28. Hu, E. J., et al. (2021). LoRA: Low-Rank Adaptation of Large Language Models. *ICLR 2022*. arXiv:2106.09685.
+29. Muennighoff, N., et al. (2025). s1: Simple Test-Time Scaling. arXiv:2501.19393.
+30. Pandey, S., & Karypis, G. (2019). A Self-Attentive Model for Knowledge Tracing (SAKT). *EDM*. arXiv:1907.06837.
+31. Yudelson, M. V., Koedinger, K. R., & Gordon, G. J. (2013). Individualized Bayesian Knowledge Tracing Models. *AIED*.
+32. Ethayarajh, K., et al. (2024). KTO: Model Alignment as Prospect Theoretic Optimization. arXiv:2402.01306.
+33. Tversky, A., & Kahneman, D. (1992). Advances in Prospect Theory: Cumulative Representation of Uncertainty. *Journal of Risk and Uncertainty*, 5(4).
+34. Hosseini, A., et al. (2024). V-STaR: Training Verifiers for Self-Taught Reasoners. arXiv:2402.06457.
+35. Wang, P., et al. (2024). Math-Shepherd: Verify and Reinforce LLMs Step-by-step. *ACL 2024*. arXiv:2312.08935.
+36. Skywork Team. (2024). Skywork-o1-Open-PRM-Qwen-2.5-1.5B [Model card]. *HuggingFace*.
+37. Cobbe, K., et al. (2021). Training Verifiers to Solve Math Word Problems (GSM8K). arXiv:2110.14168.
+38. Hendrycks, D., et al. (2021). Measuring Massive Multitask Language Understanding (MMLU). *ICLR 2021*.
+39. Shi, F., et al. (2023). Language Models are Multilingual Chain-of-Thought Reasoners (MGSM). *ICLR 2023*. arXiv:2210.03057.
+40. Daheim, N., et al. (2024). Stepwise Verification and Remediation of Student Reasoning Errors with LLM Tutors. *EMNLP 2024*. arXiv:2407.09136.
 
 **Технические источники (библиотеки и фреймворки):**
 - Next.js 14, FastAPI, SQLAlchemy, Ollama, Unsloth, TRL, PEFT, ChromaDB, SymPy
@@ -270,7 +337,7 @@
 
 #### Приложение Б. Листинги ключевого кода (~10-15 стр.)
 - Orchestrator.process_turn() — координация агентов
-- generate_and_filter() — RAFT++ генерация с GVM
+- vstar_generate() — V-STaR генерация N траекторий + composite scorer
 - native_matmul() — оптимизация inference для Unsloth
 - verify_completion() — верификация ответов (SymPy/ChemPy)
 - useChat hook — фронтенд стриминг
