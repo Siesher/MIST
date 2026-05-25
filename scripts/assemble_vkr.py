@@ -75,7 +75,14 @@ def md_to_fragment(md_path: Path, pandoc: str) -> Path:
     """pandoc md -> временный docx с OMML-формулами и стилями образца."""
     frag = Path(tempfile.gettempdir()) / f"_vkr_frag_{md_path.stem}.docx"
     subprocess.run(
-        [pandoc, str(md_path), f"--reference-doc={TEMPLATE}", "-o", str(frag)],
+        [
+            pandoc,
+            str(md_path),
+            "--shift-heading-level-by=1",
+            f"--reference-doc={TEMPLATE}",
+            "-o",
+            str(frag),
+        ],
         check=True,
         capture_output=True,
         text=True,
