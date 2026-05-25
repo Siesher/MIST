@@ -54,9 +54,10 @@ graph TB
     end
 
     subgraph TRAINING["ML Pipeline — Google Colab A100"]
-        GSPO["Stage 1: GSPO"]
-        RAFT["Stage 2: RAFT++"]
-        DPO["Stage 3: DPO"]
+        GSPO["Stage 1: GSPO<br/>triple reward"]
+        KTO["Stage 2: KTO<br/>Socratic alignment"]
+        DPO["Stage 3: DPO<br/>basic polish"]
+        VSTAR["Stage 4: V-STaR-DPO<br/>composite scoring"]
         Eval["Evaluation<br/>3678 задач"]
         HF["HuggingFace Hub<br/>Адаптеры + Датасеты"]
     end
@@ -94,11 +95,11 @@ graph TB
     Ollama --> Model
     Tutor --> Cache
 
-    GSPO --> RAFT --> DPO
-    DPO -->|export GGUF| Model
+    GSPO --> KTO --> DPO --> VSTAR
+    VSTAR -->|export GGUF| Model
     Eval --> HF
     GSPO --> HF
-    RAFT --> HF
+    VSTAR --> HF
 
     style USER fill:#e1f5fe
     style FRONTEND fill:#e8f5e9
@@ -181,7 +182,7 @@ flowchart TD
 
 ---
 
-## 3. Пайплайн обучения (3-Stage RL)
+## 3. Пайплайн обучения (4-Stage RL)
 
 ```mermaid
 flowchart LR
@@ -194,20 +195,25 @@ flowchart LR
         G1 --> G2 --> G3
     end
 
-    subgraph S2["Stage 2: RAFT++"]
-        R1["GVM-RAFT<br/>Динамическая аллокация"]
-        R2["800 задач/раунд<br/>Стратифицированная выборка"]
-        R3["SFT на верных<br/>решениях"]
-        R4["Сохранение негативов<br/>→ DPO"]
-        R1 --> R2 --> R3
-        R2 --> R4
+    subgraph S2["Stage 2: KTO"]
+        K1["Kahneman-Tversky<br/>Optimization"]
+        K2["Unpaired preferences<br/>desirable/undesirable"]
+        K3["Socratic alignment<br/>β=0.1"]
+        K1 --> K2 --> K3
     end
 
     subgraph S3["Stage 3: DPO"]
-        D1["Пары (chosen, rejected)<br/>из RAFT++ негативов"]
+        D1["Пары (chosen, rejected)<br/>из контрастов KTO"]
         D2["Полировка формата<br/>и стиля"]
-        D3["β=0.1,<br/>SimPO loss"]
+        D3["β=0.1"]
         D1 --> D2 --> D3
+    end
+
+    subgraph S4["Stage 4: V-STaR-DPO"]
+        V1["V-STaR generation<br/>N=4 траектории/задача"]
+        V2["Composite scorer<br/>correct×0.5 + PRM×0.3 + no-spoiler×0.2"]
+        V3["Within-task pairing<br/>best vs worst"]
+        V1 --> V2 --> V3
     end
 
     subgraph EVAL["Evaluation"]
@@ -225,18 +231,21 @@ flowchart LR
     Base --> S1
     S1 --> S2
     S2 --> S3
-    S3 --> EVAL
-    S3 --> DEPLOY
+    S3 --> S4
+    S4 --> EVAL
+    S4 --> DEPLOY
     DEP1 --> DEP2 --> DEP3
 
     S1 -.->|checkpoint| HF1["HF: mits-qwen3-9b-gspo"]
-    S2 -.->|checkpoint| HF2["HF: mits-qwen3-9b-raft"]
+    S2 -.->|checkpoint| HF2["HF: mits-qwen3-9b-kto"]
     S3 -.->|checkpoint| HF3["HF: mits-qwen3-9b-final"]
+    S4 -.->|checkpoint| HF4["HF: mits-qwen3-9b-vstar"]
     EVAL -.->|reports| Reports["evaluation/reports/*.json"]
 
     style S1 fill:#e3f2fd
     style S2 fill:#e8f5e9
     style S3 fill:#fce4ec
+    style S4 fill:#fff3e0
     style EVAL fill:#f3e5f5
     style DEPLOY fill:#e0f2f1
 ```
@@ -263,20 +272,21 @@ flowchart TB
     subgraph DATASETS["Датасеты"]
         EvalDS["eval_dataset.jsonl<br/>3678 задач (бенчмарк)"]
         TrainDS["training_dataset.jsonl<br/>RL обучение"]
-        NegDS["raft_negatives.jsonl<br/>Негативы для DPO"]
+        VstarDS["vstar_trajectories_hard.jsonl<br/>426 × N=4 траектории"]
     end
 
     subgraph TRAINING_FLOW["Обучение (Colab A100)"]
         Stage1["GSPO<br/>grpo_qwen3.5_9b.ipynb"]
-        Stage2["RAFT++<br/>raft_plus_qwen3.5_9b.ipynb"]
+        Stage2["KTO<br/>kto_qwen3.5_9b.ipynb"]
         Stage3["DPO<br/>dpo_polish_qwen3.5_9b.ipynb"]
+        Stage4["V-STaR-DPO<br/>ns_vstar_dpo.ipynb"]
     end
 
     subgraph ARTIFACTS["Артефакты"]
         Adapters["LoRA адаптеры<br/>HuggingFace Hub"]
         GGUF["GGUF модель<br/>Q4_K_M квантизация"]
         Reports["Отчеты оценки<br/>evaluation/reports/"]
-        Negatives["Негативные пары<br/>RAFT++ → DPO"]
+        VstarPairs["vstar_dpo_pairs.jsonl<br/>within-task pairs"]
     end
 
     subgraph INFERENCE["Инференс (локально)"]
@@ -299,13 +309,16 @@ flowchart TB
     TrainDS --> Stage1
     Stage1 --> Stage2
     Stage2 --> Stage3
-    Stage2 -->|negatives| NegDS
-    NegDS --> Stage3
+    Stage3 --> Stage4
+    Stage4 -->|trajectories| VstarDS
+    VstarDS --> VstarPairs
+    VstarPairs --> Stage4
 
     Stage1 --> Adapters
     Stage2 --> Adapters
     Stage3 --> Adapters
-    Stage3 --> GGUF
+    Stage4 --> Adapters
+    Stage4 --> GGUF
 
     EvalDS --> Reports
 
