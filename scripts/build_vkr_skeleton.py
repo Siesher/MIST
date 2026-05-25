@@ -247,6 +247,40 @@ STRUCTURE = [
     ),
 ]
 
+# Маппинг текста заголовка -> id файла контента (docs/diploma/chapters/{id}.md)
+SECTION_IDS = {
+    "ВВЕДЕНИЕ": "00_introduction",
+    "1.1. Интеллектуальные обучающие системы (ITS)": "01-1_its",
+    "1.2. Педагогические теории в контексте ITS": "01-2_pedagogy",
+    "1.3. Большие языковые модели для образования": "01-3_llm",
+    "1.4. Обучение с подкреплением для языковых моделей": "01-4_rl",
+    "1.5. Отслеживание знаний (Knowledge Tracing)": "01-5_kt",
+    "2.1. Требования к системе": "02-1_requirements",
+    "2.2. Общая архитектура": "02-2_architecture",
+    "2.3. Мультиагентная архитектура": "02-3_multiagent",
+    "2.4. Модель ученика и Knowledge Tracing": "02-4_kt",
+    "2.5. RAG-система": "02-5_rag",
+    "2.6. Система стриминга": "02-6_streaming",
+    "2.7. Проектирование пайплайна обучения": "02-7_pipeline",
+    "3.1. Реализация фронтенда": "03-1_frontend",
+    "3.2. Реализация бэкенда": "03-2_backend",
+    "3.3. Реализация мультиагентного ядра": "03-3_agents",
+    "3.4. Реализация LLM inference": "03-4_inference",
+    "3.5. Stage 1 — GSPO с тройной GDPO-наградой": "03-5_gspo",
+    "3.6. Stage 2 — KTO Socratic alignment": "03-6_kto",
+    "3.7. Stage 3 — DPO базовая polish": "03-7_dpo",
+    "3.8. Stage 4 — V-STaR-DPO composite": "03-8_vstar",
+    "3.9. Бенчмарк и инструменты оценки": "03-9_benchmark",
+    "4.1. Методология эксперимента": "04-1_methodology",
+    "4.2. Результаты базовой модели": "04-2_baseline",
+    "4.3. Результаты по стадиям обучения": "04-3_per_stage",
+    "4.4. Ablation study": "04-4_ablation",
+    "4.5. Качественный анализ": "04-5_qualitative",
+    "4.6. Анализ Knowledge Tracing": "04-6_kt",
+    "4.7. Детальный анализ V-STaR-DPO": "04-7_vstar",
+    "ЗАКЛЮЧЕНИЕ": "99_conclusion",
+}
+
 APPENDICES = [
     "ПРИЛОЖЕНИЕ А. Скриншоты интерфейса",
     "ПРИЛОЖЕНИЕ Б. Листинги ключевого кода",
@@ -323,7 +357,8 @@ def build_back_matter(doc) -> None:
         add_placeholder(doc, f"[{app}: содержимое — см. план]")
 
 
-def main() -> None:
+def build_document():
+    """Строит документ-каркас в памяти (без сохранения). Возвращает Document."""
     doc = Document(str(TEMPLATE))
     clear_content_from_cutpoint(doc)
     fill_title_page(doc)
@@ -331,6 +366,11 @@ def main() -> None:
     add_toc_field(doc)
     build_structure(doc)
     build_back_matter(doc)
+    return doc
+
+
+def main() -> None:
+    doc = build_document()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(OUT))
     print(f"[ok] skeleton built -> {OUT}")
