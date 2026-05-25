@@ -99,24 +99,73 @@ FIGURES = [
         "скриншоты интерфейса",
         [
             (
-                "docs/diploma/Снимок экрана 2026-04-28 102724.png",
-                "Интерфейс чата MITS: рендеринг формул KaTeX и панель рассуждений",
-            )
+                "figures/fig_frontend.png",
+                "Интерфейс MITS: сократический диалог, панель рассуждений и трекинг освоения навыков",
+            ),
+        ],
+    ),
+    (
+        "блок-схема общей архитектуры",
+        [
+            ("figures/diag_1.png", "Общая архитектура системы MITS (Frontend → Backend → AI Core)"),
+        ],
+    ),
+    (
+        "конвейера агентов",
+        [
+            (
+                "figures/diag_2.png",
+                "Мультиагентный конвейер: Profiler → Planner → Tutor → Verifier",
+            ),
+        ],
+    ),
+    (
+        "sequence diagram стриминга",
+        [
+            ("figures/diag_7.png", "Диаграмма последовательности WebSocket-стриминга"),
+        ],
+    ),
+    (
+        "4-стадийного пайплайна",
+        [
+            ("figures/diag_3.png", "4-стадийный пайплайн обучения: GSPO → KTO → DPO → V-STaR-DPO"),
+        ],
+    ),
+    (
+        "базовая точность",
+        [
+            ("figures/fig_baseline_domains.png", "Базовая точность Qwen3.5-9B по STEM-доменам"),
+        ],
+    ),
+    (
+        "convergence plots",
+        [
+            (
+                "figures/fig_per_stage.png",
+                "Точность по стадиям обучения и доменам (Base → GSPO → KTO → DPO)",
+            ),
         ],
     ),
     (
         "кривые обучения GSPO",
         [
-            (
-                "figures/01_loss_reward.png",
-                "Динамика функции потерь и суммарной награды (стадия GSPO)",
-            ),
+            ("figures/01_loss_reward.png", "Динамика функции потерь и суммарной награды (GSPO)"),
             (
                 "figures/02_reward_decomposition.png",
                 "Декомпозиция тройной награды: корректность, формат, сократичность",
             ),
             ("figures/03_learning_rate.png", "Расписание скорости обучения (learning rate)"),
             ("figures/04_gradient_norm.png", "Норма градиента в процессе обучения GSPO"),
+        ],
+    ),
+    (
+        "гистограмма n_correct",
+        [
+            (
+                "figures/fig_ncorrect_hist.png",
+                "Бимодальное распределение n_correct (V-STaR, 426 hard-задач)",
+            ),
+            ("figures/fig_vstar_yield.png", "Выход within-task пар по доменам (V-STaR)"),
         ],
     ),
 ]

@@ -1,0 +1,101 @@
+graph TB
+    subgraph USER["Пользователь (Браузер)"]
+        Browser["Next.js 14 SPA"]
+    end
+
+    subgraph FRONTEND["Frontend — Next.js 14 + TypeScript"]
+        Pages["Страницы<br/>Auth | Chat | Dashboard | Profile"]
+        Hooks["Хуки<br/>useChat | useWebSocket"]
+        Store["Zustand Store<br/>chatStore.ts"]
+        API_Client["REST/WS клиент<br/>api.ts"]
+    end
+
+    subgraph BACKEND["Backend — FastAPI + Python 3.11"]
+        Router["API Router v1"]
+        Auth["Аутентификация<br/>JWT + Argon2"]
+        WS["WebSocket<br/>Streaming"]
+        REST["REST API<br/>25+ эндпоинтов"]
+        OrcService["Orchestrator Service<br/>Мост async↔sync"]
+        Analytics["Analytics Service"]
+        DB["SQLite<br/>Users | Sessions | Messages"]
+    end
+
+    subgraph AGENTS["Мультиагентное ядро — Python"]
+        Orchestrator["Оркестратор<br/>orchestrator.py"]
+        Profiler["Профилировщик<br/>Диагностика ученика"]
+        Planner["Планировщик<br/>Выбор стратегии"]
+        Tutor["Тьютор<br/>Сократический диалог"]
+        Verifier["Верификатор<br/>Контроль качества"]
+        Affective["Аффективный агент<br/>Детекция эмоций"]
+        TaskGen["Генератор задач"]
+    end
+
+    subgraph KNOWLEDGE["Система знаний"]
+        KT["Knowledge Tracing<br/>BKT + DKT"]
+        RAG["RAG<br/>ChromaDB + Embeddings"]
+        SkillGraph["Граф навыков<br/>skill_graph.json"]
+        FewShot["Few-Shot банк<br/>Примеры решений"]
+        Misconceptions["База заблуждений"]
+    end
+
+    subgraph LLM["LLM Inference"]
+        Ollama["Ollama Server<br/>localhost:11434"]
+        Model["Qwen3.5-9B<br/>Fine-tuned (GGUF Q4_K_M)"]
+        Cache["Кеш ответов"]
+    end
+
+    subgraph TRAINING["ML Pipeline — Google Colab A100"]
+        GSPO["Stage 1: GSPO<br/>triple reward"]
+        KTO["Stage 2: KTO<br/>Socratic alignment"]
+        DPO["Stage 3: DPO<br/>basic polish"]
+        VSTAR["Stage 4: V-STaR-DPO<br/>composite scoring"]
+        Eval["Evaluation<br/>3678 задач"]
+        HF["HuggingFace Hub<br/>Адаптеры + Датасеты"]
+    end
+
+    Browser <-->|HTTP/WS| FRONTEND
+    Pages --> Hooks
+    Hooks --> Store
+    Hooks --> API_Client
+
+    API_Client <-->|REST + WebSocket| Router
+    Router --> Auth
+    Router --> WS
+    Router --> REST
+    WS --> OrcService
+    REST --> OrcService
+    REST --> Analytics
+    OrcService --> DB
+    Analytics --> DB
+
+    OrcService -->|process_turn| Orchestrator
+    Orchestrator --> Profiler
+    Orchestrator --> Planner
+    Orchestrator --> Tutor
+    Orchestrator --> Verifier
+    Orchestrator --> Affective
+    Orchestrator --> TaskGen
+
+    Profiler --> KT
+    Tutor --> RAG
+    Planner --> SkillGraph
+    Tutor --> FewShot
+    Profiler --> Misconceptions
+
+    Tutor -->|generate_stream| Ollama
+    Ollama --> Model
+    Tutor --> Cache
+
+    GSPO --> KTO --> DPO --> VSTAR
+    VSTAR -->|export GGUF| Model
+    Eval --> HF
+    GSPO --> HF
+    VSTAR --> HF
+
+    style USER fill:#e1f5fe
+    style FRONTEND fill:#e8f5e9
+    style BACKEND fill:#fff3e0
+    style AGENTS fill:#fce4ec
+    style KNOWLEDGE fill:#f3e5f5
+    style LLM fill:#e0f2f1
+    style TRAINING fill:#fff9c4

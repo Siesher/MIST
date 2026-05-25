@@ -1,0 +1,39 @@
+flowchart TD
+    Input["Ответ ученика<br/>(skill, correct, timestamp)"]
+
+    subgraph BKT["Bayesian Knowledge Tracing"]
+        B1["P(L₀) = prior"]
+        B2["P(L_t+1) = P(L_t) + (1-P(L_t))×p_t"]
+        B3["p_t = P(correct | learned)"]
+        B4["slip = P(incorrect | learned)"]
+        B1 --> B2
+        B3 --> B2
+        B4 --> B2
+    end
+
+    subgraph DKT["Deep Knowledge Tracing"]
+        D1["Embedding<br/>skill_id → vector"]
+        D2["LSTM cell<br/>hidden_state_t"]
+        D3["Linear → σ<br/>P(mastery)"]
+        D1 --> D2 --> D3
+    end
+
+    subgraph COMBINE["Комбинирование"]
+        C1["mastery = 0.4×BKT + 0.5×DKT + 0.1×recency"]
+        C2{"mastery ≥ 0.7?"}
+        C3["Навык освоен ✓"]
+        C4["Продолжить<br/>обучение"]
+        C1 --> C2
+        C2 -->|Да| C3
+        C2 -->|Нет| C4
+    end
+
+    Input --> BKT
+    Input --> DKT
+    BKT -->|"P(L)"| COMBINE
+    DKT -->|"P(mastery)"| COMBINE
+    COMBINE --> Planner["→ Планировщик<br/>(выбор стратегии)"]
+
+    style BKT fill:#e3f2fd
+    style DKT fill:#e8f5e9
+    style COMBINE fill:#fff3e0

@@ -1,0 +1,77 @@
+flowchart TB
+    subgraph SOURCES["Источники данных"]
+        MGSM["MGSM Russian<br/>250 задач"]
+        ruMMLU["ruMMLU STEM<br/>3210 задач"]
+        Custom["Custom STEM<br/>218 задач"]
+        RLData["rl_combined.jsonl<br/>14,203 задачи"]
+    end
+
+    subgraph PREP["Подготовка"]
+        BuildBench["build_eval_benchmark.py"]
+        GenData["generate_stem_data.ipynb"]
+        SortCurr["sort_curriculum.py"]
+    end
+
+    subgraph DATASETS["Датасеты"]
+        EvalDS["eval_dataset.jsonl<br/>3678 задач (бенчмарк)"]
+        TrainDS["training_dataset.jsonl<br/>RL обучение"]
+        VstarDS["vstar_trajectories_hard.jsonl<br/>426 × N=4 траектории"]
+    end
+
+    subgraph TRAINING_FLOW["Обучение (Colab A100)"]
+        Stage1["GSPO<br/>grpo_qwen3.5_9b.ipynb"]
+        Stage2["KTO<br/>kto_qwen3.5_9b.ipynb"]
+        Stage3["DPO<br/>dpo_polish_qwen3.5_9b.ipynb"]
+        Stage4["V-STaR-DPO<br/>ns_vstar_dpo.ipynb"]
+    end
+
+    subgraph ARTIFACTS["Артефакты"]
+        Adapters["LoRA адаптеры<br/>HuggingFace Hub"]
+        GGUF["GGUF модель<br/>Q4_K_M квантизация"]
+        Reports["Отчеты оценки<br/>evaluation/reports/"]
+        VstarPairs["vstar_dpo_pairs.jsonl<br/>within-task pairs"]
+    end
+
+    subgraph INFERENCE["Инференс (локально)"]
+        OllamaServ["Ollama Server"]
+        Agents["Мультиагентная<br/>система"]
+        UserApp["Веб-приложение<br/>MITS"]
+    end
+
+    MGSM --> BuildBench
+    ruMMLU --> BuildBench
+    Custom --> BuildBench
+    BuildBench --> EvalDS
+
+    RLData --> SortCurr
+    SortCurr --> TrainDS
+
+    Custom --> GenData
+    GenData --> TrainDS
+
+    TrainDS --> Stage1
+    Stage1 --> Stage2
+    Stage2 --> Stage3
+    Stage3 --> Stage4
+    Stage4 -->|trajectories| VstarDS
+    VstarDS --> VstarPairs
+    VstarPairs --> Stage4
+
+    Stage1 --> Adapters
+    Stage2 --> Adapters
+    Stage3 --> Adapters
+    Stage4 --> Adapters
+    Stage4 --> GGUF
+
+    EvalDS --> Reports
+
+    GGUF --> OllamaServ
+    OllamaServ --> Agents
+    Agents --> UserApp
+
+    style SOURCES fill:#e1f5fe
+    style PREP fill:#e8f5e9
+    style DATASETS fill:#fff3e0
+    style TRAINING_FLOW fill:#fce4ec
+    style ARTIFACTS fill:#f3e5f5
+    style INFERENCE fill:#e0f2f1
