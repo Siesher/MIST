@@ -8,6 +8,10 @@ Usage: uv run python scripts/build_vstar_pairs.py
 
 from __future__ import annotations
 
+import io
+import json
+import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -36,11 +40,11 @@ def build_pair_record(row: dict, chosen: dict, rejected: dict, strategy: str) ->
         "difficulty": row.get("difficulty", "hard"),
         "strategy": strategy,
         "scores_chosen": {
-            "correctness": float(chosen["correct"]),
+            "correctness": float(bool(chosen["correct"])),
             "completeness": float(has_content(chosen)),
         },
         "scores_rejected": {
-            "correctness": float(rejected["correct"]),
+            "correctness": float(bool(rejected["correct"])),
             "completeness": float(has_content(rejected)),
         },
     }
@@ -76,3 +80,37 @@ def select_pair_B(row: dict) -> tuple[dict, dict] | None:
     chosen = min(with_c, key=lambda t: t["sample_idx"])
     rejected = min(without_c, key=lambda t: t["sample_idx"])
     return chosen, rejected
+
+
+def build_all_pairs(rows: list[dict]) -> list[dict]:
+    pairs = []
+    for row in rows:
+        nc = row["n_correct"]
+        if 0 < nc < 4:
+            ch, rj = select_pair_A(row)
+            pairs.append(build_pair_record(row, ch, rj, "A"))
+        elif nc == 4:
+            res = select_pair_B(row)
+            if res is not None:
+                ch, rj = res
+                pairs.append(build_pair_record(row, ch, rj, "B"))
+    return pairs
+
+
+def main() -> None:
+    rows = [json.loads(line) for line in TRAJ.open(encoding="utf-8") if line.strip()]
+    pairs = build_all_pairs(rows)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    with OUT.open("w", encoding="utf-8") as f:
+        for p in pairs:
+            f.write(json.dumps(p, ensure_ascii=False) + "\n")
+    strat = Counter(p["strategy"] for p in pairs)
+    dom = Counter(p["domain"] for p in pairs)
+    print(f"[ok] {len(pairs)} пар -> {OUT}")
+    print(f"  strategy: {dict(strat)}")
+    print(f"  domain: {dict(dom)}")
+
+
+if __name__ == "__main__":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    main()

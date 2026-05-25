@@ -95,3 +95,60 @@ def test_select_pair_B_none_when_all_content():
     # все correct + все с content -> нет completeness-контраста
     row = {"trajectories": [_traj(i, content="x", correct=True) for i in range(4)]}
     assert bvp.select_pair_B(row) is None
+
+
+def test_build_all_pairs_strategies():
+    rows = [
+        # mixed -> A
+        {
+            "subset_idx": 0,
+            "prompt": "p0",
+            "domain": "math",
+            "difficulty": "hard",
+            "n_correct": 2,
+            "trajectories": [
+                _traj(0, content="c", correct=True),
+                _traj(1, content="", correct=False, done_reason="length"),
+                _traj(2, content="c", correct=True),
+                _traj(3, content="w", correct=False),
+            ],
+        },
+        # 4/4 смесь -> B
+        {
+            "subset_idx": 1,
+            "prompt": "p1",
+            "domain": "cs",
+            "difficulty": "hard",
+            "n_correct": 4,
+            "trajectories": [
+                _traj(0, content="c", correct=True),
+                _traj(1, content="", correct=True, done_reason="length"),
+                _traj(2, content="c", correct=True),
+                _traj(3, content="c", correct=True),
+            ],
+        },
+        # 0/4 -> пропуск
+        {
+            "subset_idx": 2,
+            "prompt": "p2",
+            "domain": "bio",
+            "difficulty": "hard",
+            "n_correct": 0,
+            "trajectories": [_traj(i, content="", correct=False) for i in range(4)],
+        },
+    ]
+    pairs = bvp.build_all_pairs(rows)
+    strat = sorted(p["strategy"] for p in pairs)
+    assert strat == ["A", "B"]  # 0/4 пропущен
+    assert all(p["chosen"] for p in pairs)
+    assert len({p["pair_id"] for p in pairs}) == 2
+
+
+def test_build_pair_record_handles_none_correct():
+    # реальные данные: correct=None (верификация неоднозначна) -> трактуем как 0.0
+    row = {"subset_idx": 0, "prompt": "p", "domain": "math", "difficulty": "hard"}
+    ch = _traj(0, content="ok", correct=True)
+    rj = _traj(1, content="x", correct=None)
+    rec = bvp.build_pair_record(row, ch, rj, "A")
+    assert rec["scores_rejected"]["correctness"] == 0.0
+    assert rec["scores_chosen"]["correctness"] == 1.0
