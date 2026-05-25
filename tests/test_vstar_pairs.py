@@ -72,3 +72,26 @@ def test_select_pair_A_rejected_falls_back_to_truncated():
     ch, rj = bvp.select_pair_A(row)
     assert ch["correct"] is True
     assert rj["correct"] is False
+
+
+def test_select_pair_B_content_vs_truncated():
+    # все correct (4/4), смесь: 2 с content, 2 обрезаны
+    row = {
+        "trajectories": [
+            _traj(0, content="полный1", correct=True, done_reason="early_boxed"),
+            _traj(1, content="", correct=True, done_reason="length"),
+            _traj(2, content="полный2", correct=True, done_reason="early_boxed"),
+            _traj(3, content="", correct=True, done_reason="length"),
+        ]
+    }
+    res = bvp.select_pair_B(row)
+    assert res is not None
+    ch, rj = res
+    assert bvp.has_content(ch) and not bvp.has_content(rj)
+    assert ch["sample_idx"] == 0 and rj["sample_idx"] == 1
+
+
+def test_select_pair_B_none_when_all_content():
+    # все correct + все с content -> нет completeness-контраста
+    row = {"trajectories": [_traj(i, content="x", correct=True) for i in range(4)]}
+    assert bvp.select_pair_B(row) is None

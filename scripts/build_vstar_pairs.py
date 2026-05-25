@@ -64,3 +64,15 @@ def select_pair_A(row: dict) -> tuple[dict, dict]:
     chosen = min(correct, key=_chosen_key)
     rejected = min(incorrect, key=_rejected_key)
     return chosen, rejected
+
+
+def select_pair_B(row: dict) -> tuple[dict, dict] | None:
+    """completeness в 4/4: chosen=correct+content, rejected=correct+обрезка. None если нет смеси."""
+    trs = row["trajectories"]
+    with_c = [t for t in trs if has_content(t)]
+    without_c = [t for t in trs if not has_content(t)]
+    if not with_c or not without_c:
+        return None
+    chosen = min(with_c, key=lambda t: t["sample_idx"])
+    rejected = min(without_c, key=lambda t: t["sample_idx"])
+    return chosen, rejected
