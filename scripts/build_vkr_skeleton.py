@@ -18,8 +18,6 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import RGBColor
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-
 ROOT = Path(__file__).parent.parent
 TEMPLATE = ROOT / "ВКР(10) (3).docx"
 PLAN = ROOT / "docs/diploma/DIPLOMA_PLAN.md"
@@ -377,4 +375,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     main()
