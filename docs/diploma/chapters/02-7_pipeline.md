@@ -94,7 +94,7 @@ $$s = 0{,}5 \cdot r_{\text{correctness}} + 0{,}3 \cdot r_{\text{PRM}} + 0{,}2 \c
 
 **Параметры генерации**: $N=4$ траектории на задачу → 1704 траектории итого. Распределение: 0/4 верных — 37%, 4/4 верных — 48%, смешанных — 15,3%. DPO-пар: **84** (A=65 correctness-mixed + B=19 completeness). Чекпойнт (запланирован): HF `Siesher/mits-qwen3-9b-vstar`.
 
-**Результат**: `TODO[V-STaR-final]` (сбор данных ведётся).
+**Результат**: данные в процессе получения — обучение Stage 4 завершается на 84 composite-парах (yield-анализ представлен в разделе 4.7).
 
 ## Сводная таблица пайплайна
 
@@ -104,7 +104,7 @@ $$s = 0{,}5 \cdot r_{\text{correctness}} + 0{,}3 \cdot r_{\text{PRM}} + 0{,}2 \c
 | GSPO | RL + verifiable rewards | rl_combined.jsonl | 63,5% | +8,4 п.п. |
 | KTO | Unpaired preferences | dialogs.jsonl (3875) + pairs (12597) | 64,8% | +1,3 п.п. |
 | DPO | Paired polish | KTO-контрасты | 66,5% | +1,7 п.п. |
-| V-STaR-DPO | Within-task, composite | 426 hard-задач, N=4 | TODO | — |
+| V-STaR-DPO | Within-task, composite | 426 hard-задач, N=4 | — | — |
 
 ## Потоки данных пайплайна
 
