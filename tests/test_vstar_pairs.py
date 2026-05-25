@@ -42,3 +42,33 @@ def test_build_pair_record_shape():
     assert rec["scores_chosen"]["correctness"] == 1.0
     assert rec["scores_rejected"]["correctness"] == 0.0
     assert rec["chosen"] != rec["rejected"]
+
+
+def test_select_pair_A_prefers_early_boxed_content_chosen():
+    # correct: один early_boxed+content (idx0), один length без content (idx1)
+    # incorrect: один с content (idx2), один без (idx3)
+    row = {
+        "trajectories": [
+            _traj(0, content="реш", correct=True, done_reason="early_boxed"),
+            _traj(1, content="", correct=True, done_reason="length"),
+            _traj(2, content="невер", correct=False, done_reason="early_boxed"),
+            _traj(3, content="", correct=False, done_reason="length"),
+        ]
+    }
+    ch, rj = bvp.select_pair_A(row)
+    assert ch["sample_idx"] == 0  # correct + content + early_boxed
+    assert rj["correct"] is False and bvp.has_content(rj)  # incorrect с content
+    assert rj["sample_idx"] == 2
+
+
+def test_select_pair_A_rejected_falls_back_to_truncated():
+    # все incorrect без content -> rejected = incorrect (обрезанный)
+    row = {
+        "trajectories": [
+            _traj(0, content="реш", correct=True),
+            _traj(1, content="", correct=False, done_reason="length"),
+        ]
+    }
+    ch, rj = bvp.select_pair_A(row)
+    assert ch["correct"] is True
+    assert rj["correct"] is False

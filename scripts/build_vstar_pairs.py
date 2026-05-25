@@ -44,3 +44,23 @@ def build_pair_record(row: dict, chosen: dict, rejected: dict, strategy: str) ->
             "completeness": float(has_content(rejected)),
         },
     }
+
+
+def _chosen_key(t: dict) -> tuple:
+    # приоритет: есть content -> early_boxed -> меньший sample_idx
+    return (not has_content(t), t.get("done_reason") != "early_boxed", t["sample_idx"])
+
+
+def _rejected_key(t: dict) -> tuple:
+    # приоритет: есть content (честный контраст) -> меньший sample_idx
+    return (not has_content(t), t["sample_idx"])
+
+
+def select_pair_A(row: dict) -> tuple[dict, dict]:
+    """correctness-mixed: chosen=лучшая correct, rejected=лучшая incorrect."""
+    trs = row["trajectories"]
+    correct = [t for t in trs if t["correct"]]
+    incorrect = [t for t in trs if not t["correct"]]
+    chosen = min(correct, key=_chosen_key)
+    rejected = min(incorrect, key=_rejected_key)
+    return chosen, rejected
