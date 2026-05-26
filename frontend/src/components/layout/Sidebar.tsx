@@ -101,6 +101,8 @@ export function Sidebar() {
     (sessionId: string) => {
       setActiveSession(sessionId);
       router.push(`/chat/${sessionId}`);
+      // Collapse hover-opened sidebar after navigation
+      setHovered(false);
     },
     [setActiveSession, router],
   );
@@ -138,8 +140,8 @@ export function Sidebar() {
           zIndex: 9,
         }}
       />
-      {/* Rail indicator when sidebar closed */}
-      {!open && (
+      {/* Rail indicator when sidebar closed — hidden when pinned or open */}
+      {!open && !pinned && (
         <div
           style={{
             position: "fixed",
@@ -150,9 +152,10 @@ export function Sidebar() {
             height: 42,
             borderRadius: "0 3px 3px 0",
             background: "var(--violet)",
-            opacity: 0.25,
+            opacity: 0.3,
             pointerEvents: "none",
             zIndex: 8,
+            transition: "opacity 160ms",
           }}
         />
       )}
@@ -162,8 +165,8 @@ export function Sidebar() {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          width: open ? 240 : 0,
-          flex: open && pinned ? "0 0 240px" : "0 0 0px",
+          width: open ? 220 : 0,
+          flex: open && pinned ? "0 0 220px" : "0 0 0px",
           position: pinned ? "relative" : "fixed",
           left: 0,
           top: pinned ? "auto" : 32,
@@ -173,21 +176,30 @@ export function Sidebar() {
           transition:
             "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)",
           borderRight: "1px solid var(--line)",
-          background: pinned ? "rgba(18, 10, 31, 0.6)" : "rgba(14, 8, 24, 0.92)",
+          background: pinned ? "rgba(18, 10, 31, 0.6)" : "rgba(14, 8, 24, 0.95)",
           backdropFilter: "blur(20px) saturate(1.2)",
           WebkitBackdropFilter: "blur(20px) saturate(1.2)",
           zIndex: pinned ? 2 : 10,
           boxShadow:
             "inset 0 1px 0 rgba(196, 169, 255, 0.06), inset -1px 0 0 rgba(165, 131, 255, 0.06)",
+          overflow: "hidden",
         }}
       >
       {/* Brand */}
-      <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--line)" }}>
+      <div
+        style={{
+          padding: "14px 14px 12px",
+          borderBottom: "1px solid var(--line)",
+          whiteSpace: "nowrap",
+        }}
+      >
         <div className="flex items-center gap-3">
-          <MitsMark size={34} />
+          <MitsMark size={30} />
           <div className="flex flex-col">
             <Glitch className="font-display" text="MITS">
-              <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "0.04em" }}>MITS</span>
+              <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "0.04em" }}>
+                MITS
+              </span>
             </Glitch>
             <span className="ghost" style={{ fontSize: 9, letterSpacing: "0.22em" }}>
               v.2.6.1
@@ -200,21 +212,32 @@ export function Sidebar() {
       <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--line)" }}>
         <button
           onClick={handleNewChat}
-          className="cbtn cbtn-primary w-full justify-center text-[13px]"
-          style={{ padding: "11px 14px", letterSpacing: "0.16em" }}
+          className="cbtn cbtn-primary w-full justify-center"
+          style={{
+            padding: "10px 12px",
+            fontSize: 12,
+            letterSpacing: "0.12em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
         >
           ＋ {t("new_session")}
         </button>
       </div>
 
       {/* Nav */}
-      <nav style={{ padding: 12, display: "flex", flexDirection: "column", gap: 3 }}>
+      <nav style={{ padding: 8, display: "flex", flexDirection: "column", gap: 2 }}>
         {NAV_ITEMS.map((it) => {
           const active = activeView === it.id;
           return (
             <Link
               key={it.id}
               href={it.href}
+              onClick={() => {
+                // Collapse hover-opened sidebar after navigating
+                if (!pinned) setHovered(false);
+              }}
               className="font-mono flex items-center gap-3 relative transition-all"
               style={{
                 textAlign: "left",
@@ -223,21 +246,23 @@ export function Sidebar() {
                   : "transparent",
                 borderLeft: "2px solid " + (active ? "var(--violet)" : "transparent"),
                 color: active ? "var(--text)" : "var(--text-dim)",
-                padding: "12px 14px",
-                fontSize: 14,
+                padding: "9px 12px",
+                fontSize: 12.5,
                 letterSpacing: "0.08em",
                 textDecoration: "none",
+                whiteSpace: "nowrap",
               }}
             >
               <span
                 style={{
                   color: active ? "var(--yellow)" : "var(--violet)",
-                  fontSize: 18,
+                  fontSize: 16,
+                  flexShrink: 0,
                 }}
               >
                 {it.icon}
               </span>
-              <span style={{ textTransform: "uppercase", letterSpacing: "0.12em" }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.1em" }}>
                 {it.labelKey ? t(it.labelKey) : it.label}
               </span>
               {active && (
