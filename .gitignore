@@ -147,3 +147,17 @@ training/Modelfile.*-update
 # Cleanup additions 2026-04-22
 ~$*
 # figures/readme/*.png tracked intentionally — embedded in README
+
+# Cleanup additions 2026-05-26 (продовое состояние)
+# Scratch / throwaway (любой _tmp_ префикс, MCP-скретч, .err-логи)
+_tmp_*
+.playwright-mcp/
+*.log.err
+# Локальные настройки Claude (личные, не для репо)
+.claude/settings.local.json
+# Тяжёлые бинарники диплома/презентаций — хранятся локально, не раздувают git
+docs/diploma/assets/
+docs/diploma/*.pptx
+docs/diploma/*.pdf
+docs/diploma/*.png
+docs/diploma/*.html

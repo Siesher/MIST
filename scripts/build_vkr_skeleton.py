@@ -19,7 +19,7 @@ from docx.oxml.ns import qn
 from docx.shared import RGBColor
 
 ROOT = Path(__file__).parent.parent
-TEMPLATE = ROOT / "ВКР(10) (3).docx"
+TEMPLATE = ROOT / "docs/diploma/templates/ВКР_образец_ГОСТ.docx"
 PLAN = ROOT / "docs/diploma/DIPLOMA_PLAN.md"
 OUT = ROOT / "docs/diploma/ВКР_Сухацкий_2026.docx"
 
