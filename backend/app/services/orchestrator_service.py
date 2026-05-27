@@ -1368,7 +1368,15 @@ class OrchestratorService:
             bank = TaskBank()
             if hasattr(bank, "get_topics"):
                 bank_topics = bank.get_topics()
-                if bank_topics:
+                # Only trust the bank's topics if they match the API shape
+                # (id/name/name_ru/difficulties); otherwise fall through to the
+                # well-formed static list below — avoids a 500 in /tasks/topics
+                # when the bank returns a different shape (e.g. plain strings).
+                if bank_topics and all(
+                    isinstance(t, dict)
+                    and {"id", "name", "name_ru", "difficulties"} <= set(t.keys())
+                    for t in bank_topics
+                ):
                     return bank_topics
         except Exception:
             pass
