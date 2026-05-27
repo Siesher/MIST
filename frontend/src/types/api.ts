@@ -76,6 +76,7 @@ export interface Message {
   timestamp: string;
   move_type?: TutorMoveType;
   is_correct?: boolean;
+  thinking?: string;
 }
 
 export interface Task {

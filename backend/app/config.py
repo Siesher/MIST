@@ -13,7 +13,7 @@ class BackendSettings(BaseSettings):
     # LLM backend selection: "ollama" | "llamacpp" (llama-server / llama-swap)
     LLM_BACKEND: str = "ollama"
     LLM_BASE_URL: str = "http://127.0.0.1:8090/v1"  # llama-swap direct (mits-eval-* models)
-    LLM_MODEL: str = "mits-eval-kto"
+    LLM_MODEL: str = "mits-tutor"  # llama-swap config: 64K ctx + TurboQuant turbo3
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./backend/data/mits.db"

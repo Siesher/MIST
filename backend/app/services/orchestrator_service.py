@@ -729,7 +729,7 @@ class OrchestratorService:
 
                 history = [
                     {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
-                    for m in session.messages[-10:]
+                    for m in session.messages[-24:]
                 ]
 
                 context = TurnContext(
@@ -995,7 +995,7 @@ class OrchestratorService:
 
                 history = [
                     {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
-                    for m in session.messages[-10:]
+                    for m in session.messages[-24:]
                 ]
 
                 # Compress context if conversation is long
@@ -1123,7 +1123,7 @@ class OrchestratorService:
             system_prompt = self._get_system_prompt_for_mode(mode)
             # Build conversation history for context (current msg already in session.messages)
             history_lines = []
-            for m in session.messages[-10:]:
+            for m in session.messages[-24:]:
                 role_label = "Пользователь" if m.role == "user" else "Ассистент"
                 history_lines.append(f"{role_label}: {m.content}")
             user_prompt = "\n".join(history_lines) if history_lines else content
@@ -1151,6 +1151,7 @@ class OrchestratorService:
                             prompt=user_prompt,
                             system=system_prompt,
                             json_mode=False,  # Plain text — real streaming
+                            thinking=True,  # always emit reasoning → shown in a persistent panel
                         ):
                             token_count += 1
                             # Handle tuple format: (type, content)

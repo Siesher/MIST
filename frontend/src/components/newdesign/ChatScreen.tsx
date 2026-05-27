@@ -120,6 +120,7 @@ function TaskCard({ topic, difficulty, problem }: { topic?: string; difficulty?:
 function Message({ m }: { m: MessageType }) {
   const isUser = m.role === "user";
   const move = m.move_type ? MOVE_META[m.move_type as TutorMoveType] : undefined;
+  const [thinkOpen, setThinkOpen] = useState(false);
   return (
     <div className={"msg " + (isUser ? "user" : "tutor")}>
       <div className="msg-avatar">{isUser ? "S" : "T"}</div>
@@ -129,6 +130,17 @@ function Message({ m }: { m: MessageType }) {
           {move && <span className={"move-badge " + move.cls}>{move.label}</span>}
           <span className="msg-time">{fmtTime(m.timestamp)}</span>
         </div>
+        {m.thinking && (
+          <div className="thinking">
+            <button className="thinking-toggle" onClick={() => setThinkOpen((o) => !o)}>
+              <span className="dot" />
+              <span>{thinkOpen ? "Свернуть размышления" : "Размышления модели"}</span>
+            </button>
+            {thinkOpen && (
+              <div className="thinking-body" style={{ whiteSpace: "pre-wrap" }}>{m.thinking}</div>
+            )}
+          </div>
+        )}
         <div className="msg-body">
           <SmartContent content={m.content} />
         </div>

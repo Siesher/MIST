@@ -44,6 +44,9 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
 
         case "response_complete": {
           console.log("[Chat] Response complete");
+          // Capture accumulated reasoning before clearing the stream so it stays
+          // viewable on the persisted message (even after the answer).
+          const reasoning = useChatStore.getState().streamingMessage?.thinkingContent || "";
           finalizeStreamMetrics(sessionId);
           setIsStreaming(false);
           setStreamingMessage(null);
@@ -57,6 +60,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
             timestamp: new Date().toISOString(),
             move_type: msg.response.move_type,
             is_correct: msg.response.is_correct,
+            thinking: reasoning || undefined,
           };
           addMessage(sessionId, tutorMessage);
           break;
