@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./icons";
+import { useTheme, applyThemeToBody } from "./useTheme";
 import { useChatStore } from "@/store/chatStore";
 import { listSessions, createSession } from "@/lib/api";
 import type { ChatMode, Session } from "@/types/api";
@@ -320,8 +321,12 @@ interface AppShellProps {
 }
 
 export function NewAppShell({ children, rail }: AppShellProps) {
+  const [theme] = useTheme();
+  useEffect(() => {
+    applyThemeToBody(theme);
+  }, [theme]);
   return (
-    <div className="app theme-midnight">
+    <div className={`app theme-${theme}`}>
       <MidnightDecor />
       <NavRail />
       <Sidebar />

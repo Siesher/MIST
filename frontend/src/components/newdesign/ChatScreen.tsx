@@ -7,6 +7,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import { useTheme, THEMES, THEME_LABELS } from "./useTheme";
 import { SmartContent } from "@/components/chat/SmartContent";
 import { useChatStore } from "@/store/chatStore";
 import type { ChatMode, Message as MessageType, TutorMoveType } from "@/types/api";
@@ -42,6 +43,8 @@ function fmtTime(iso?: string): string {
 
 // ---------- Top bar ----------
 function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
+  const [theme, setTheme] = useTheme();
+  const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   return (
     <div className="top-bar">
       <div className="top-title">
@@ -52,7 +55,11 @@ function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
         <button className="active">RU</button>
         <button>EN</button>
       </div>
-      <button className="theme-toggle" title="Тема">
+      <button
+        className="theme-toggle"
+        title={`Тема: ${THEME_LABELS[theme]} — клик переключает`}
+        onClick={cycleTheme}
+      >
         {Icon.moon}
       </button>
     </div>
