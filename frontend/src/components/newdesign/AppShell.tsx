@@ -10,6 +10,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./icons";
 import { useTheme, applyThemeToBody } from "./useTheme";
+import { useI18n, type StringKey } from "@/lib/i18n";
 import { useChatStore } from "@/store/chatStore";
 import { listSessions, createSession } from "@/lib/api";
 import type { ChatMode, Session } from "@/types/api";
@@ -18,33 +19,34 @@ import type { ChatMode, Session } from "@/types/api";
 interface NavItem {
   href: string;
   icon: keyof typeof Icon;
-  label: string;
+  key: StringKey;
   // match: prefix routes that should mark this item active
   match?: (path: string) => boolean;
 }
 
 const NAV_TOP: NavItem[] = [
-  { href: "/", icon: "chat", label: "Чат", match: (p) => p === "/" || p.startsWith("/chat") },
-  { href: "/tasks", icon: "list", label: "Задачи" },
-  { href: "/graph", icon: "graph", label: "Граф знаний" },
-  { href: "/dashboard", icon: "chart", label: "Аналитика" },
-  { href: "/sources", icon: "database", label: "Источники" },
+  { href: "/", icon: "chat", key: "nav_chat", match: (p) => p === "/" || p.startsWith("/chat") },
+  { href: "/tasks", icon: "list", key: "nav_tasks" },
+  { href: "/graph", icon: "graph", key: "nav_graph" },
+  { href: "/dashboard", icon: "chart", key: "nav_dashboard" },
+  { href: "/sources", icon: "database", key: "nav_sources" },
 ];
 
 const NAV_BOTTOM: NavItem[] = [
-  { href: "/profile", icon: "user", label: "Профиль" },
-  { href: "/settings", icon: "settings", label: "Настройки" },
-  { href: "/auth/login", icon: "signin", label: "Войти", match: (p) => p.startsWith("/auth") },
+  { href: "/profile", icon: "user", key: "nav_profile" },
+  { href: "/settings", icon: "settings", key: "nav_settings" },
+  { href: "/auth/login", icon: "signin", key: "nav_signin", match: (p) => p.startsWith("/auth") },
 ];
 
 function NavRail() {
   const pathname = usePathname() || "/";
+  const { t } = useI18n();
   const isActive = (it: NavItem) => (it.match ? it.match(pathname) : pathname.startsWith(it.href));
 
   const renderBtn = (it: NavItem) => (
     <Link key={it.href} href={it.href} className={"nav-btn " + (isActive(it) ? "active" : "")}>
       {Icon[it.icon]}
-      <span className="nav-label">{it.label}</span>
+      <span className="nav-label">{t(it.key)}</span>
     </Link>
   );
 
@@ -89,6 +91,7 @@ function timeLabel(iso: string): string {
 
 // ---------- Sidebar (brand + new session + sessions list) ----------
 function Sidebar() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() || "/";
   const sessions = useChatStore((s) => s.sessions);
@@ -166,12 +169,12 @@ function Sidebar() {
 
       <button className="new-chat magnetic" onClick={handleNewChat} disabled={creating}>
         {Icon.plus}
-        <span>Новая сессия</span>
+        <span>{t("new_session")}</span>
         <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono), monospace", fontSize: 10, opacity: 0.7 }}>⌘N</span>
       </button>
 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        <div className="section-label">Сессии</div>
+        <div className="section-label">{t("sessions")}</div>
         <div className="session-list">
           {sessions.length === 0 && (
             <div style={{ padding: "8px 10px", fontSize: 12, color: "var(--ink-mute)", lineHeight: 1.5 }}>
@@ -202,7 +205,7 @@ function Sidebar() {
           rel="noopener noreferrer"
         >
           {Icon.bookOpen}
-          <span>Документация</span>
+          <span>{t("docs")}</span>
         </a>
         <a className="gh-card" href="https://github.com/Siesher/MITS" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
           <span className="gh-avatar">SH</span>
