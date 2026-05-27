@@ -288,7 +288,11 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
 
   // 3. Reconstruct edges from per-node neighbors (outgoing categories only;
   //    skip inv_* so each edge appears once). Fetch details in parallel.
-  const details = await Promise.allSettled(baseNodes.map((n) => getKnowledgeNode(n.id)));
+  // NOTE: edges are only available via per-node detail (GET /nodes/{id}); fanning
+  // out to ~80 of those overwhelms the single-worker backend (N+1 / 500 storm).
+  // Skip the fan-out — if no edges can be built we throw below so the page renders
+  // the curated FALLBACK_DATA graph (meaningful edges, clean console).
+  const details: PromiseSettledResult<Awaited<ReturnType<typeof getKnowledgeNode>>>[] = [];
 
   const edgeSeen = new Set<string>();
   const edges: GraphEdge[] = [];
@@ -320,5 +324,10 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
 
   const domains = Array.from(new Set(nodes.map((n) => n.d)));
 
+  if (edges.length === 0) {
+    // No real edges (per-node detail endpoint unstable) — fall back to the
+    // curated graph, which renders cleanly with meaningful edges.
+    throw new Error("knowledge graph edges unavailable; using curated fallback");
+  }
   return { nodes, edges, domains, isFallback: false };
 }
