@@ -1,200 +1,433 @@
 "use client";
 
-import { AppShell } from "@/components/cyber/AppShell";
-import { Glitch } from "@/components/cyber/Glitch";
-import { useCyberTheme, type CyberTheme } from "@/components/cyber/ThemeProvider";
-import { useI18n } from "@/lib/i18n";
+// Settings screen — ported from new_design (midnight) SettingsPage.
+// Renders inside NewAppShell (theme-midnight) and reuses the new_design CSS
+// classes (.page / .set-section / .set-row / .set-toggle / .set-slider /
+// .theme-card / .theme-swatch / .about-text / .lang-toggle …) from newdesign.css.
+//
+// Mostly client-side. Persisted to localStorage:
+//   • mits-lang            — UI language (via useI18n, shared with the rest of the app)
+//   • mits-preferred-mode  — default chat mode for new sessions (read by AppShell / page.tsx)
+//   • mits-thinking        — thinking-mode preference (on/off)
+// Account section reads the current user from useAuth() (AuthProvider →
+// GET /api/v1/auth/me under the hood); shows a graceful placeholder + login
+// link when signed out. Theme selector renders all three new_design themes but
+// stays locked to "midnight" (the shell hard-codes that look).
 
-const THEMES: { id: CyberTheme; label: string; desc_ru: string; desc_en: string }[] = [
-  {
-    id: "grimoire",
-    label: "Grimoire",
-    desc_ru: "Фиолетово-золотой гримуар — стандартная тема",
-    desc_en: "Royal violet + warm champagne — default",
-  },
-  {
-    id: "minimal",
-    label: "Minimal",
-    desc_ru: "Плоский стиль без эффектов — для слабых машин",
-    desc_en: "Flat, no glow/scanlines — low-end friendly",
-  },
-  {
-    id: "neo",
-    label: "Mono",
-    desc_ru: "Чёрно-белый, высококонтрастный",
-    desc_en: "Monochrome high-contrast",
-  },
-  {
-    id: "acid",
-    label: "Acid",
-    desc_ru: "Киберпанк overdrive — максимум неона",
-    desc_en: "Saturated cyber overdrive",
-  },
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { NewAppShell } from "@/components/newdesign/AppShell";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useI18n, type Lang } from "@/lib/i18n";
+import type { ChatMode } from "@/types/api";
+
+const PREFERRED_MODE_KEY = "mits-preferred-mode";
+const THINKING_KEY = "mits-thinking";
+
+// new_design theme cards (verbatim swatches/desc). Midnight is the locked,
+// active theme on the shell — the other two render but cannot be applied.
+const THEMES: { id: string; name: string; desc: string; swatch: string[] }[] = [
+  { id: "aurora", name: "Aurora", desc: "Clean Anthropic-style", swatch: ["#FFF9EB", "#6800FF", "#1A1330"] },
+  { id: "grimoire", name: "Grimoire", desc: "Magical editorial", swatch: ["#F4ECD8", "#6800FF", "#3D2E66"] },
+  { id: "midnight", name: "Midnight", desc: "Dark with purple glow", swatch: ["#0A0518", "#8B3CFF", "#B47BFF"] },
 ];
 
+const LOCKED_THEME = "midnight";
+
+// Chat-mode options offered as the user's default for new sessions. Values match
+// ChatMode and the dot colours used by the AppShell session list.
+const MODES: { value: ChatMode; label_ru: string; label_en: string; dot: string }[] = [
+  { value: "chat", label_ru: "Свободный чат", label_en: "Free chat", dot: "#3B7DFF" },
+  { value: "guided_learning", label_ru: "Сопровождение", label_en: "Guided", dot: "#22A05A" },
+  { value: "task_generator", label_ru: "Генератор задач", label_en: "Task generator", dot: "#6800FF" },
+];
+
+function isChatMode(v: string | null): v is ChatMode {
+  return v === "chat" || v === "guided_learning" || v === "task_generator";
+}
+
 export default function SettingsPage() {
-  const { lang } = useI18n();
-  const {
-    theme, glow, scanlines, glitch, particles,
-    setTheme, setGlow, setScanlines, setGlitch, setParticles,
-  } = useCyberTheme();
+  // Language is shared app-wide via useI18n (persists to mits-lang).
+  const { lang, setLang } = useI18n();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  // Preferred default chat mode (persists to mits-preferred-mode; read by AppShell).
+  const [mode, setModeState] = useState<ChatMode>("guided_learning");
+  // Thinking mode preference (persists to mits-thinking).
+  const [thinking, setThinkingState] = useState(true);
+
+  // Visual-effect toggles — local/ephemeral. Defaults mirror new_design's
+  // midnight preset; they do not mutate the locked shell.
+  const [glow, setGlow] = useState(18);
+  const [motion, setMotion] = useState(true);
+  const [particles, setParticles] = useState(true);
+  const [grain, setGrain] = useState(false);
+
+  // Hydrate persisted preferences after mount (avoids SSR/CSR mismatch).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedMode = localStorage.getItem(PREFERRED_MODE_KEY);
+    if (isChatMode(savedMode)) setModeState(savedMode);
+    const savedThinking = localStorage.getItem(THINKING_KEY);
+    if (savedThinking === "0" || savedThinking === "1") {
+      setThinkingState(savedThinking === "1");
+    }
+  }, []);
+
+  const setMode = useCallback((m: ChatMode) => {
+    setModeState(m);
+    if (typeof window !== "undefined") localStorage.setItem(PREFERRED_MODE_KEY, m);
+  }, []);
+
+  const setThinking = useCallback((v: boolean) => {
+    setThinkingState(v);
+    if (typeof window !== "undefined") localStorage.setItem(THINKING_KEY, v ? "1" : "0");
+  }, []);
+
+  const ru = lang === "ru";
 
   return (
-    <AppShell>
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-7">
-            <Glitch className="font-display" text={lang === "ru" ? "НАСТРОЙКИ" : "SETTINGS"}>
-              <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: "0.06em" }}>
-                {lang === "ru" ? "НАСТРОЙКИ" : "SETTINGS"}
-              </span>
-            </Glitch>
-            <div className="ghost mt-1" style={{ fontSize: 11, letterSpacing: "0.14em" }}>
-              {"// оформление, эффекты, интерфейс"}
+    <NewAppShell>
+      <main className="main">
+        <div className="page">
+          <div className="page-head">
+            <div className="page-head-info">
+              <h1>{ru ? "Настройки" : "Settings"}</h1>
+              <div className="page-sub">
+                {ru ? "Предпочтения · оформление · аккаунт" : "Preferences · appearance · account"}
+              </div>
+            </div>
+            {/* Language toggle (new_design PageControls) — persists via useI18n. */}
+            <div className="lang-toggle">
+              <button className={lang === "ru" ? "active" : ""} onClick={() => setLang("ru")}>
+                RU
+              </button>
+              <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
+                EN
+              </button>
             </div>
           </div>
 
-          {/* Theme variants */}
-          <div className="panel cornered mb-5" style={{ padding: 20 }}>
-            <span className="corner-tl" />
-            <span className="corner-br" />
-            <div className="up ghost text-[10px] tracking-[0.22em] mb-3">
-              › {lang === "ru" ? "ТЕМА ОФОРМЛЕНИЯ" : "THEME VARIANT"}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {THEMES.map((v) => {
-                const on = theme === v.id;
-                return (
+          <div className="page-body">
+            {/* ---------- Preferences ---------- */}
+            <div className="set-section">
+              <div className="set-section-title">{ru ? "Предпочтения" : "Preferences"}</div>
+
+              <div className="set-row">
+                <span className="set-row-label">{ru ? "Язык интерфейса" : "Interface language"}</span>
+                <div className="lang-toggle">
                   <button
-                    key={v.id}
-                    onClick={() => setTheme(v.id)}
-                    className="font-mono text-left transition-all"
-                    style={{
-                      padding: "14px 16px",
-                      border: "1px solid " + (on ? "var(--yellow)" : "var(--line)"),
-                      background: on
-                        ? "linear-gradient(135deg, rgba(232,198,104,0.08), rgba(165,131,255,0.04))"
-                        : "transparent",
-                      color: on ? "var(--yellow)" : "var(--text-dim)",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
+                    className={lang === "ru" ? "active" : ""}
+                    onClick={() => setLang("ru" as Lang)}
                   >
-                    <div
-                      className="up"
-                      style={{
-                        fontSize: 12,
-                        letterSpacing: "0.14em",
-                        color: on ? "var(--yellow)" : "var(--text)",
-                      }}
-                    >
-                      {on ? "▸ " : "· "}
-                      {v.label}
-                    </div>
-                    <div
-                      className="ghost mt-1.5"
-                      style={{ fontSize: 10, letterSpacing: "0.08em" }}
-                    >
-                      {lang === "ru" ? v.desc_ru : v.desc_en}
-                    </div>
+                    RU
                   </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Effects */}
-          <div className="panel cornered mb-5" style={{ padding: 20 }}>
-            <span className="corner-tl" />
-            <span className="corner-br" />
-            <div className="up ghost text-[10px] tracking-[0.22em] mb-3">
-              › {lang === "ru" ? "ЭФФЕКТЫ" : "EFFECTS"}
-            </div>
-
-            <div className="mb-5">
-              <div className="flex items-center mb-2">
-                <span className="up" style={{ fontSize: 11, color: "var(--text)" }}>
-                  {lang === "ru" ? "Неоновое свечение" : "Neon glow"}
-                </span>
-                <div className="flex-1" />
-                <span className="y font-mono" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
-                  {glow}px
-                </span>
+                  <button
+                    className={lang === "en" ? "active" : ""}
+                    onClick={() => setLang("en" as Lang)}
+                  >
+                    EN
+                  </button>
+                </div>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={40}
-                step={2}
-                value={glow}
-                onChange={(e) => setGlow(+e.target.value)}
-                style={{ width: "100%", accentColor: "var(--violet)" }}
+
+              <div className="set-row">
+                <span className="set-row-label">
+                  {ru ? "Режим диалога по умолчанию" : "Default chat mode"}
+                </span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {MODES.map((m) => {
+                    const on = mode === m.value;
+                    return (
+                      <button
+                        key={m.value}
+                        onClick={() => setMode(m.value)}
+                        className="tag-chip"
+                        style={{
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 7,
+                          borderColor: on ? "var(--accent)" : undefined,
+                          color: on ? "var(--ink)" : "var(--ink-mute)",
+                          boxShadow: on ? "0 0 0 2px var(--accent-tint)" : undefined,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: m.dot,
+                            display: "inline-block",
+                          }}
+                        />
+                        {ru ? m.label_ru : m.label_en}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="set-row">
+                <span className="set-row-label">
+                  {ru ? "Режим рассуждений (thinking)" : "Reasoning mode (thinking)"}
+                </span>
+                <button
+                  className={"set-toggle " + (thinking ? "on" : "")}
+                  aria-pressed={thinking}
+                  onClick={() => setThinking(!thinking)}
+                />
+              </div>
+            </div>
+
+            {/* ---------- Theme (locked to midnight) ---------- */}
+            <div className="set-section">
+              <div className="set-section-title">{ru ? "Тема" : "Theme"}</div>
+              <div className="theme-cards">
+                {THEMES.map((th) => {
+                  const active = th.id === LOCKED_THEME;
+                  return (
+                    <button
+                      key={th.id}
+                      type="button"
+                      className={"theme-card " + (active ? "active" : "")}
+                      // Midnight is locked on the shell — selecting another theme is a no-op.
+                      onClick={() => undefined}
+                      disabled={!active}
+                      title={active ? undefined : ru ? "Тема Midnight закреплена" : "Midnight theme is locked"}
+                      style={!active ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+                    >
+                      <div className="theme-swatch">
+                        {th.swatch.map((c, i) => (
+                          <span key={i} style={{ background: c }} />
+                        ))}
+                      </div>
+                      <div className="theme-card-name">
+                        {active && "▸ "}
+                        {th.name}
+                      </div>
+                      <div className="theme-card-desc">{th.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="about-text" style={{ marginTop: 12, fontSize: 11 }}>
+                {ru
+                  ? "Тема Midnight закреплена для интерфейса MITS."
+                  : "The Midnight theme is locked for the MITS interface."}
+              </div>
+            </div>
+
+            {/* ---------- Effects (visual-only, local) ---------- */}
+            <div className="set-section">
+              <div className="set-section-title">{ru ? "Эффекты" : "Effects"}</div>
+              <div className="set-row">
+                <span className="set-row-label">{ru ? "Свечение акцентов" : "Accent glow"}</span>
+                <input
+                  className="set-slider"
+                  type="range"
+                  min={0}
+                  max={32}
+                  step={2}
+                  value={glow}
+                  onChange={(e) => setGlow(+e.target.value)}
+                />
+                <span className="set-value">{glow}px</span>
+              </div>
+              <div className="set-row">
+                <span className="set-row-label">{ru ? "Анимации" : "Animations"}</span>
+                <button
+                  className={"set-toggle " + (motion ? "on" : "")}
+                  aria-pressed={motion}
+                  onClick={() => setMotion(!motion)}
+                />
+              </div>
+              <div className="set-row">
+                <span className="set-row-label">{ru ? "Частицы на фоне" : "Background particles"}</span>
+                <button
+                  className={"set-toggle " + (particles ? "on" : "")}
+                  aria-pressed={particles}
+                  onClick={() => setParticles(!particles)}
+                />
+              </div>
+              <div className="set-row">
+                <span className="set-row-label">{ru ? "Текстура зерна" : "Grain texture"}</span>
+                <button
+                  className={"set-toggle " + (grain ? "on" : "")}
+                  aria-pressed={grain}
+                  onClick={() => setGrain(!grain)}
+                />
+              </div>
+            </div>
+
+            {/* ---------- Account ---------- */}
+            <div className="set-section">
+              <div className="set-section-title">{ru ? "Аккаунт" : "Account"}</div>
+              <AccountBlock
+                ru={ru}
+                isLoading={isLoading}
+                isAuthenticated={isAuthenticated}
+                displayName={user?.display_name ?? null}
+                email={user?.email ?? null}
+                preferredMode={user?.preferred_mode ?? null}
+                createdAt={user?.created_at ?? null}
               />
             </div>
 
-            <div className="mb-5">
-              <div className="flex items-center mb-2">
-                <span className="up" style={{ fontSize: 11, color: "var(--text)" }}>
-                  {lang === "ru" ? "Линии развёртки (CRT)" : "Scanlines (CRT)"}
-                </span>
-                <div className="flex-1" />
-                <span className="y font-mono" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
-                  {Math.round(scanlines * 100)}%
-                </span>
+            {/* ---------- About ---------- */}
+            <div className="set-section">
+              <div className="set-section-title">{ru ? "О системе" : "About"}</div>
+              <div className="about-text">
+                {ru
+                  ? "MITS v.2.6.1 · Math Intelligent Tutoring System · Qwen3.5-9B · GSPO → KTO → DPO · Base 55.1% → 66.5% · МГТУ им. Баумана · 2024–2026"
+                  : "MITS v.2.6.1 · Math Intelligent Tutoring System · Qwen3.5-9B · GSPO → KTO → DPO · Base 55.1% → 66.5% · Bauman MSTU · 2024–2026"}
               </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={scanlines}
-                onChange={(e) => setScanlines(+e.target.value)}
-                style={{ width: "100%", accentColor: "var(--violet)" }}
-              />
-            </div>
-
-            <label className="flex items-center gap-3 cursor-pointer py-2">
-              <input
-                type="checkbox"
-                checked={glitch}
-                onChange={(e) => setGlitch(e.target.checked)}
-                style={{ accentColor: "var(--violet)" }}
-              />
-              <span className="up" style={{ fontSize: 11, color: "var(--text)" }}>
-                {lang === "ru" ? "Глитч на заголовках" : "Glitch on titles"}
-              </span>
-            </label>
-
-            <label className="flex items-center gap-3 cursor-pointer py-2">
-              <input
-                type="checkbox"
-                checked={particles}
-                onChange={(e) => setParticles(e.target.checked)}
-                style={{ accentColor: "var(--violet)" }}
-              />
-              <span className="up" style={{ fontSize: 11, color: "var(--text)" }}>
-                {lang === "ru" ? "Частицы на фоне" : "Background particles"}
-              </span>
-            </label>
-          </div>
-
-          {/* About */}
-          <div className="panel" style={{ padding: 20 }}>
-            <div className="up ghost text-[10px] tracking-[0.22em] mb-3">
-              › {lang === "ru" ? "О СИСТЕМЕ" : "ABOUT"}
-            </div>
-            <div className="font-mono text-[12px] leading-relaxed" style={{ color: "var(--text-dim)" }}>
-              <div>
-                MITS v.2.6.1 — <span className="v">Math Intelligent Tutoring System</span>
-              </div>
-              <div className="mt-2">
-                Qwen3.5-9B · GSPO → KTO → DPO · Base 55.1% → 66.5%
-              </div>
-              <div className="mt-2">МГТУ им. Баумана · дипломная работа · 2024–2026</div>
             </div>
           </div>
         </div>
+      </main>
+    </NewAppShell>
+  );
+}
+
+// ---------- Account section ----------
+// Renders the signed-in user (from AuthProvider / GET /api/v1/auth/me) or a
+// placeholder with a login link. Avatar initials mirror the profile screen.
+function AccountBlock({
+  ru,
+  isLoading,
+  isAuthenticated,
+  displayName,
+  email,
+  preferredMode,
+  createdAt,
+}: {
+  ru: boolean;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  displayName: string | null;
+  email: string | null;
+  preferredMode: string | null;
+  createdAt: string | null;
+}) {
+  if (isLoading) {
+    return (
+      <div className="about-text" style={{ color: "var(--ink-mute)" }}>
+        {ru ? "Загрузка профиля…" : "Loading profile…"}
       </div>
-    </AppShell>
+    );
+  }
+
+  if (!isAuthenticated || !displayName) {
+    return (
+      <div
+        className="rail-card"
+        style={{ display: "flex", alignItems: "center", gap: 14, maxWidth: 720 }}
+      >
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "rgba(0,0,0,0.35)",
+            border: "1px solid var(--line)",
+            display: "grid",
+            placeItems: "center",
+            color: "var(--ink-mute)",
+            fontSize: 16,
+            flex: "0 0 44px",
+          }}
+        >
+          ?
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, color: "var(--ink)" }}>
+            {ru ? "Вы не вошли в систему" : "You are not signed in"}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 2 }}>
+            {ru
+              ? "Войдите, чтобы синхронизировать прогресс и предпочтения."
+              : "Sign in to sync your progress and preferences."}
+          </div>
+        </div>
+        <Link href="/auth/login" className="btn-primary" style={{ textDecoration: "none" }}>
+          {ru ? "Войти" : "Log in"}
+        </Link>
+      </div>
+    );
+  }
+
+  const initials = displayName
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const joined = (() => {
+    if (!createdAt) return null;
+    const d = new Date(createdAt);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(ru ? "ru-RU" : "en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  })();
+
+  const modeLabel =
+    MODES.find((m) => m.value === preferredMode)?.[ru ? "label_ru" : "label_en"] ??
+    preferredMode ??
+    "—";
+
+  return (
+    <div
+      className="rail-card"
+      style={{ display: "flex", alignItems: "center", gap: 14, maxWidth: 720 }}
+    >
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, var(--accent), rgba(180,123,255,0.6))",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--accent-text, #fff)",
+          fontSize: 15,
+          fontWeight: 600,
+          flex: "0 0 44px",
+        }}
+      >
+        {initials || "?"}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, color: "var(--ink)", fontWeight: 500 }}>{displayName}</div>
+        {email && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--ink-mute)",
+              fontFamily: "var(--font-mono), monospace",
+              marginTop: 2,
+            }}
+          >
+            {email}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+          <span className="tag-chip">
+            {ru ? "Режим" : "Mode"} · {modeLabel}
+          </span>
+          {joined && (
+            <span className="tag-chip">
+              {ru ? "С нами с" : "Joined"} {joined}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,88 +1,222 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AppShell } from "@/components/cyber/AppShell";
-import { Glitch } from "@/components/cyber/Glitch";
-import { useI18n } from "@/lib/i18n";
-import { DOMAIN_COLOR } from "@/lib/domains";
-import { createSession } from "@/lib/api";
-import { useChatStore } from "@/store/chatStore";
-import { useRouter } from "next/navigation";
-import type { Session } from "@/types/api";
+// MITS — Knowledge Graph screen (new_design "midnight" port).
+//
+// Faithfully reproduces new_design/pages.jsx → GraphPage (the SVG node graph):
+//   HUD · edge-type legend · domain-coloured nodes with mastery rings & parallax ·
+//   prerequisite-chain highlighting · mini-map · domain legend · node-inspect side panel.
+//
+// Data comes from the live Knowledge Forge backend (see ./graphData.ts) and falls
+// back to the ported new_design sample graph so the screen always renders fully.
 
-interface Node {
-  id: string;
-  x: number;
-  y: number;
-  r: number;
-  label: string;
-  domain: string;
-  mastery: number;
-  attempts: number;
-  active?: boolean;
-  highlight?: boolean;
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { NewAppShell } from "@/components/newdesign/AppShell";
+import { useChatStore } from "@/store/chatStore";
+import { createSession } from "@/lib/api";
+import type { Session } from "@/types/api";
+import {
+  DOMAIN_KEYS,
+  FALLBACK_DATA,
+  defaultSelected,
+  fetchGraph,
+  getDomColor,
+  type EdgeKind,
+  type GraphData,
+  type GraphNode,
+} from "./graphData";
+
+// Locked to the midnight shell — colours resolve via the "dark" variant.
+const THEME = "midnight";
+
+// ── Local i18n (mirrors new_design graph strings; the app i18n lacks these keys) ──
+type Lang = "ru" | "en";
+
+const GRAPH_I18N: Record<Lang, Record<string, string>> = {
+  ru: {
+    graphTitle: "Граф знаний",
+    graphSub: "Маппинг навыков · BKT + DKT · 5 доменов · 40+ концептов",
+    graphInspect: "Узел · детали",
+    graphMastery: "Освоение",
+    graphAttempts: "Попыток",
+    graphTrace: "След обучения",
+    graphPrereq: "Предпосылки",
+    graphPractice: "Практиковать",
+    graphLastErr: "Посл. ошибка",
+    graphBKT: "BKT p(known)",
+    graphDKT: "DKT логит",
+    graph3hAgo: "3ч назад",
+    edgePrereq: "prerequisite",
+    edgeRelated: "связано",
+    edgeDerived: "производное",
+    overview: "ОБЗОР",
+    topic: "тема",
+    creating: "Создание сессии…",
+  },
+  en: {
+    graphTitle: "Knowledge graph",
+    graphSub: "Skill mapping · BKT + DKT · 5 domains · 40+ concepts",
+    graphInspect: "Node · inspect",
+    graphMastery: "Mastery",
+    graphAttempts: "Attempts",
+    graphTrace: "Learning trace",
+    graphPrereq: "Prerequisites",
+    graphPractice: "Practice",
+    graphLastErr: "Last error",
+    graphBKT: "BKT p(known)",
+    graphDKT: "DKT logit",
+    graph3hAgo: "3h ago",
+    edgePrereq: "prerequisite",
+    edgeRelated: "related",
+    edgeDerived: "derived",
+    overview: "OVERVIEW",
+    topic: "topic",
+    creating: "Creating session…",
+  },
+};
+
+/** Localized node label — prefer the Russian title when lang === ru. */
+function nodeLabel(n: GraphNode, lang: Lang): string {
+  if (lang === "ru" && n.labRu) return n.labRu;
+  return n.lab;
 }
 
-const GRAPH_NODES: Node[] = [
-  { id: "arith", x: 200, y: 260, r: 24, label: "Arithmetic", domain: "math", mastery: 0.94, attempts: 142 },
-  { id: "alg", x: 320, y: 200, r: 26, label: "Algebra", domain: "math", mastery: 0.82, attempts: 118 },
-  { id: "linalg", x: 440, y: 160, r: 22, label: "Linear Alg", domain: "math", mastery: 0.64, attempts: 63 },
-  { id: "calc", x: 460, y: 280, r: 28, label: "Calculus", domain: "math", mastery: 0.71, attempts: 97, active: true },
-  { id: "int", x: 560, y: 340, r: 24, label: "Integrals", domain: "math", mastery: 0.58, attempts: 41, highlight: true },
-  { id: "diff", x: 560, y: 230, r: 22, label: "Derivatives", domain: "math", mastery: 0.78, attempts: 72 },
-  { id: "geom", x: 340, y: 340, r: 22, label: "Geometry", domain: "math", mastery: 0.69, attempts: 58 },
-  { id: "prob", x: 260, y: 420, r: 22, label: "Probability", domain: "math", mastery: 0.44, attempts: 29 },
-  { id: "mech", x: 720, y: 180, r: 24, label: "Mechanics", domain: "phys", mastery: 0.67, attempts: 51 },
-  { id: "therm", x: 820, y: 260, r: 22, label: "Thermo", domain: "phys", mastery: 0.38, attempts: 17 },
-  { id: "em", x: 780, y: 380, r: 22, label: "EM Fields", domain: "phys", mastery: 0.22, attempts: 9 },
-  { id: "chem", x: 660, y: 460, r: 22, label: "Chemistry", domain: "chem", mastery: 0.51, attempts: 32 },
-  { id: "org", x: 760, y: 510, r: 20, label: "Organic", domain: "chem", mastery: 0.33, attempts: 12 },
-  { id: "cs", x: 140, y: 380, r: 22, label: "CS Basics", domain: "cs", mastery: 0.88, attempts: 104 },
-  { id: "ds", x: 100, y: 480, r: 22, label: "DS & Algo", domain: "cs", mastery: 0.72, attempts: 61 },
-  { id: "dp", x: 200, y: 540, r: 20, label: "DP", domain: "cs", mastery: 0.48, attempts: 24 },
-  { id: "bio", x: 900, y: 440, r: 20, label: "Biology", domain: "bio", mastery: 0.41, attempts: 18 },
-  { id: "gen", x: 960, y: 530, r: 18, label: "Genetics", domain: "bio", mastery: 0.19, attempts: 6 },
-];
+// ── Shared head controls (lang toggle + theme toggle) — ported from new_design ──
+function PageControls({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+  return (
+    <>
+      <div className="lang-toggle">
+        <button className={lang === "ru" ? "active" : ""} onClick={() => setLang("ru")}>
+          RU
+        </button>
+        <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
+          EN
+        </button>
+      </div>
+      {/* Shell is locked to midnight; toggle kept for visual parity. */}
+      <button className="theme-toggle" title="Theme">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="8" r="3" />
+          <path strokeLinecap="round" d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5 13 13M3 13l1.5-1.5M11.5 4.5 13 3" />
+        </svg>
+      </button>
+    </>
+  );
+}
 
-const GRAPH_EDGES: [string, string][] = [
-  ["arith", "alg"], ["alg", "linalg"], ["alg", "calc"], ["calc", "diff"], ["calc", "int"],
-  ["diff", "int"], ["alg", "geom"], ["alg", "prob"], ["calc", "mech"], ["mech", "therm"],
-  ["mech", "em"], ["chem", "org"], ["cs", "ds"], ["ds", "dp"], ["alg", "cs"], ["bio", "gen"],
-  ["chem", "bio"], ["linalg", "mech"], ["prob", "bio"], ["int", "mech"], ["diff", "mech"],
-];
+// Edge-type style table — ported from new_design.
+const EDGE_STYLE: Record<EdgeKind, { dash?: string; width: number; arrow: boolean; baseOpacity: number }> = {
+  prereq: { dash: undefined, width: 1.4, arrow: true, baseOpacity: 0.55 },
+  related: { dash: "5 4", width: 1.2, arrow: false, baseOpacity: 0.45 },
+  derived: { dash: "1.5 4", width: 1.2, arrow: true, baseOpacity: 0.45 },
+};
 
 export default function GraphPage() {
-  const { t, lang } = useI18n();
   const router = useRouter();
   const addSession = useChatStore((s) => s.addSession);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
 
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [selected, setSelected] = useState("int");
-  const [dragging, setDragging] = useState(false);
+  const [lang, setLang] = useState<Lang>("ru");
+  const [data, setData] = useState<GraphData>(FALLBACK_DATA);
+  const [selected, setSelected] = useState<string>("int");
   const [hover, setHover] = useState<string | null>(null);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [practicing, setPracticing] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const startPractice = async (node: Node | undefined) => {
+  const tt = (k: string) => GRAPH_I18N[lang][k] ?? k;
+
+  // Persisted language (matches the rest of the app).
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("mits-lang") : null;
+    if (saved === "ru" || saved === "en") setLang(saved);
+  }, []);
+  const changeLang = (l: Lang) => {
+    setLang(l);
+    if (typeof window !== "undefined") localStorage.setItem("mits-lang", l);
+  };
+
+  // Load the live graph; fall back to the static sample on any error/empty.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const g = await fetchGraph();
+        if (!cancelled) {
+          setData(g);
+          setSelected(defaultSelected(g));
+        }
+      } catch {
+        if (!cancelled) {
+          setData(FALLBACK_DATA);
+          setSelected(defaultSelected(FALLBACK_DATA));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { nodes, edges, domains } = data;
+
+  const sel = useMemo(() => nodes.find((n) => n.id === selected), [nodes, selected]);
+
+  // Full prerequisite chain (BFS upstream) for path-highlighting.
+  const chainSet = useMemo(() => {
+    const set = new Set<string>([selected]);
+    const queue = [selected];
+    while (queue.length) {
+      const cur = queue.shift()!;
+      for (const e of edges) {
+        if (e[1] === cur && !set.has(e[0])) {
+          set.add(e[0]);
+          queue.push(e[0]);
+        }
+      }
+    }
+    return set;
+  }, [selected, edges]);
+
+  const prereqs = useMemo(
+    () =>
+      edges
+        .filter((e) => e[1] === selected)
+        .map(([from]) => nodes.find((n) => n.id === from))
+        .filter((n): n is GraphNode => Boolean(n)),
+    [selected, edges, nodes],
+  );
+
+  // Mouse-parallax — weaker mastery drifts more (feels "further away").
+  const handleMove = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setMouse({
+      x: ((e.clientX - r.left) / r.width - 0.5) * 2,
+      y: ((e.clientY - r.top) / r.height - 0.5) * 2,
+    });
+  };
+  const handleLeave = () => setMouse({ x: 0, y: 0 });
+  const parallaxFor = (n: GraphNode) => {
+    const factor = (1 - n.m) * 6 + 1.5; // 1.5..7.5 px
+    return { dx: mouse.x * factor, dy: mouse.y * factor };
+  };
+
+  // Start a guided-learning session on the selected concept.
+  const startPractice = async (node: GraphNode | undefined) => {
     if (!node || practicing) return;
     setPracticing(true);
     try {
-      const topicId = node.id;
+      const label = nodeLabel(node, lang);
       const customProblem =
         lang === "ru"
-          ? `Давай поработаем над темой «${node.label}» (${node.domain}). Покажи задачу на этот концепт.`
-          : `Let's work on "${node.label}" (${node.domain}). Show me a problem on this concept.`;
-
+          ? `Давай поработаем над темой «${label}» (${node.d}). Покажи задачу на этот концепт.`
+          : `Let's work on "${label}" (${node.d}). Show me a problem on this concept.`;
       const session = await createSession({
-        topic: topicId,
+        topic: node.id,
         difficulty: "medium",
         mode: "guided_learning",
         custom_problem: customProblem,
       });
-
       const sessionData: Session = {
         id: session.id,
         created_at: session.created_at,
@@ -105,385 +239,397 @@ export default function GraphPage() {
     }
   };
 
-  const onDown = (e: React.MouseEvent) => {
-    setDragging(true);
-    dragStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
-  };
-  const onMove = (e: React.MouseEvent) => {
-    if (!dragging) return;
-    setPan({
-      x: dragStart.current.px + (e.clientX - dragStart.current.x),
-      y: dragStart.current.py + (e.clientY - dragStart.current.y),
-    });
-  };
-  const onUp = () => setDragging(false);
-  const onWheel = (e: React.WheelEvent) => {
-    const delta = -e.deltaY * 0.001;
-    setZoom((z) => Math.min(3, Math.max(0.4, z + delta)));
-  };
-
-  const sel = GRAPH_NODES.find((n) => n.id === selected);
-
   return (
-    <AppShell>
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* header */}
-        <div
-          className="flex items-center"
-          style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid var(--line)",
-            background: "rgba(0,0,0,0.3)",
-          }}
-        >
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <Glitch className="font-display" text={t("graph_title")}>
-                <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "0.08em" }}>
-                  {t("graph_title")}
-                </span>
-              </Glitch>
-              <span className="chip v">LIVE</span>
+    <NewAppShell>
+      <main className="main">
+        <div className="page">
+          <div className="page-head">
+            <div className="page-head-info">
+              <h1>{tt("graphTitle")}</h1>
+              <div className="page-sub">{tt("graphSub")}</div>
             </div>
-            <div className="ghost mt-1" style={{ fontSize: 10, letterSpacing: "0.16em" }}>
-              {"// "}{t("graph_sub")}
-            </div>
-          </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            {Object.entries(DOMAIN_COLOR).map(([k, c]) => (
-              <div key={k} className="flex items-center gap-1 text-[10px]">
-                <span style={{ width: 8, height: 8, background: c, boxShadow: `0 0 6px ${c}` }} />
-                <span className="up ghost tracking-[0.14em]">{k}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 ml-4">
-            <button className="cbtn !px-2 !py-1 text-[11px]" onClick={() => setZoom((z) => Math.min(3, z + 0.2))}>
-              +
+            <PageControls lang={lang} setLang={changeLang} />
+            <button className="btn-secondary">
+              {tt("graphBKT")} · {tt("graphDKT")}
             </button>
-            <button className="cbtn !px-2 !py-1 text-[11px]" onClick={() => setZoom((z) => Math.max(0.4, z - 0.2))}>
-              −
-            </button>
-            <button
-              className="cbtn !px-2 !py-1 text-[11px]"
-              onClick={() => {
-                setZoom(1);
-                setPan({ x: 0, y: 0 });
-              }}
-            >
-              ⌂
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-1 min-h-0">
-          {/* canvas */}
-          <div
-            className="flex-1 relative overflow-hidden"
-            style={{
-              cursor: dragging ? "grabbing" : "grab",
-              background: "radial-gradient(ellipse at center, rgba(165,131,255,0.06), transparent 70%)",
-            }}
-            onMouseDown={onDown}
-            onMouseMove={onMove}
-            onMouseUp={onUp}
-            onMouseLeave={onUp}
-            onWheel={onWheel}
-          >
-            <div
-              className="absolute top-3 left-3.5 z-[2] text-[10px]"
-              style={{ color: "var(--text-muted)", letterSpacing: "0.14em" }}
-            >
-              <div>ZOOM · <span className="y">{zoom.toFixed(2)}x</span></div>
-              <div>PAN · <span className="v">{Math.round(pan.x)}, {Math.round(pan.y)}</span></div>
-              <div>NODES · <span>{GRAPH_NODES.length}</span></div>
-              <div>EDGES · <span>{GRAPH_EDGES.length}</span></div>
-            </div>
-
-            <svg ref={svgRef} width="100%" height="100%" viewBox="0 0 1080 640" style={{ display: "block" }}>
-              <defs>
-                <filter id="glowf" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="3" result="b" />
-                  <feMerge>
-                    <feMergeNode in="b" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <radialGradient id="ring-active">
-                  <stop offset="60%" stopColor="rgba(232,198,104,0)" />
-                  <stop offset="95%" stopColor="rgba(232,198,104,0.5)" />
-                  <stop offset="100%" stopColor="rgba(232,198,104,0)" />
-                </radialGradient>
-              </defs>
-
-              <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-                {Array.from({ length: 22 }).map((_, i) => (
-                  <line
-                    key={`v${i}`}
-                    x1={i * 60}
-                    y1="0"
-                    x2={i * 60}
-                    y2="640"
-                    stroke="rgba(165,131,255,0.06)"
-                    strokeWidth="1"
-                  />
-                ))}
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <line
-                    key={`h${i}`}
-                    x1="0"
-                    y1={i * 60}
-                    x2="1320"
-                    y2={i * 60}
-                    stroke="rgba(165,131,255,0.06)"
-                    strokeWidth="1"
-                  />
-                ))}
-
-                {GRAPH_EDGES.map(([a, b], i) => {
-                  const na = GRAPH_NODES.find((n) => n.id === a);
-                  const nb = GRAPH_NODES.find((n) => n.id === b);
-                  if (!na || !nb) return null;
-                  const highlight = selected === a || selected === b;
-                  return (
-                    <line
-                      key={i}
-                      x1={na.x}
-                      y1={na.y}
-                      x2={nb.x}
-                      y2={nb.y}
-                      stroke={highlight ? "#e8c668" : "rgba(165,131,255,0.3)"}
-                      strokeWidth={highlight ? 1.6 : 1}
-                      style={{
-                        filter: highlight ? "drop-shadow(0 0 4px #e8c668)" : "none",
-                        transition: "all 200ms",
-                      }}
-                    />
-                  );
-                })}
-
-                {GRAPH_NODES.map((n) => {
-                  const color = DOMAIN_COLOR[n.domain];
-                  const isSel = selected === n.id;
-                  const isHover = hover === n.id;
-                  return (
-                    <g
-                      key={n.id}
-                      style={{ cursor: "pointer" }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelected(n.id);
-                      }}
-                      onMouseEnter={() => setHover(n.id)}
-                      onMouseLeave={() => setHover(null)}
-                    >
-                      {n.active && (
-                        <circle cx={n.x} cy={n.y} r={n.r + 14} fill="url(#ring-active)">
-                          <animate
-                            attributeName="r"
-                            values={`${n.r + 8};${n.r + 22};${n.r + 8}`}
-                            dur="2.2s"
-                            repeatCount="indefinite"
-                          />
-                        </circle>
-                      )}
-                      <circle cx={n.x} cy={n.y} r={n.r + 4} stroke="rgba(255,255,255,0.05)" strokeWidth="2" fill="none" />
-                      <circle
-                        cx={n.x}
-                        cy={n.y}
-                        r={n.r + 4}
-                        stroke={color}
-                        strokeWidth="2"
-                        fill="none"
-                        strokeDasharray={`${(n.mastery * 2 * Math.PI * (n.r + 4)).toFixed(1)} 9999`}
-                        transform={`rotate(-90 ${n.x} ${n.y})`}
-                        style={{ transition: "all 300ms" }}
-                      />
-                      <circle
-                        cx={n.x}
-                        cy={n.y}
-                        r={n.r}
-                        fill={isSel ? color : `${color}22`}
-                        stroke={color}
-                        strokeWidth={isSel ? 2 : 1.2}
-                        filter={isSel || isHover || n.highlight ? "url(#glowf)" : undefined}
-                        style={{ transition: "all 150ms" }}
-                      />
-                      <circle cx={n.x} cy={n.y} r={n.r * 0.35} fill={isSel ? "#05050a" : color} opacity={isSel ? 1 : 0.8} />
-                      <text
-                        x={n.x}
-                        y={n.y + n.r + 14}
-                        textAnchor="middle"
-                        fill={isSel ? "#e8c668" : "rgba(228,224,255,0.85)"}
-                        fontSize="10"
-                        fontFamily="var(--font-mono)"
-                        style={{ letterSpacing: "0.08em", textTransform: "uppercase", pointerEvents: "none" }}
-                      >
-                        {n.label}
-                      </text>
-                      <text
-                        x={n.x}
-                        y={n.y + 3}
-                        textAnchor="middle"
-                        fill={isSel ? "#0a0014" : "rgba(255,255,255,0.9)"}
-                        fontSize="9"
-                        fontWeight="600"
-                        fontFamily="var(--font-mono)"
-                        style={{ pointerEvents: "none" }}
-                      >
-                        {Math.round(n.mastery * 100)}
-                      </text>
-                    </g>
-                  );
-                })}
-              </g>
-            </svg>
-
-            <div className="scan-bar absolute" />
+            <button className="btn-primary">+ {tt("topic")}</button>
           </div>
 
-          {/* Side panel */}
-          <div
-            style={{
-              width: 300,
-              flex: "0 0 300px",
-              borderLeft: "1px solid var(--line)",
-              background: "rgba(0,0,0,0.35)",
-              padding: 16,
-              overflowY: "auto",
-            }}
-          >
-            <div className="up ghost text-[9px] tracking-[0.22em] mb-2">› NODE INSPECT</div>
-            {sel && (
-              <>
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    style={{
-                      width: 14,
-                      height: 14,
-                      background: DOMAIN_COLOR[sel.domain],
-                      boxShadow: `0 0 8px ${DOMAIN_COLOR[sel.domain]}`,
-                    }}
-                  />
-                  <span
-                    className="font-display"
-                    style={{ fontSize: 16, color: "var(--text)", letterSpacing: "0.02em" }}
-                  >
-                    {sel.label}
+          <div className="page-body" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="graph-wrap">
+              <div className="graph-canvas" onMouseMove={handleMove} onMouseLeave={handleLeave}>
+                <div className="graph-hud">
+                  <div>
+                    NODES · <span>{nodes.length}</span>
+                  </div>
+                  <div>
+                    EDGES · <span>{edges.length}</span>
+                  </div>
+                  <div>
+                    DOMAINS · <span>{domains.length}</span>
+                  </div>
+                </div>
+
+                {/* Edge type legend */}
+                <div className="graph-edge-legend">
+                  <span className="el-item">
+                    <svg width="22" height="6">
+                      <line x1="1" y1="3" x2="21" y2="3" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M16,1 L21,3 L16,5 z" fill="currentColor" />
+                    </svg>{" "}
+                    {tt("edgePrereq")}
+                  </span>
+                  <span className="el-item">
+                    <svg width="22" height="6">
+                      <line x1="1" y1="3" x2="21" y2="3" stroke="currentColor" strokeWidth="1.2" strokeDasharray="5 4" />
+                    </svg>{" "}
+                    {tt("edgeRelated")}
+                  </span>
+                  <span className="el-item">
+                    <svg width="22" height="6">
+                      <line x1="1" y1="3" x2="17" y2="3" stroke="currentColor" strokeWidth="1.2" strokeDasharray="1.5 4" />
+                      <path d="M14,1 L19,3 L14,5 z" fill="currentColor" />
+                    </svg>{" "}
+                    {tt("edgeDerived")}
                   </span>
                 </div>
-                <div className="ghost mb-3.5" style={{ fontSize: 10, letterSpacing: "0.14em" }}>
-                  ID · {sel.id.toUpperCase()} · DOMAIN · {sel.domain.toUpperCase()}
-                </div>
 
-                <div className="mb-3.5">
-                  <div className="flex items-center text-[10px] mb-1">
-                    <span className="up ghost">{t("skill_mastery")}</span>
-                    <div className="flex-1" />
-                    <span className="y">{Math.round(sel.mastery * 100)}%</span>
-                  </div>
-                  <div style={{ height: 6, background: "rgba(165,131,255,0.15)", position: "relative" }}>
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        right: "auto",
-                        width: `${sel.mastery * 100}%`,
-                        background: `linear-gradient(to right, ${DOMAIN_COLOR[sel.domain]}, var(--yellow))`,
-                        boxShadow: `0 0 8px ${DOMAIN_COLOR[sel.domain]}`,
-                      }}
-                    />
-                  </div>
-                </div>
+                <svg ref={svgRef} width="100%" height="100%" viewBox="0 0 1080 640" style={{ display: "block" }}>
+                  <defs>
+                    <filter id="gf" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="b" />
+                      <feMerge>
+                        <feMergeNode in="b" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    <filter id="ge" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="1.4" result="b" />
+                      <feMerge>
+                        <feMergeNode in="b" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    {DOMAIN_KEYS.map((d) => {
+                      const c = getDomColor(d, THEME);
+                      return (
+                        <marker
+                          key={d}
+                          id={`arr-${d}`}
+                          viewBox="0 0 10 10"
+                          refX="9"
+                          refY="5"
+                          markerWidth="5"
+                          markerHeight="5"
+                          orient="auto-start-reverse"
+                        >
+                          <path d="M0,0 L10,5 L0,10 z" fill={c} />
+                        </marker>
+                      );
+                    })}
+                    <marker
+                      id="arr-accent"
+                      viewBox="0 0 10 10"
+                      refX="9"
+                      refY="5"
+                      markerWidth="5.5"
+                      markerHeight="5.5"
+                      orient="auto-start-reverse"
+                    >
+                      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+                    </marker>
+                  </defs>
 
-                <div
-                  className="grid grid-cols-2 mb-4"
-                  style={{ gap: 1, background: "var(--line-hi)", border: "1px solid var(--line-hi)" }}
-                >
-                  {[
-                    ["BKT p(known)", (sel.mastery * 0.95).toFixed(2)],
-                    ["DKT logit", ((sel.mastery - 0.5) * 4).toFixed(2)],
-                    [t("skill_attempts"), sel.attempts],
-                    ["last err.", lang === "ru" ? "3ч назад" : "3h ago"],
-                  ].map(([k, v]) => (
-                    <div key={k} style={{ background: "var(--surface-hi)", padding: "8px 10px" }}>
-                      <div
-                        className="ghost up"
-                        style={{ fontSize: 9, letterSpacing: "0.14em" }}
+                  {/* Edges */}
+                  {edges.map((e, i) => {
+                    const [a, b] = e;
+                    const type = (e[2] || "prereq") as EdgeKind;
+                    const st = EDGE_STYLE[type];
+                    const na = nodes.find((n) => n.id === a);
+                    const nb = nodes.find((n) => n.id === b);
+                    if (!na || !nb) return null;
+                    const inChain = chainSet.has(a) && chainSet.has(b);
+                    const adj = selected === a || selected === b;
+                    const dim = !inChain && !adj;
+                    const hi = inChain || adj;
+                    const pa = parallaxFor(na);
+                    const pb = parallaxFor(nb);
+
+                    // Shorten line so the arrow doesn't sit on top of the node.
+                    const dx = nb.x + pb.dx - (na.x + pa.dx);
+                    const dy = nb.y + pb.dy - (na.y + pa.dy);
+                    const len = Math.hypot(dx, dy) || 1;
+                    const ux = dx / len;
+                    const uy = dy / len;
+                    const x1 = na.x + pa.dx + ux * (na.r + 4);
+                    const y1 = na.y + pa.dy + uy * (na.r + 4);
+                    const x2 = nb.x + pb.dx - ux * (nb.r + 6);
+                    const y2 = nb.y + pb.dy - uy * (nb.r + 6);
+
+                    const edgeColor = hi ? "var(--accent)" : getDomColor(na.d, THEME);
+
+                    return (
+                      <g key={i} style={{ transition: "opacity .25s var(--ease-spring, ease-out)" }} opacity={dim ? 0.15 : 1}>
+                        {/* halo */}
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke={edgeColor}
+                          strokeWidth={hi ? 6 : 3.5}
+                          strokeLinecap="round"
+                          opacity={hi ? 0.45 : 0.18}
+                          filter="url(#ge)"
+                          strokeDasharray={st.dash}
+                          style={{ transition: "all .25s var(--ease-spring, ease-out)" }}
+                        />
+                        {/* core */}
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke={edgeColor}
+                          strokeWidth={hi ? 1.9 : st.width}
+                          strokeLinecap="round"
+                          strokeDasharray={st.dash}
+                          opacity={hi ? 1 : st.baseOpacity + 0.25}
+                          markerEnd={st.arrow ? (hi ? "url(#arr-accent)" : `url(#arr-${na.d})`) : undefined}
+                          style={{ transition: "all .25s var(--ease-spring, ease-out)" }}
+                        />
+                      </g>
+                    );
+                  })}
+
+                  {/* Nodes */}
+                  {nodes.map((n) => {
+                    const c = getDomColor(n.d, THEME);
+                    const isSel = selected === n.id;
+                    const isHv = hover === n.id;
+                    const inChain = chainSet.has(n.id);
+                    const dim = !inChain;
+                    const p = parallaxFor(n);
+                    const cx = n.x + p.dx;
+                    const cy = n.y + p.dy;
+                    return (
+                      <g
+                        key={n.id}
+                        style={{ cursor: "pointer", transition: "opacity .25s var(--ease-spring, ease-out)" }}
+                        opacity={dim ? 0.32 : 1}
+                        onClick={() => setSelected(n.id)}
+                        onMouseEnter={() => setHover(n.id)}
+                        onMouseLeave={() => setHover(null)}
                       >
-                        {k}
-                      </div>
-                      <div style={{ fontSize: 14, color: "var(--text)", marginTop: 2 }}>{v}</div>
+                        {n.active && (
+                          <circle cx={cx} cy={cy} r={n.r + 14} fill="none" stroke={c} strokeWidth="1" opacity="0.4">
+                            <animate attributeName="r" values={`${n.r + 8};${n.r + 22};${n.r + 8}`} dur="2.4s" repeatCount="indefinite" />
+                            <animate attributeName="opacity" values="0.4;0;0.4" dur="2.4s" repeatCount="indefinite" />
+                          </circle>
+                        )}
+                        {/* Mastery ring */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={n.r + 4}
+                          stroke={c}
+                          strokeWidth="2"
+                          fill="none"
+                          strokeDasharray={`${(n.m * 2 * Math.PI * (n.r + 4)).toFixed(1)} 9999`}
+                          transform={`rotate(-90 ${cx} ${cy})`}
+                          opacity={isSel ? 1 : 0.85}
+                        />
+                        <circle cx={cx} cy={cy} r={n.r + 4} stroke={c} strokeWidth="2" fill="none" opacity="0.1" />
+                        {/* Node body */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={n.r}
+                          fill={isSel ? c : THEME === "midnight" ? c + "44" : c + "1A"}
+                          stroke={c}
+                          strokeWidth={isSel ? 0 : 1.2}
+                          filter={isSel || isHv || n.highlight ? "url(#gf)" : undefined}
+                          style={{ transition: "all .25s var(--ease-spring, ease-out)" }}
+                        />
+                        <text
+                          x={cx}
+                          y={cy + 3}
+                          textAnchor="middle"
+                          fontFamily="JetBrains Mono"
+                          fontSize="11"
+                          fontWeight="600"
+                          fill={isSel ? (THEME === "midnight" ? "#0a0518" : "#fff") : c}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {Math.round(n.m * 100)}
+                        </text>
+                        <text
+                          x={cx}
+                          y={cy + n.r + 14}
+                          textAnchor="middle"
+                          fontFamily="JetBrains Mono"
+                          fontSize="10"
+                          fill={isSel ? c : "currentColor"}
+                          style={{
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            pointerEvents: "none",
+                            color: "var(--ink-soft)",
+                            fontWeight: isSel ? 700 : 500,
+                          }}
+                        >
+                          {nodeLabel(n, lang)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* Mini-map (overview navigator) */}
+                <div className="graph-minimap">
+                  <div className="mm-label">{tt("overview")}</div>
+                  <svg viewBox="0 0 1080 640" preserveAspectRatio="xMidYMid meet" width="100%" height="76">
+                    {edges.map((e, i) => {
+                      const na = nodes.find((n) => n.id === e[0]);
+                      const nb = nodes.find((n) => n.id === e[1]);
+                      if (!na || !nb) return null;
+                      const onChain = chainSet.has(na.id) && chainSet.has(nb.id);
+                      return (
+                        <line
+                          key={i}
+                          x1={na.x}
+                          y1={na.y}
+                          x2={nb.x}
+                          y2={nb.y}
+                          stroke={onChain ? "var(--accent)" : "currentColor"}
+                          strokeWidth={onChain ? "4" : "2.5"}
+                          opacity={onChain ? 0.9 : 0.18}
+                        />
+                      );
+                    })}
+                    {nodes.map((n) => (
+                      <circle
+                        key={n.id}
+                        cx={n.x}
+                        cy={n.y}
+                        r={selected === n.id ? 18 : chainSet.has(n.id) ? 13 : 9}
+                        fill={getDomColor(n.d, THEME)}
+                        opacity={chainSet.has(n.id) ? 1 : 0.45}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setSelected(n.id)}
+                      />
+                    ))}
+                  </svg>
+                </div>
+
+                <div className="graph-legend">
+                  {DOMAIN_KEYS.map((d) => (
+                    <div className="lg-item" key={d}>
+                      <span className="lg-dot" style={{ background: getDomColor(d, THEME), color: getDomColor(d, THEME) }} />
+                      {d}
                     </div>
                   ))}
                 </div>
+              </div>
 
-                <div className="up ghost text-[9px] mb-1.5 tracking-[0.2em]">
-                  › {t("learning_trace")}
-                </div>
-                <svg width="100%" height="60" viewBox="0 0 260 60" className="mb-3.5">
-                  <polyline
-                    fill="none"
-                    stroke="var(--violet)"
-                    strokeWidth="1.5"
-                    points="0,45 22,42 44,40 66,36 88,32 110,35 132,28 154,24 176,26 198,20 220,15 242,12 260,14"
-                    style={{ filter: "drop-shadow(0 0 3px var(--violet))" }}
-                  />
-                  <polyline
-                    fill="none"
-                    stroke="var(--yellow)"
-                    strokeWidth="1"
-                    strokeDasharray="3 3"
-                    points="0,50 260,50"
-                    opacity="0.4"
-                  />
-                </svg>
+              <div className="graph-side">
+                <div className="gs-head">{tt("graphInspect")}</div>
+                {sel && (
+                  <>
+                    <h2 className="gs-title" style={{ color: getDomColor(sel.d, THEME) }}>
+                      <span className="dot" style={{ background: getDomColor(sel.d, THEME), color: getDomColor(sel.d, THEME) }} />
+                      {nodeLabel(sel, lang)}
+                    </h2>
+                    <div className="gs-id">
+                      {sel.id} · {sel.d}
+                    </div>
 
-                <div className="up ghost text-[9px] mb-1.5 tracking-[0.2em]">› prerequisites</div>
-                <div className="flex flex-col gap-1 mb-4">
-                  {GRAPH_EDGES.filter((e) => e[1] === sel.id).map(([from], i) => {
-                    const pre = GRAPH_NODES.find((n) => n.id === from);
-                    if (!pre) return null;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setSelected(pre.id)}
-                        className="font-mono flex items-center gap-2 text-left"
-                        style={{
-                          padding: "6px 10px",
-                          background: "rgba(165,131,255,0.06)",
-                          border: "1px solid var(--line)",
-                          color: "var(--text-dim)",
-                          fontSize: 11,
-                          cursor: "pointer",
-                          borderRadius: 3,
-                        }}
-                      >
-                        <span style={{ color: DOMAIN_COLOR[pre.domain] }}>↳</span>
-                        <span>{pre.label}</span>
-                        <div className="flex-1" />
-                        <span className="y">{Math.round(pre.mastery * 100)}%</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                    <div className="gs-mastery-row">
+                      <span style={{ color: "var(--ink-mute)" }}>{tt("graphMastery")}</span>
+                      <span style={{ color: "var(--ink)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
+                        {Math.round(sel.m * 100)}%
+                      </span>
+                    </div>
+                    <div className="gs-bar">
+                      <div className="gs-bar-fill" style={{ width: sel.m * 100 + "%" }} />
+                    </div>
 
-                <button
-                  className="cbtn cbtn-primary w-full justify-center"
-                  onClick={() => startPractice(sel)}
-                  disabled={practicing}
-                >
-                  {practicing
-                    ? (lang === "ru" ? "СОЗДАНИЕ СЕССИИ…" : "CREATING SESSION…")
-                    : "◆ " + (lang === "ru" ? "ПРАКТИКОВАТЬ" : "PRACTICE") + " →"}
-                </button>
-              </>
-            )}
+                    <div className="gs-mini-stats">
+                      <div className="gs-mini">
+                        <div className="k">{tt("graphBKT")}</div>
+                        <div className="v">{(sel.m * 0.95).toFixed(2)}</div>
+                      </div>
+                      <div className="gs-mini">
+                        <div className="k">{tt("graphDKT")}</div>
+                        <div className="v">{((sel.m - 0.5) * 4).toFixed(2)}</div>
+                      </div>
+                      <div className="gs-mini">
+                        <div className="k">{tt("graphAttempts")}</div>
+                        <div className="v">{sel.att}</div>
+                      </div>
+                      <div className="gs-mini">
+                        <div className="k">{tt("graphLastErr")}</div>
+                        <div className="v">{tt("graph3hAgo")}</div>
+                      </div>
+                    </div>
+
+                    <div className="gs-head" style={{ marginTop: 4, marginBottom: 10 }}>
+                      {tt("graphTrace")}
+                    </div>
+                    <svg width="100%" height="60" viewBox="0 0 260 60" style={{ marginBottom: 14 }}>
+                      <polyline
+                        fill="none"
+                        stroke="var(--accent)"
+                        strokeWidth="1.5"
+                        points="0,45 22,42 44,40 66,36 88,32 110,35 132,28 154,24 176,26 198,20 220,15 242,12 260,14"
+                        style={{ filter: "drop-shadow(0 0 4px var(--accent))" }}
+                      />
+                      <polyline
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        strokeDasharray="3 3"
+                        points="0,50 260,50"
+                        opacity="0.3"
+                        style={{ color: "var(--ink-mute)" }}
+                      />
+                    </svg>
+
+                    <div className="gs-head" style={{ marginTop: 4, marginBottom: 10 }}>
+                      {tt("graphPrereq")}
+                    </div>
+                    <div style={{ marginBottom: 14 }}>
+                      {prereqs.map((p, i) => (
+                        <div
+                          key={i}
+                          className="gs-prereq"
+                          onClick={() => setSelected(p.id)}
+                          style={{ ["--dom" as string]: getDomColor(p.d, THEME) }}
+                        >
+                          <span className="arrow" style={{ color: getDomColor(p.d, THEME) }}>
+                            ↳
+                          </span>
+                          <span style={{ flex: 1, color: "var(--ink)" }}>{nodeLabel(p, lang)}</span>
+                          <span style={{ color: "var(--accent)" }}>{Math.round(p.m * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      className="btn-primary"
+                      style={{ width: "100%", justifyContent: "center" }}
+                      onClick={() => startPractice(sel)}
+                      disabled={practicing}
+                    >
+                      {practicing ? tt("creating") : `${tt("graphPractice")} →`}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </AppShell>
+      </main>
+    </NewAppShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type CyberTheme = "grimoire" | "neo" | "acid" | "minimal";
+export type CyberTheme = "midnight" | "grimoire" | "neo" | "acid" | "minimal";
 
 interface Tweaks {
   theme: CyberTheme;
@@ -21,7 +21,7 @@ interface Ctx extends Tweaks {
 }
 
 const DEFAULTS: Tweaks = {
-  theme: "grimoire",
+  theme: "midnight",
   glow: 14,
   scanlines: 0.5,
   glitch: true,

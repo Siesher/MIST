@@ -1,21 +1,57 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { AppShell } from "@/components/cyber/AppShell";
-import { Glitch } from "@/components/cyber/Glitch";
-import { useI18n } from "@/lib/i18n";
+// Sources / Knowledge Forge screen — ported from new_design (midnight) SourcesPage.
+// Renders inside NewAppShell (theme-midnight) and reuses the new_design CSS classes
+// (.page / .pipeline / .stat-cards / .src-grid / .src-card …) defined in newdesign.css.
+//
+// Data: GET /api/v1/knowledge/sources  +  GET /api/v1/knowledge/stats.
+// Upload affordance: POST /api/v1/knowledge/sources (text → SourceExtractor → graph).
+// On backend error/empty, falls back to representative static sources so the screen
+// always looks complete.
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { NewAppShell } from "@/components/newdesign/AppShell";
 import {
   createSource,
-  deleteSource,
   getGraphStats,
   listSources,
+  type CreateSourceRequest,
   type GraphStats,
   type SourceInfo,
 } from "@/lib/api";
 
-const PIPELINE = ["query", "route", "graph query", "explore(node)", "prerequisites", "context build", "tutor agent"];
+// new_design PIPELINE_STEPS (verbatim) — the active Knowledge-Forge query path.
+const PIPELINE_STEPS = [
+  "query",
+  "route",
+  "graph query",
+  "explore(node)",
+  "prerequisites",
+  "context build",
+  "tutor agent",
+];
 
-const DOMAINS: { value: string; label: string }[] = [
+// Midnight-theme domain colours — mirrors getDomColor(d,"midnight") in new_design.
+// Keyed by both backend domain names (math/physics/chemistry/biology/cs) and the
+// design's short aliases (phys/chem/bio) so either shape renders a coloured pill.
+const DOM_COLOR: Record<string, string> = {
+  math: "#B47BFF",
+  physics: "#F0BB7E",
+  phys: "#F0BB7E",
+  chemistry: "#8DD4DC",
+  chem: "#8DD4DC",
+  biology: "#6FE0A6",
+  bio: "#6FE0A6",
+  cs: "#ED9CBF",
+  other: "#B47BFF",
+};
+
+function getDomColor(domain: string): string {
+  return DOM_COLOR[domain] ?? "var(--accent)";
+}
+
+// Domains offered in the upload modal (matches backend SourceCreate pattern).
+const DOMAINS: { value: CreateSourceRequest["domain"]; label: string }[] = [
   { value: "math", label: "Математика" },
   { value: "physics", label: "Физика" },
   { value: "chemistry", label: "Химия" },
@@ -24,40 +60,125 @@ const DOMAINS: { value: string; label: string }[] = [
   { value: "other", label: "Другое" },
 ];
 
-const STATUS_CHIP: Record<SourceInfo["status"], { cls: string; label: string }> = {
-  pending: { cls: "v", label: "PENDING" },
-  extracting: { cls: "v", label: "EXTRACTING" },
-  extracted: { cls: "on", label: "EXTRACTED" },
-  failed: { cls: "", label: "FAILED" },
+const STATUS_LABEL: Record<SourceInfo["status"], string> = {
+  pending: "в очереди",
+  extracting: "извлечение",
+  extracted: "готово",
+  failed: "ошибка",
 };
 
-function formatDate(iso: string | null): string {
+// Representative fallback sources (used when backend is offline or returns nothing).
+// Shaped like the API's SourceInfo so the card renderer is uniform.
+const FALLBACK_SOURCES: SourceInfo[] = [
+  {
+    id: "fallback-1",
+    kind: "text",
+    domain: "math",
+    status: "extracted",
+    error: null,
+    title: "Демидович · гл. 3 — Интегралы",
+    preview:
+      "Понятие интеграла, неопределённый и определённый интеграл, методы интегрирования…",
+    nodes_extracted: 48,
+    edges_extracted: 87,
+    created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+    extracted_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+  },
+  {
+    id: "fallback-2",
+    kind: "pdf",
+    domain: "physics",
+    status: "extracting",
+    error: null,
+    title: "Иродов · Механика, §1.4–1.7",
+    preview:
+      "Уравнение движения, второй закон Ньютона, силы трения, наклонная плоскость…",
+    nodes_extracted: 22,
+    edges_extracted: 31,
+    created_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+    extracted_at: null,
+  },
+  {
+    id: "fallback-3",
+    kind: "url",
+    domain: "cs",
+    status: "extracted",
+    error: null,
+    title: "CLRS · Dynamic Programming",
+    preview:
+      "Optimal substructure, overlapping subproblems, memoization vs tabulation, classic…",
+    nodes_extracted: 36,
+    edges_extracted: 58,
+    created_at: new Date(Date.now() - 26 * 3600_000).toISOString(),
+    extracted_at: new Date(Date.now() - 26 * 3600_000).toISOString(),
+  },
+  {
+    id: "fallback-4",
+    kind: "text",
+    domain: "chemistry",
+    status: "pending",
+    error: null,
+    title: "Глинка · Водные растворы кислот",
+    preview: "Электролитическая диссоциация, константа равновесия, pH, гидролиз солей…",
+    nodes_extracted: 0,
+    edges_extracted: 0,
+    created_at: new Date(Date.now() - 60_000).toISOString(),
+    extracted_at: null,
+  },
+];
+
+const FALLBACK_STATS: GraphStats = {
+  total_nodes: 106,
+  total_edges: 176,
+  domains: { math: 1, physics: 1, chemistry: 1, cs: 1 },
+  types: {},
+};
+
+function relativeTime(iso: string | null, status: SourceInfo["status"]): string {
+  if (status === "extracting") return "извлекается";
+  if (status === "pending") return "в очереди";
   if (!iso) return "—";
   const d = new Date(iso);
-  const now = new Date();
-  const diffMin = (now.getTime() - d.getTime()) / 60000;
-  if (diffMin < 1) return "только что";
-  if (diffMin < 60) return `${Math.round(diffMin)} мин`;
-  if (diffMin < 1440) return `${Math.round(diffMin / 60)} ч`;
-  return d.toLocaleDateString("ru");
+  const mins = (Date.now() - d.getTime()) / 60_000;
+  if (mins < 1) return "только что";
+  if (mins < 60) return `${Math.round(mins)} мин назад`;
+  if (mins < 1440) return `${Math.round(mins / 60)} ч назад`;
+  if (mins < 2880) return "вчера";
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+}
+
+function progressWidth(status: SourceInfo["status"]): string {
+  if (status === "extracted") return "100%";
+  if (status === "extracting") return "62%";
+  if (status === "pending") return "12%";
+  return "100%"; // failed — full bar, error-coloured
 }
 
 export default function SourcesPage() {
-  const { t, lang } = useI18n();
   const [sources, setSources] = useState<SourceInfo[]>([]);
   const [stats, setStats] = useState<GraphStats | null>(null);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [backendUp, setBackendUp] = useState<boolean | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const [list, s] = await Promise.all([listSources(), getGraphStats()]);
-      setSources(list.sources);
-      setStats(s);
-      setBackendUp(true);
+      if (list.sources.length === 0) {
+        // Backend up but empty — show representative content (brief requirement).
+        setSources(FALLBACK_SOURCES);
+        setStats(s);
+        setUsingFallback(true);
+      } else {
+        setSources(list.sources);
+        setStats(s);
+        setUsingFallback(false);
+      }
     } catch {
-      setBackendUp(false);
+      // Backend offline — fall back so the screen always looks complete.
+      setSources(FALLBACK_SOURCES);
+      setStats(FALLBACK_STATS);
+      setUsingFallback(true);
     } finally {
       setLoading(false);
     }
@@ -67,258 +188,178 @@ export default function SourcesPage() {
     refresh();
   }, [refresh]);
 
-  // Poll for extraction progress
+  // Poll while real (non-fallback) sources are still extracting.
   useEffect(() => {
-    const hasPending = sources.some((s) => s.status === "pending" || s.status === "extracting");
-    if (!hasPending) return;
+    if (usingFallback) return;
+    const pending = sources.some(
+      (s) => s.status === "pending" || s.status === "extracting",
+    );
+    if (!pending) return;
     const id = setInterval(refresh, 3000);
     return () => clearInterval(id);
-  }, [sources, refresh]);
+  }, [sources, usingFallback, refresh]);
 
-  const handleDelete = async (id: string) => {
-    await deleteSource(id);
-    setSources((prev) => prev.filter((s) => s.id !== id));
-  };
+  const domainCount = useMemo(
+    () => (stats ? Object.keys(stats.domains).length : 0),
+    [stats],
+  );
 
   return (
-    <AppShell>
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="flex items-center mb-5">
-          <div>
-            <Glitch className="font-display" text={t("sources_title")}>
-              <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: "0.06em" }}>
-                {t("sources_title")}
-              </span>
-            </Glitch>
-            <div className="ghost mt-1" style={{ fontSize: 11, letterSpacing: "0.14em" }}>
-              {stats
-                ? `// Knowledge Forge · ${stats.total_nodes} узлов · ${stats.total_edges} рёбер · ${Object.keys(stats.domains).length} доменов`
-                : backendUp === false
-                ? "// backend offline — запусти uvicorn"
-                : "// loading…"}
+    <NewAppShell>
+      <main className="main">
+        <div className="page">
+          <div className="page-head">
+            <div className="page-head-info">
+              <h1>Источники знаний</h1>
+              <div className="page-sub">Knowledge Forge · активный граф · не RAG</div>
             </div>
+            <button className="btn-primary" onClick={() => setModalOpen(true)}>
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              >
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+              Добавить источник
+            </button>
           </div>
-          <div className="flex-1" />
-          <button
-            className="cbtn cbtn-primary"
-            onClick={() => setModalOpen(true)}
-            disabled={backendUp === false}
-          >
-            ＋ {lang === "ru" ? "ДОБАВИТЬ ИСТОЧНИК" : "ADD SOURCE"}
-          </button>
-        </div>
 
-        {/* Knowledge Forge pipeline (active, not RAG) */}
-        <div className="panel cornered mb-5" style={{ padding: 14 }}>
-          <span className="corner-tl" />
-          <span className="corner-br" />
-          <div className="up ghost text-[9px] tracking-[0.22em] mb-2.5">
-            › KNOWLEDGE FORGE · ACTIVE GRAPH (NOT RAG)
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {PIPELINE.map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <div
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid var(--line-hi)",
-                    background: i === 2 ? "rgba(232,198,104,0.08)" : "rgba(165,131,255,0.06)",
-                    fontSize: 11,
-                    color: i === 2 ? "var(--yellow)" : "var(--text)",
-                    letterSpacing: "0.08em",
-                    borderRadius: 3,
-                  }}
-                >
-                  <span className="ghost font-mono mr-1.5">{String(i).padStart(2, "0")}</span>
-                  {s}
-                </div>
-                {i < PIPELINE.length - 1 && <span className="v">→</span>}
+          <div className="page-body">
+            {/* Active Knowledge-Forge query pipeline (not RAG retrieval). */}
+            <div className="pipeline">
+              {PIPELINE_STEPS.map((s, i) => (
+                <span key={s} style={{ display: "contents" }}>
+                  <div className={"pipe-step " + (i === 2 ? "current" : "")}>
+                    <span className="pipe-idx">{String(i).padStart(2, "0")}</span>
+                    <span>{s}</span>
+                  </div>
+                  {i < PIPELINE_STEPS.length - 1 && <span className="pipe-arrow">→</span>}
+                </span>
+              ))}
+            </div>
+
+            {/* Graph / source stats. */}
+            <div
+              className="stat-cards"
+              style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 18 }}
+            >
+              <div className="stat-card">
+                <div className="stat-card-k">nodes</div>
+                <div className="stat-card-v">{stats ? stats.total_nodes : "—"}</div>
               </div>
-            ))}
+              <div className="stat-card">
+                <div className="stat-card-k">edges</div>
+                <div className="stat-card-v">{stats ? stats.total_edges : "—"}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-card-k">domains</div>
+                <div className="stat-card-v">{stats ? domainCount : "—"}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-card-k">sources</div>
+                <div className="stat-card-v">{sources.length}</div>
+              </div>
+            </div>
+
+            {loading ? (
+              <div
+                style={{
+                  padding: "40px 0",
+                  textAlign: "center",
+                  color: "var(--ink-mute)",
+                  fontSize: 13,
+                }}
+              >
+                Загрузка источников…
+              </div>
+            ) : (
+              <div className="src-grid">
+                {sources.map((s) => (
+                  <SourceCard key={s.id} source={s} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Graph stats */}
-        {stats && (
-          <div
-            className="grid grid-cols-4 mb-5"
-            style={{ gap: 1, background: "var(--line-hi)", border: "1px solid var(--line-hi)" }}
-          >
-            <StatCell k="nodes" v={stats.total_nodes} />
-            <StatCell k="edges" v={stats.total_edges} />
-            <StatCell k="domains" v={Object.keys(stats.domains).length} />
-            <StatCell k="sources" v={sources.length} />
-          </div>
-        )}
-
-        {/* Sources list */}
-        {loading ? (
-          <div className="ghost text-center py-10 text-[12px]">Загрузка источников…</div>
-        ) : backendUp === false ? (
-          <EmptyBackend />
-        ) : sources.length === 0 ? (
-          <EmptyState onAdd={() => setModalOpen(true)} lang={lang} />
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {sources.map((s) => (
-              <SourceCard key={s.id} source={s} onDelete={handleDelete} />
-            ))}
-          </div>
-        )}
 
         {modalOpen && (
           <AddSourceModal
             onClose={() => setModalOpen(false)}
-            onCreated={(src) => {
-              setSources((prev) => [src, ...prev]);
+            onCreated={(created) => {
+              // Drop fallback content once a real source exists, then prepend it.
+              setSources((prev) =>
+                usingFallback ? [created] : [created, ...prev],
+              );
+              setUsingFallback(false);
               setModalOpen(false);
             }}
           />
         )}
-      </div>
-    </AppShell>
+      </main>
+    </NewAppShell>
   );
 }
 
-function StatCell({ k, v }: { k: string; v: number | string }) {
-  return (
-    <div style={{ background: "var(--surface)", padding: 16 }}>
-      <div className="ghost up text-[10px] tracking-[0.18em]">{k}</div>
-      <div className="font-display mt-1" style={{ fontSize: 22, color: "var(--text)", fontWeight: 600 }}>
-        {v}
-      </div>
-    </div>
-  );
-}
-
-function EmptyBackend() {
-  return (
-    <div
-      className="panel cornered text-center py-10"
-      style={{ padding: 40 }}
-    >
-      <span className="corner-tl" />
-      <span className="corner-br" />
-      <div className="font-display neon-v mb-3" style={{ fontSize: 18 }}>
-        ⚠ BACKEND OFFLINE
-      </div>
-      <div className="ghost text-[12px] mb-3">
-        {"// запусти uvicorn backend.app.main:app --port 8000"}
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ onAdd, lang }: { onAdd: () => void; lang: string }) {
-  return (
-    <div
-      className="panel cornered text-center"
-      style={{ padding: 50 }}
-    >
-      <span className="corner-tl" />
-      <span className="corner-br" />
-      <div className="font-display mb-3" style={{ fontSize: 18, color: "var(--text)" }}>
-        {lang === "ru" ? "Источников пока нет" : "No sources yet"}
-      </div>
-      <div className="ghost mb-5 text-[12px]">
-        {lang === "ru"
-          ? "Загрузи текст учебника/конспекта — модель извлечёт концепты, формулы и связи в граф знаний."
-          : "Upload textbook/notes — model extracts concepts, formulas and relations into knowledge graph."}
-      </div>
-      <button className="cbtn cbtn-primary" onClick={onAdd}>
-        ＋ {lang === "ru" ? "ДОБАВИТЬ ПЕРВЫЙ ИСТОЧНИК" : "ADD FIRST SOURCE"}
-      </button>
-    </div>
-  );
-}
-
-function SourceCard({ source, onDelete }: { source: SourceInfo; onDelete: (id: string) => void }) {
-  const chip = STATUS_CHIP[source.status];
-  const isActive = source.status === "pending" || source.status === "extracting";
+function SourceCard({ source }: { source: SourceInfo }) {
+  const inProgress = source.status === "extracting" || source.status === "pending";
+  const fillBackground =
+    source.status === "extracted"
+      ? "#22A05A"
+      : source.status === "failed"
+        ? "var(--danger, #E87093)"
+        : "var(--accent)";
 
   return (
-    <div className="panel cornered relative" style={{ padding: 14 }}>
-      <span className="corner-tl" />
-      <span className="corner-br" />
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="chip v">{source.kind.toUpperCase()}</span>
-        <span className="chip">{source.domain.toUpperCase()}</span>
-        <div className="flex-1" />
+    <div className="src-card">
+      <div className="src-row1">
+        <span className="kind-chip">{source.kind.toUpperCase()}</span>
         <span
-          className={`chip ${chip.cls}`}
-          style={source.status === "failed" ? { color: "var(--error)", borderColor: "rgba(232,112,147,0.4)" } : undefined}
+          className="dom-pill"
+          style={
+            {
+              "--dom": getDomColor(source.domain),
+              "--dom-tint": getDomColor(source.domain) + "10",
+            } as React.CSSProperties
+          }
         >
-          {isActive && <span className="dot v" style={{ animation: "pulseV 1.2s infinite" }} />}
+          {source.domain}
+        </span>
+        <span className={"status-chip " + source.status}>
+          {inProgress && <span className="ld" />}
           {source.status === "extracted" && "✓ "}
-          {chip.label}
+          {STATUS_LABEL[source.status]}
         </span>
       </div>
-      <div className="font-display mb-1.5" style={{ fontSize: 14, color: "var(--text)" }}>
-        {source.title}
-      </div>
-      <div className="ghost mb-2" style={{ fontSize: 10, lineHeight: 1.5 }}>
-        {source.preview}
-      </div>
-      <div className="flex items-center gap-4 mb-2" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+      <h3 className="src-title">{source.title}</h3>
+      <div className="src-preview">{source.preview}</div>
+      <div className="src-stats">
         <span>
-          <span className="ghost">nodes</span>{" "}
-          <span className="y">{source.nodes_extracted}</span>
+          <span style={{ opacity: 0.6 }}>узлов</span> <b>{source.nodes_extracted}</b>
         </span>
         <span>
-          <span className="ghost">edges</span>{" "}
-          <span className="y">{source.edges_extracted}</span>
+          <span style={{ opacity: 0.6 }}>рёбер</span> <b>{source.edges_extracted}</b>
         </span>
-        <span>
-          <span className="ghost">added</span> {formatDate(source.created_at)}
+        <span style={{ marginLeft: "auto", opacity: 0.7 }}>
+          {relativeTime(source.created_at, source.status)}
         </span>
-        <div className="flex-1" />
-        <button
-          onClick={() => onDelete(source.id)}
-          className="cbtn cbtn-ghost !px-1.5 !py-0.5 text-[10px]"
-          title="delete"
-        >
-          ✕
-        </button>
       </div>
-      {source.status === "failed" && source.error && (
+      <div className="src-progress">
         <div
-          style={{
-            fontSize: 10,
-            padding: "6px 8px",
-            background: "rgba(232,112,147,0.08)",
-            border: "1px solid rgba(232,112,147,0.25)",
-            color: "var(--error)",
-            borderRadius: 3,
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          {source.error}
-        </div>
-      )}
-      <div style={{ height: 4, background: "rgba(165,131,255,0.12)", position: "relative", marginTop: 6 }}>
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: source.status === "extracted" ? "100%" : source.status === "extracting" ? "60%" : source.status === "pending" ? "20%" : "100%",
-            background:
-              source.status === "extracted"
-                ? "var(--success)"
-                : source.status === "failed"
-                ? "var(--error)"
-                : "var(--yellow)",
-            boxShadow: isActive ? "0 0 6px var(--yellow)" : "none",
-            animation: isActive ? "pulseV 1.2s infinite" : "none",
-            transition: "width 400ms",
-          }}
+          className={"src-progress-fill " + (source.status === "extracting" ? "extracting" : "")}
+          style={{ width: progressWidth(source.status), background: fillBackground }}
         />
       </div>
     </div>
   );
 }
 
+// Upload affordance: title + domain + text → POST /api/v1/knowledge/sources.
+// The backend kicks off background extraction (SourceExtractor → graph nodes/edges).
 function AddSourceModal({
   onClose,
   onCreated,
@@ -328,7 +369,7 @@ function AddSourceModal({
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [domain, setDomain] = useState("math");
+  const [domain, setDomain] = useState<CreateSourceRequest["domain"]>("math");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -337,10 +378,10 @@ function AddSourceModal({
     setErr(null);
     setSubmitting(true);
     try {
-      const created = await createSource({ title, content, domain: domain as "math", kind: "text" });
+      const created = await createSource({ title, content, domain, kind: "text" });
       onCreated(created);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Ошибка загрузки");
+      setErr(e instanceof Error ? e.message : "Не удалось загрузить источник");
     } finally {
       setSubmitting(false);
     }
@@ -348,57 +389,53 @@ function AddSourceModal({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-[9000]"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+        zIndex: 9000,
+      }}
       onClick={onClose}
     >
       <div
-        className="panel cornered relative"
-        style={{
-          width: 640,
-          maxWidth: "92%",
-          padding: 24,
-          border: "1px solid var(--violet)",
-          boxShadow: "0 0 40px rgba(165,131,255,0.3)",
-        }}
+        className="rail-card"
+        style={{ width: 620, maxWidth: "92%", padding: 24 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <span className="corner-tl" />
-        <span className="corner-br" />
-        <div className="flex items-center mb-5">
-          <div>
-            <Glitch className="font-display" text="ДОБАВИТЬ ИСТОЧНИК">
-              <span style={{ fontSize: 18, fontWeight: 600 }}>ДОБАВИТЬ ИСТОЧНИК</span>
-            </Glitch>
-            <div className="ghost mt-1 text-[10px] tracking-[0.2em]">
-              {"// текст → SourceExtractor (LLM) → узлы + рёбра"}
-            </div>
-          </div>
-          <div className="flex-1" />
-          <button onClick={onClose} className="cbtn cbtn-ghost !px-2 !py-1 text-[11px]">✕</button>
+        <div className="page-head-info" style={{ marginBottom: 16 }}>
+          <h1 style={{ fontSize: 18, margin: 0 }}>Добавить источник</h1>
+          <div className="page-sub">текст → SourceExtractor (LLM) → узлы + рёбра графа</div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="up ghost text-[9px] tracking-[0.2em]">❯ название</span>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>Название</span>
             <input
-              className="cinput"
+              className="composer-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Демидович, гл.3 — Интегралы"
+              placeholder="Демидович · гл. 3 — Интегралы"
               required
               minLength={3}
               maxLength={255}
+              style={{ width: "100%" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1">
-            <span className="up ghost text-[9px] tracking-[0.2em]">❯ домен</span>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>Домен</span>
             <select
-              className="cinput"
+              className="composer-input"
               value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              style={{ appearance: "none" }}
+              onChange={(e) => setDomain(e.target.value as CreateSourceRequest["domain"])}
+              style={{ width: "100%", appearance: "none" }}
             >
               {DOMAINS.map((d) => (
                 <option key={d.value} value={d.value}>
@@ -408,47 +445,56 @@ function AddSourceModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1">
-            <span className="up ghost text-[9px] tracking-[0.2em]">
-              ❯ текст источника (мин. 20 символов)
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+              Текст источника (мин. 20 символов)
             </span>
             <textarea
-              className="cinput"
+              className="composer-input"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Вставь текст учебника, конспекта или статьи…"
-              rows={10}
+              placeholder="Вставьте текст учебника, конспекта или статьи…"
+              rows={9}
               required
               minLength={20}
-              style={{ resize: "vertical", fontFamily: "var(--font-mono)", fontSize: 12 }}
+              style={{
+                width: "100%",
+                resize: "vertical",
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 12.5,
+              }}
             />
           </label>
 
           {err && (
             <div
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 padding: "8px 12px",
-                background: "rgba(232,112,147,0.08)",
+                borderRadius: 8,
+                background: "rgba(232,112,147,0.10)",
                 border: "1px solid rgba(232,112,147,0.3)",
-                color: "var(--error)",
-                borderRadius: 3,
+                color: "var(--danger, #E87093)",
               }}
             >
               {err}
             </div>
           )}
 
-          <div className="flex items-center gap-2 mt-2">
-            <div className="ghost text-[10px]">
-              {"// после загрузки запустится фоновое извлечение (30-120 сек)"}
-            </div>
-            <div className="flex-1" />
-            <button type="button" onClick={onClose} className="cbtn text-[11px]">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <span style={{ fontSize: 11, color: "var(--ink-mute)", flex: 1 }}>
+              После загрузки запустится фоновое извлечение (30–120 сек)
+            </span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
               Отмена
             </button>
-            <button type="submit" className="cbtn cbtn-primary text-[11px]" disabled={submitting}>
-              {submitting ? "..." : "⟦ ЗАГРУЗИТЬ ⟧ →"}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? "Загрузка…" : "Загрузить"}
             </button>
           </div>
         </form>

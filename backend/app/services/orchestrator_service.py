@@ -251,6 +251,21 @@ class OrchestratorService:
                     logger.warning(f"HF backend init failed, falling back to Ollama: {e}")
                     self._llm_client = None  # reset for ollama path
 
+            # ─── llama-server (OpenAI-compatible, llama-swap :8090) backend ───
+            if self._llm_client is None and backend_settings.LLM_BACKEND == "llamacpp":
+                from src.models.openai_llm_client import OpenAICompatLLMClient
+
+                self._llm_client = OpenAICompatLLMClient(model=backend_settings.LLM_MODEL)
+                self._backend_kind = "llamacpp"
+                self._backend_info = {
+                    "kind": "llamacpp",
+                    "model": backend_settings.LLM_MODEL,
+                    "base_url": backend_settings.LLM_BASE_URL,
+                    "turbo_quant": True,
+                    "context_length": 32768,
+                }
+                logger.info(f"llama-server backend ready: {backend_settings.LLM_MODEL}")
+
             # ─── Ollama backend (default) ───
             if self._llm_client is None:
                 # Select model: auto-detect, fine-tuned, or base

@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { AppShell } from "@/components/cyber/AppShell";
-import { ChatContainer } from "@/components/chat/ChatContainer";
+import { NewAppShell } from "@/components/newdesign/AppShell";
+import { ChatMain, ChatRail } from "@/components/newdesign/ChatScreen";
 import { useChat } from "@/hooks/useChat";
 import { useChatStore } from "@/store/chatStore";
-import { getSession, listSessions } from "@/lib/api";
+import { getSession } from "@/lib/api";
 import type { Message } from "@/types/api";
+
+interface TaskInfo {
+  topic?: string;
+  difficulty?: string | null;
+  problem?: string;
+}
 
 export default function ChatPage() {
   const params = useParams();
@@ -15,9 +21,8 @@ export default function ChatPage() {
 
   const setActiveSession = useChatStore((s) => s.setActiveSession);
   const setMessages = useChatStore((s) => s.setMessages);
-  const setSessions = useChatStore((s) => s.setSessions);
-  const sessionState = useChatStore((s) => s.sessionStates[sessionId]);
   const setSessionMode = useChatStore((s) => s.setSessionMode);
+  const [task, setTask] = useState<TaskInfo | undefined>(undefined);
 
   const { sendMessage, requestHint, changeMode } = useChat({
     sessionId,
@@ -27,7 +32,7 @@ export default function ChatPage() {
   useEffect(() => {
     setActiveSession(sessionId);
 
-    async function loadSession() {
+    (async () => {
       try {
         const detail = await getSession(sessionId);
         const msgs: Message[] = detail.messages.map((m) => ({
@@ -41,36 +46,28 @@ export default function ChatPage() {
         }));
         setMessages(sessionId, msgs);
         if (detail.mode) setSessionMode(sessionId, detail.mode);
+        if (detail.task || detail.topic) {
+          setTask({
+            topic: detail.task?.topic ?? detail.topic,
+            difficulty: detail.task?.difficulty ?? detail.difficulty ?? null,
+            problem: detail.task?.problem,
+          });
+        }
       } catch {
-        /* session may not exist */
+        /* session may not exist yet */
       }
-    }
-
-    async function loadSessions() {
-      try {
-        const result = await listSessions();
-        setSessions(result.sessions);
-      } catch {
-        /* backend offline */
-      }
-    }
-
-    loadSession();
-    loadSessions();
-  }, [sessionId, setActiveSession, setMessages, setSessions, setSessionMode]);
-
-  const hintsRemaining = sessionState ? Math.max(0, 3 - sessionState.hints_used) : 3;
+    })();
+  }, [sessionId, setActiveSession, setMessages, setSessionMode]);
 
   return (
-    <AppShell>
-      <ChatContainer
+    <NewAppShell rail={<ChatRail sessionId={sessionId} />}>
+      <ChatMain
         sessionId={sessionId}
         onSendMessage={sendMessage}
         onHintRequest={requestHint}
         onModeChange={changeMode}
-        hasTask={true}
-        hintsRemaining={hintsRemaining}
+        task={task}
       />
-    </AppShell>
+    </NewAppShell>
   );
 }

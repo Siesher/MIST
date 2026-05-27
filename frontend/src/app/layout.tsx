@@ -1,33 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
-import { ThemeProvider } from "@/components/cyber/ThemeProvider";
-import { Scene } from "@/components/cyber/Scene";
-import { Particles } from "@/components/cyber/Particles";
 import "./globals.css";
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin", "cyrillic"],
-  variable: "--font-jetbrains-mono",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-// Inter — Claude-desktop-style primary UI font (sans-serif). Used on grimoire
-// theme for body text, buttons, nav. Mono font kept for code/chips/terminals.
-const inter = Inter({
-  subsets: ["latin", "cyrillic"],
-  variable: "--font-inter",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
+import "./newdesign.css";
+import "./newdesign-enh.css";
 
 export const metadata: Metadata = {
   title: "MITS — Math Intelligent Tutoring System",
@@ -40,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className="dark" data-theme="grimoire" data-glitch="on" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <link
           rel="stylesheet"
@@ -48,18 +23,19 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
+      {/* new_design "midnight" theme. The `.app` grid fills the viewport; Geist
+          fonts arrive via the @import at the top of newdesign.css. */}
       <body
-        className={`${jetbrainsMono.variable} ${spaceGrotesk.variable} ${inter.variable} antialiased crt`}
+        className="theme-midnight"
+        style={{
+          margin: 0,
+          height: "100vh",
+          background: "var(--bg)",
+          // expose a mono var for inline styles in newdesign components
+          ["--font-mono" as string]: "'Geist Mono', ui-monospace, monospace",
+        }}
       >
-        <Scene />
-        <Particles enabled={true} />
-        <ThemeProvider>
-          <AuthProvider>
-            <div className="relative z-10 h-screen flex flex-col">
-              {children}
-            </div>
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
