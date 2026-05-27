@@ -164,7 +164,7 @@ async def get_node(node_id: str):
         confidence=node.confidence,
         content=node.content,
         tags=list(node.tags),
-        neighbors={k: v for k, v in explored.items() if k not in ("id", "title", "type", "domain")},
+        neighbors=explored.get("neighbors", {}),
     )
 
 
