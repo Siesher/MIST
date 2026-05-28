@@ -93,11 +93,11 @@ class SourceExtractor:
         self._confidence = extraction_confidence
 
     def _get_llm(self):
-        """Lazy-load LLM client."""
+        """Lazy-load LLM client (живой llama-swap → fallback Ollama)."""
         if self._llm is None:
-            from src.models.llm_client import LLMClient
+            from src.knowledge.source_analyzer import _make_llm
 
-            self._llm = LLMClient()
+            self._llm = _make_llm()
         return self._llm
 
     def extract(
@@ -231,33 +231,39 @@ class SourceExtractor:
     # ── LLM Calls ───────────────────────────────────────────────
 
     def _extract_entities(self, text: str, domain: str) -> List[Dict]:
-        """Pass 1: Extract entities from text using LLM."""
-        prompt = ENTITY_EXTRACTION_PROMPT.format(text=text[:3000], domain=domain)
+        """Pass 1: извлечение сущностей по ВСЕМУ документу через SourceAnalyzer.
 
-        try:
-            llm = self._get_llm()
-            response = llm.generate(prompt, format="json")
-            data = json.loads(response)
-            return data.get("entities", [])
-        except Exception as e:
-            logger.error(f"Entity extraction failed: {e}")
-            return []
+        Раньше здесь была обрезка text[:3000] (анализировалось ~5-10% источника) и
+        мёртвый Ollama-путь. Теперь — чанкинг+параллель+кэш на живом бэкенде.
+        """
+        from src.knowledge.source_analyzer import SourceAnalyzer
+
+        analyzer = SourceAnalyzer(llm_client=self._llm)
+        return analyzer.extract_entities(text, domain)
 
     def _extract_relations(self, entities: List[Dict]) -> List[Dict]:
         """Pass 2: Extract relations between entities using LLM."""
         if len(entities) < 2:
             return []
 
+        # Ограничиваем число сущностей в одном relation-проходе (бюджет промпта).
+        capped = entities[:40]
         entities_json = json.dumps(
-            [{"title": e.get("title", ""), "type": e.get("type", "")} for e in entities],
+            [{"title": e.get("title", ""), "type": e.get("type", "")} for e in capped],
             ensure_ascii=False,
         )
         prompt = RELATION_EXTRACTION_PROMPT.format(entities_json=entities_json)
 
         try:
+            from src.knowledge.source_analyzer import _safe_json
+
             llm = self._get_llm()
-            response = llm.generate(prompt, format="json")
-            data = json.loads(response)
+            # OpenAICompatLLMClient не принимает format=json — используем robust-парсер.
+            try:
+                response = llm.generate(prompt, temperature=0.2, max_tokens=2048, thinking=False)
+            except TypeError:
+                response = llm.generate(prompt)
+            data = _safe_json(response) or {}
             return data.get("relations", [])
         except Exception as e:
             logger.error(f"Relation extraction failed: {e}")

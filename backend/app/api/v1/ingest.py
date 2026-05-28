@@ -265,6 +265,71 @@ async def ingest_image(
 
 
 # ─────────────────────────────────────────────────────────────────────
+# URL — fetch readable text from a web page (reuses web_tools.fetch_url)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class IngestUrlRequest(BaseModel):
+    url: str
+    summarize: bool = False  # прогнать через SourceAnalyzer и вернуть дайджест в metadata
+
+
+@router.post("/url", response_model=IngestResponse)
+async def ingest_url(req: IngestUrlRequest) -> IngestResponse:
+    """Извлечь читаемый текст со страницы по URL (HTML удаляется).
+
+    При summarize=true дополнительно прогоняет текст через SourceAnalyzer и кладёт
+    структурированный дайджест (key_points/formulas/topics) в metadata.digest —
+    готовый к подмешиванию в контекст тьютора.
+    """
+    if not (req.url.startswith("http://") or req.url.startswith("https://")):
+        raise HTTPException(400, "url должен начинаться с http(s)://")
+
+    # fetch_url синхронный (httpx.get) — уводим в тред, чтобы не блокировать loop.
+    def _fetch() -> dict[str, Any]:
+        from src.tools.web_tools import fetch_url
+
+        return _json.loads(fetch_url(req.url, max_chars=MAX_TEXT_CHARS))
+
+    try:
+        data = await asyncio.to_thread(_fetch)
+    except Exception as e:
+        raise HTTPException(502, f"Не удалось загрузить URL: {e}")
+    if data.get("error"):
+        raise HTTPException(502, str(data["error"]))
+
+    full_text = data.get("text", "") or ""
+    text, truncated = _truncate(full_text)
+    meta: dict[str, Any] = {
+        "url": data.get("url", req.url),
+        "content_type": data.get("content_type", ""),
+    }
+
+    if req.summarize and text.strip():
+        try:
+
+            def _summarize() -> dict[str, Any]:
+                from src.knowledge.source_analyzer import SourceAnalyzer
+
+                return SourceAnalyzer().summarize(text, source_name=req.url)
+
+            meta["digest"] = await asyncio.to_thread(_summarize)
+        except Exception as e:
+            logger.warning(f"URL summarize failed: {e}")
+
+    return IngestResponse(
+        kind="url",
+        filename=req.url,
+        size_bytes=len(full_text.encode("utf-8")),
+        text=text,
+        preview=text[:200].strip(),
+        pages=None,
+        metadata=meta,
+        truncated=truncated,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Text — plain/markdown/code — no magic, just read bytes
 # ─────────────────────────────────────────────────────────────────────
 
