@@ -8,10 +8,10 @@ class BackendSettings(BaseSettings):
 
     OLLAMA_HOST: str = "http://localhost:11434"
     DEBUG: bool = True
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://192.168.8.167:3000"
 
     # LLM backend selection: "ollama" | "llamacpp" (llama-server / llama-swap)
-    LLM_BACKEND: str = "ollama"
+    LLM_BACKEND: str = "llamacpp"
     LLM_BASE_URL: str = "http://127.0.0.1:8090/v1"  # llama-swap direct (mits-eval-* models)
     LLM_MODEL: str = "mits-tutor"  # llama-swap config: 64K ctx + TurboQuant turbo3
 

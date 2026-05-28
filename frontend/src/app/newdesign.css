@@ -660,6 +660,10 @@ body {
 .theme-grimoire .msg.user .msg-body { border-radius: 4px; }
 .msg-body p { margin: 0 0 10px; }
 .msg-body p:last-child { margin: 0; }
+/* KaTeX inline math should follow the surrounding text colour. Beats the
+   global `.katex { color: var(--text) !important }` set in globals.css. */
+.msg-body .katex,
+.msg-body .katex * { color: inherit !important; }
 .formula {
   display: block;
   font-family: 'Geist Mono', ui-monospace, monospace;

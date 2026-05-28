@@ -62,7 +62,7 @@ function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
         title={`${t("theme_label")}: ${THEME_LABELS[theme]}`}
         onClick={cycleTheme}
       >
-        {Icon.moon}
+        {theme === "daylight" ? Icon.moon : Icon.sun}
       </button>
     </div>
   );

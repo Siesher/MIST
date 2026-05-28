@@ -42,6 +42,7 @@ dependencies = [
     "structlog>=24.1.0",
     "rich>=13.0.0",
     "python-dotenv>=1.0.0",
+    "duckduckgo-search>=8.1.1",
 ]
 
 [project.optional-dependencies]

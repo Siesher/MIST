@@ -141,3 +141,113 @@ class OpenAICompatLLMClient:
                     elif kind == "content" and on_token:
                         on_token(tok)
                     yield (kind, tok)
+
+    # ─────────────────────────────────────────────────────────────────
+    # Agentic tool-loop (OpenAI tool-calling poverh llama-server --jinja)
+    # ─────────────────────────────────────────────────────────────────
+
+    def chat_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        tool_executor: Callable[[str, dict], str],
+        thinking: bool = True,
+        max_rounds: int = 5,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Generator[Tuple[str, str], None, None]:
+        """Full OpenAI tool-loop: model decides → we execute → repeat.
+
+        Yields tuples ("thinking" | "content", text):
+          * "thinking" — model reasoning AND human-readable tool-call/result lines
+          * "content"  — final assistant message (after no more tool_calls)
+
+        Args:
+          messages: full chat history as list of {"role","content"} (and optionally
+                    "tool_calls" / "tool_call_id" for the agent's own turns).
+          tools: OpenAI-format tool definitions
+                 ([{"type":"function","function":{"name","description","parameters"}}]).
+          tool_executor: (name, args_dict) -> str. The string is fed back as the
+                         tool message content. Should never raise — wrap your own.
+          max_rounds: safety net to break runaway loops (default 5).
+        """
+        msgs: list = list(messages)
+        for round_idx in range(max_rounds):
+            body: dict = {
+                "model": self.model,
+                "messages": msgs,
+                "stream": False,
+                "tools": tools,
+                "chat_template_kwargs": {"enable_thinking": bool(thinking)},
+                **DEFAULT_SAMPLING,
+            }
+            if temperature is not None:
+                body["temperature"] = temperature
+            if max_tokens is not None:
+                body["max_tokens"] = max_tokens
+
+            r = requests.post(self.chat_url, json=body, timeout=(30, 600))
+            r.raise_for_status()
+            resp = r.json()
+            try:
+                msg = resp["choices"][0]["message"]
+            except (KeyError, IndexError):
+                logger.warning("chat_with_tools_unexpected_response", body=resp)
+                yield ("content", "(модель вернула пустой ответ)")
+                return
+
+            reasoning = msg.get("reasoning_content") or ""
+            if reasoning:
+                yield ("thinking", reasoning)
+
+            tool_calls = msg.get("tool_calls") or []
+            if not tool_calls:
+                # Final assistant turn — no more tools needed.
+                yield ("content", msg.get("content") or "")
+                return
+
+            # Has tool_calls — record the assistant turn (with its tool_calls)
+            # before executing, so the next round sees the full history.
+            msgs.append(
+                {
+                    "role": "assistant",
+                    "content": msg.get("content") or "",
+                    "tool_calls": tool_calls,
+                }
+            )
+
+            for tc in tool_calls:
+                tc_id = tc.get("id") or f"call_{round_idx}_{len(msgs)}"
+                fn = tc.get("function") or {}
+                fn_name = fn.get("name") or ""
+                try:
+                    fn_args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    fn_args = {}
+
+                # Human-readable trace into the thinking stream.
+                args_preview = json.dumps(fn_args, ensure_ascii=False)
+                if len(args_preview) > 240:
+                    args_preview = args_preview[:240] + "…"
+                yield ("thinking", f"\n→ {fn_name}({args_preview})\n")
+
+                try:
+                    result_text = tool_executor(fn_name, fn_args) or ""
+                except Exception as e:  # executor errors must not break the loop
+                    logger.exception("tool_executor_error", name=fn_name)
+                    result_text = json.dumps({"error": str(e)}, ensure_ascii=False)
+
+                # Short preview for the panel; full text goes to the model.
+                preview = result_text if len(result_text) <= 400 else result_text[:400] + "…"
+                yield ("thinking", f"← {preview}\n")
+
+                msgs.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": result_text,
+                    }
+                )
+
+        # Safety: hit the round cap without finishing.
+        yield ("content", "(достигнут лимит вызовов инструментов)")

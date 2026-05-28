@@ -152,6 +152,7 @@ training/Modelfile.*-update
 # Cleanup additions 2026-05-26 (продовое состояние)
 # Scratch / throwaway (любой _tmp_ префикс, MCP-скретч, .err-логи)
 _tmp_*
+_cleanup_*.py
 .playwright-mcp/
 *.log.err
 # Локальные настройки Claude (личные, не для репо)

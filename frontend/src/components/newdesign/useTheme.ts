@@ -1,17 +1,16 @@
 "use client";
 
-// Shared theme switcher for the new_design UI. The 4 theme palettes
-// (.theme-midnight/daylight/aurora/grimoire) live in newdesign.css — this just
-// toggles which class is active on the shell + <body>, persisted to localStorage.
+// Shared theme switcher for the new_design UI. Two palettes
+// (.theme-midnight = dark, .theme-daylight = light) live in newdesign.css —
+// this just toggles which class is active on the shell + <body>, persisted
+// to localStorage. Legacy values (aurora/grimoire) fall back to midnight.
 import { useSyncExternalStore } from "react";
 
-export type ThemeName = "midnight" | "daylight" | "aurora" | "grimoire";
-export const THEMES: ThemeName[] = ["midnight", "daylight", "aurora", "grimoire"];
+export type ThemeName = "midnight" | "daylight";
+export const THEMES: ThemeName[] = ["midnight", "daylight"];
 export const THEME_LABELS: Record<ThemeName, string> = {
-  midnight: "Midnight",
-  daylight: "Daylight",
-  aurora: "Aurora",
-  grimoire: "Grimoire",
+  midnight: "Тёмная",
+  daylight: "Светлая",
 };
 
 const KEY = "mits-theme";

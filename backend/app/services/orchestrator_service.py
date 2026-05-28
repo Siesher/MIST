@@ -1129,6 +1129,47 @@ class OrchestratorService:
             user_prompt = "\n".join(history_lines) if history_lines else content
             move_type = "tell" if mode == "chat" else "scaffolding"
 
+        # Agentic tool-use for chat mode: assemble OpenAI-format messages,
+        # load tool definitions (web search + SKI lookup), build executor.
+        chat_messages: list = []
+        tool_defs: list = []
+        tool_funcs: dict = {}
+        if mode == "chat":
+            if system_prompt:
+                chat_messages.append({"role": "system", "content": system_prompt})
+            for _m in session.messages[-24:]:
+                chat_messages.append(
+                    {
+                        "role": "user" if _m.role == "user" else "assistant",
+                        "content": _m.content,
+                    }
+                )
+            try:
+                from src.tools.web_tools import WEB_FUNCTIONS, WEB_TOOL_DEFINITIONS
+
+                tool_defs.extend(WEB_TOOL_DEFINITIONS)
+                tool_funcs.update(WEB_FUNCTIONS)
+            except Exception as e:
+                logger.warning(f"web_tools unavailable: {e}")
+            try:
+                from src.tools.ski_tools import SKI_FUNCTIONS, SKI_TOOL_DEFINITIONS
+
+                tool_defs.extend(SKI_TOOL_DEFINITIONS)
+                tool_funcs.update(SKI_FUNCTIONS)
+            except Exception as e:
+                logger.warning(f"ski_tools unavailable: {e}")
+
+        def _tool_executor(name: str, args: dict) -> str:
+            """Dispatch a tool by name → string. Errors flow into the loop as JSON."""
+            fn = tool_funcs.get(name)
+            if not fn:
+                return f'{{"error":"unknown tool: {name}"}}'
+            try:
+                result = fn(**args)
+            except TypeError as e:
+                return f'{{"error":"bad args for {name}: {e}"}}'
+            return result if isinstance(result, str) else str(result)
+
         # Stream from LLM — real token-by-token streaming (no JSON buffering)
         full_response = ""
         message_id = str(uuid.uuid4())
@@ -1141,18 +1182,40 @@ class OrchestratorService:
                 queue: asyncio.Queue = asyncio.Queue()
                 loop = asyncio.get_event_loop()
 
+                # Decide iterator: chat-mode with tools → agentic loop; else → plain stream.
+                use_tools = (
+                    mode == "chat"
+                    and hasattr(self._llm_client, "chat_with_tools")
+                    and bool(tool_defs)
+                )
+                if use_tools:
+                    logger.info(
+                        f"Agentic chat: {len(tool_defs)} tools available "
+                        f"({', '.join(t['function']['name'] for t in tool_defs)})"
+                    )
+
                 def producer():
                     """Run sync generator and put tokens in queue."""
                     try:
                         token_count = 0
                         thinking_count = 0
                         content_count = 0
-                        for item in self._llm_client.generate_stream(
-                            prompt=user_prompt,
-                            system=system_prompt,
-                            json_mode=False,  # Plain text — real streaming
-                            thinking=True,  # always emit reasoning → shown in a persistent panel
-                        ):
+                        iterator = (
+                            self._llm_client.chat_with_tools(
+                                messages=chat_messages,
+                                tools=tool_defs,
+                                tool_executor=_tool_executor,
+                                thinking=True,
+                            )
+                            if use_tools
+                            else self._llm_client.generate_stream(
+                                prompt=user_prompt,
+                                system=system_prompt,
+                                json_mode=False,
+                                thinking=True,
+                            )
+                        )
+                        for item in iterator:
                             token_count += 1
                             # Handle tuple format: (type, content)
                             if isinstance(item, tuple) and len(item) == 2:

@@ -19,20 +19,39 @@ import Link from "next/link";
 import { NewAppShell } from "@/components/newdesign/AppShell";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useI18n, type Lang } from "@/lib/i18n";
+import { useTheme, setTheme, type ThemeName } from "@/components/newdesign/useTheme";
 import type { ChatMode } from "@/types/api";
 
 const PREFERRED_MODE_KEY = "mits-preferred-mode";
 const THINKING_KEY = "mits-thinking";
 
-// new_design theme cards (verbatim swatches/desc). Midnight is the locked,
-// active theme on the shell — the other two render but cannot be applied.
-const THEMES: { id: string; name: string; desc: string; swatch: string[] }[] = [
-  { id: "aurora", name: "Aurora", desc: "Clean Anthropic-style", swatch: ["#FFF9EB", "#6800FF", "#1A1330"] },
-  { id: "grimoire", name: "Grimoire", desc: "Magical editorial", swatch: ["#F4ECD8", "#6800FF", "#3D2E66"] },
-  { id: "midnight", name: "Midnight", desc: "Dark with purple glow", swatch: ["#0A0518", "#8B3CFF", "#B47BFF"] },
+// Theme cards — two palettes, both switchable. Wired to the shared useTheme
+// store (mits-theme localStorage), same source as the chat TopBar toggle.
+const THEMES: {
+  id: ThemeName;
+  name_ru: string;
+  name_en: string;
+  desc_ru: string;
+  desc_en: string;
+  swatch: string[];
+}[] = [
+  {
+    id: "midnight",
+    name_ru: "Тёмная",
+    name_en: "Dark",
+    desc_ru: "Тёмный фон, фиолетовое свечение",
+    desc_en: "Dark background, purple glow",
+    swatch: ["#0A0518", "#8B3CFF", "#B47BFF"],
+  },
+  {
+    id: "daylight",
+    name_ru: "Светлая",
+    name_en: "Light",
+    desc_ru: "Светлый фон, мягкие тени",
+    desc_en: "Light background, soft shadows",
+    swatch: ["#FAFAF9", "#6800FF", "#1A1330"],
+  },
 ];
-
-const LOCKED_THEME = "midnight";
 
 // Chat-mode options offered as the user's default for new sessions. Values match
 // ChatMode and the dot colours used by the AppShell session list.
@@ -49,6 +68,7 @@ function isChatMode(v: string | null): v is ChatMode {
 export default function SettingsPage() {
   // Language is shared app-wide via useI18n (persists to mits-lang).
   const { lang, setLang } = useI18n();
+  const [theme] = useTheme();
   const { user, isAuthenticated, isLoading } = useAuth();
 
   // Preferred default chat mode (persists to mits-preferred-mode; read by AppShell).
@@ -181,22 +201,18 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* ---------- Theme (locked to midnight) ---------- */}
+            {/* ---------- Theme (dark / light, both switchable) ---------- */}
             <div className="set-section">
               <div className="set-section-title">{ru ? "Тема" : "Theme"}</div>
               <div className="theme-cards">
                 {THEMES.map((th) => {
-                  const active = th.id === LOCKED_THEME;
+                  const active = th.id === theme;
                   return (
                     <button
                       key={th.id}
                       type="button"
                       className={"theme-card " + (active ? "active" : "")}
-                      // Midnight is locked on the shell — selecting another theme is a no-op.
-                      onClick={() => undefined}
-                      disabled={!active}
-                      title={active ? undefined : ru ? "Тема Midnight закреплена" : "Midnight theme is locked"}
-                      style={!active ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+                      onClick={() => setTheme(th.id)}
                     >
                       <div className="theme-swatch">
                         {th.swatch.map((c, i) => (
@@ -205,17 +221,12 @@ export default function SettingsPage() {
                       </div>
                       <div className="theme-card-name">
                         {active && "▸ "}
-                        {th.name}
+                        {ru ? th.name_ru : th.name_en}
                       </div>
-                      <div className="theme-card-desc">{th.desc}</div>
+                      <div className="theme-card-desc">{ru ? th.desc_ru : th.desc_en}</div>
                     </button>
                   );
                 })}
-              </div>
-              <div className="about-text" style={{ marginTop: 12, fontSize: 11 }}>
-                {ru
-                  ? "Тема Midnight закреплена для интерфейса MITS."
-                  : "The Midnight theme is locked for the MITS interface."}
               </div>
             </div>
 
