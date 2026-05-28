@@ -11,6 +11,7 @@ import { useTheme, THEMES, THEME_LABELS } from "./useTheme";
 import { useI18n, type StringKey } from "@/lib/i18n";
 import { SmartContent } from "@/components/chat/SmartContent";
 import { useChatStore } from "@/store/chatStore";
+import { ingestFile } from "@/lib/api";
 import type { ChatMode, Message as MessageType, TutorMoveType } from "@/types/api";
 
 const EMPTY_MESSAGES: MessageType[] = [];
@@ -276,8 +277,29 @@ function Composer({
   const [open, setOpen] = useState(false);
   const [val, setVal] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attached, setAttached] = useState<{ name: string; text: string } | null>(null);
+  const [ingesting, setIngesting] = useState(false);
+  const [attachError, setAttachError] = useState(false);
 
   const current = MODES.find((m) => m.id === mode) ?? MODES[1];
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = ""; // позволяем повторно выбрать тот же файл
+    if (!file) return;
+    setAttachError(false);
+    setIngesting(true);
+    try {
+      const resp = await ingestFile(file);
+      setAttached({ name: resp.filename || file.name, text: resp.text || "" });
+    } catch {
+      setAttachError(true);
+      setAttached(null);
+    } finally {
+      setIngesting(false);
+    }
+  };
 
   const autoSize = () => {
     const el = textareaRef.current;
@@ -288,9 +310,17 @@ function Composer({
 
   const submit = () => {
     const text = val.trim();
-    if (!text || disabled) return;
-    onSend(text);
+    if ((!text && !attached) || disabled) return;
+    let payload = text;
+    if (attached && attached.text) {
+      // Подмешиваем извлечённый источник перед вопросом — тьютор его анализирует.
+      payload =
+        `Материал из источника «${attached.name}»:\n"""\n${attached.text}\n"""\n\n` +
+        (text || "Проанализируй этот источник и помоги мне разобраться.");
+    }
+    onSend(payload);
     setVal("");
+    setAttached(null);
     requestAnimationFrame(autoSize);
   };
 
@@ -343,6 +373,49 @@ function Composer({
             <span style={{ opacity: 0.7 }}>· {hintsRemaining} {t("hints_left")}</span>
           </button>
         </div>
+        {(ingesting || attached || attachError) && (
+          <div
+            className="attach-chip"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              padding: "4px 2px 6px",
+              color: "var(--ink-soft)",
+            }}
+          >
+            {ingesting && (
+              <>
+                <span className="dot" style={{ animation: "pulse 1s infinite" }} />
+                {t("attach_analyzing")}
+              </>
+            )}
+            {!ingesting && attached && (
+              <>
+                <span style={{ color: "var(--accent)" }}>
+                  📎 {t("attach_attached")}: {attached.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAttached(null)}
+                  style={{
+                    marginLeft: "auto",
+                    background: "none",
+                    border: "none",
+                    color: "var(--ink-mute)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("attach_remove")}
+                </button>
+              </>
+            )}
+            {!ingesting && attachError && (
+              <span style={{ color: "var(--error, #e87093)" }}>{t("attach_error")}</span>
+            )}
+          </div>
+        )}
         <div className="composer-input">
           <textarea
             ref={textareaRef}
@@ -356,13 +429,31 @@ function Composer({
             rows={1}
           />
           <div className="composer-tools">
-            <button className="tool-btn" title={t("attach")} type="button">
+            <button
+              className="tool-btn"
+              title={t("attach")}
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+            >
               {Icon.image}
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.markdown,.py,.ts,.tsx,.js,.json,image/*"
+              style={{ display: "none" }}
+              onChange={handleFile}
+            />
             <button className="tool-btn" title={t("voice")} type="button">
               {Icon.mic}
             </button>
-            <button className="send-btn magnetic" onClick={submit} disabled={disabled || !val.trim()} type="button" aria-label={t("send")}>
+            <button
+              className="send-btn magnetic"
+              onClick={submit}
+              disabled={disabled || (!val.trim() && !attached)}
+              type="button"
+              aria-label={t("send")}
+            >
               {Icon.send}
             </button>
           </div>
