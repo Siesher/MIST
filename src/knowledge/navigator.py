@@ -102,6 +102,37 @@ class LearningPath:
 # ─────────────────────────────────────────────────────────────────────
 
 
+def _node_to_topic(key: str) -> str:
+    """'math:linear_equations:definition' -> 'linear_equations'. Прочее — без изменений."""
+    if ":" in key:
+        parts = key.split(":")
+        if len(parts) >= 2:
+            return parts[1]
+    return key
+
+
+class _MasteryView(dict):
+    """dict мастерства, чей .get() сопоставляет ID узлов графа (domain:topic:type)
+    с голыми topic-ключами трекера.
+
+    Решает рассинхрон ключей: Navigator ищет по node.id ('math:derivatives:definition'),
+    а StudentMemory хранит мастерство по topic_id ('derivatives' / 'derivatives_basic').
+    Без нормализации ВСЕ lookup'ы возвращали 0.0 → персонализация молча отключалась.
+    """
+
+    def get(self, key, default=0.0):  # type: ignore[override]
+        if key in self:
+            return dict.__getitem__(self, key)
+        topic = _node_to_topic(key)
+        if topic in self:
+            return dict.__getitem__(self, topic)
+        # fuzzy: префиксное совпадение в обе стороны (derivatives ↔ derivatives_basic)
+        for k in self.keys():
+            if k.startswith(topic + "_") or topic.startswith(k + "_"):
+                return dict.__getitem__(self, k)
+        return default
+
+
 class MasteryProvider:
     """Interface to obtain student mastery data.
 
@@ -121,30 +152,22 @@ class MasteryProvider:
         self._is_dict = isinstance(source, dict)
 
     def get_mastery(self, student_id: str, topic_id: str) -> float:
-        """Get mastery for a specific topic. Returns 0.0 if unknown."""
-        if self._is_dict:
-            return self._source.get(topic_id, 0.0)
-
-        try:
-            state = self._source.get_knowledge_state(student_id)
-            if hasattr(state, "topics") and topic_id in state.topics:
-                return state.topics[topic_id].mastery
-            return 0.0
-        except Exception:
-            return 0.0
+        """Get mastery for a specific topic (или node.id графа). Returns 0.0 if unknown."""
+        # Делегируем в get_all_mastery — нормализация ключей в _MasteryView.get.
+        return self.get_all_mastery(student_id).get(topic_id, 0.0)
 
     def get_all_mastery(self, student_id: str) -> Dict[str, float]:
-        """Get mastery dict for all known topics."""
+        """Get mastery dict for all known topics (как _MasteryView с нормализацией ключей)."""
         if self._is_dict:
-            return dict(self._source)
+            return _MasteryView(self._source)
 
         try:
             state = self._source.get_knowledge_state(student_id)
             if hasattr(state, "topics"):
-                return {tid: tm.mastery for tid, tm in state.topics.items()}
-            return {}
+                return _MasteryView({tid: tm.mastery for tid, tm in state.topics.items()})
+            return _MasteryView()
         except Exception:
-            return {}
+            return _MasteryView()
 
 
 # ─────────────────────────────────────────────────────────────────────

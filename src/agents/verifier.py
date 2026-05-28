@@ -12,39 +12,42 @@
 """
 
 import json
-import re
 import logging
+import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class QualityIssue(Enum):
     """Типы проблем качества."""
-    ANSWER_LEAK = "answer_leak"           # Утечка ответа
-    INVALID_JSON = "invalid_json"         # Невалидный JSON
+
+    ANSWER_LEAK = "answer_leak"  # Утечка ответа
+    INVALID_JSON = "invalid_json"  # Невалидный JSON
     MISSING_QUESTION = "missing_question"  # Нет вопроса в ответе
-    WRONG_MOVE = "wrong_move"             # Неподходящий ход
-    NO_LATEX = "no_latex"                 # Нет LaTeX для формул
-    WRONG_LANGUAGE = "wrong_language"     # Не русский язык
-    TOO_DIRECT = "too_direct"             # Слишком прямое объяснение
-    TOO_LONG = "too_long"                 # Слишком длинный ответ
-    TOO_SHORT = "too_short"               # Слишком короткий ответ
-    INAPPROPRIATE_TONE = "inappropriate"   # Неподходящий тон
+    WRONG_MOVE = "wrong_move"  # Неподходящий ход
+    NO_LATEX = "no_latex"  # Нет LaTeX для формул
+    WRONG_LANGUAGE = "wrong_language"  # Не русский язык
+    TOO_DIRECT = "too_direct"  # Слишком прямое объяснение
+    TOO_LONG = "too_long"  # Слишком длинный ответ
+    TOO_SHORT = "too_short"  # Слишком короткий ответ
+    INAPPROPRIATE_TONE = "inappropriate"  # Неподходящий тон
 
 
 class Severity(Enum):
     """Серьёзность проблемы."""
-    CRITICAL = "critical"   # Блокирует ответ
-    WARNING = "warning"     # Предупреждение
-    INFO = "info"           # Информационное
+
+    CRITICAL = "critical"  # Блокирует ответ
+    WARNING = "warning"  # Предупреждение
+    INFO = "info"  # Информационное
 
 
 @dataclass
 class QualityCheck:
     """Результат одной проверки качества."""
+
     issue: QualityIssue
     severity: Severity
     message: str
@@ -55,10 +58,16 @@ class QualityCheck:
 @dataclass
 class VerificationResult:
     """Результат верификации ответа."""
+
     is_valid: bool
     score: float  # 0.0 - 1.0
     checks: List[QualityCheck] = field(default_factory=list)
     corrected_response: Optional[str] = None
+
+    @property
+    def quality_score(self) -> float:
+        """Алиас для score (обратная совместимость с вызывающим кодом оркестратора)."""
+        return self.score
 
     @property
     def critical_issues(self) -> List[QualityCheck]:
@@ -93,63 +102,69 @@ class VerifierAgent:
     # Паттерны для детекции утечки ответов (ENHANCED)
     ANSWER_LEAK_PATTERNS = [
         # Прямые указания на ответ
-        r'ответ[:\s]+[=]?\s*\$?-?\d+',           # "ответ: 5" или "ответ: $5$"
-        r'равн[оа]\s+\$?-?\d+',                   # "равно 5"
-        r'получ[аие][ем]\s+\$?-?\d+',             # "получаем 5"
-        r'итого[:\s]+\$?-?\d+',                   # "итого: 5"
-        r'результат[:\s]+\$?-?\d+',               # "результат: 5"
-        r'x\s*=\s*-?\d+(?:\.\d+)?(?!\s*[+\-*/])',  # "x = 5" (не часть уравнения)
-        r'решение[:\s]+\$?-?\d+',                 # "решение: 5"
+        r"ответ[:\s]+[=]?\s*\$?-?\d+",  # "ответ: 5" или "ответ: $5$"
+        r"равн[оа]\s+\$?-?\d+",  # "равно 5"
+        r"получ[аие][ем]\s+\$?-?\d+",  # "получаем 5"
+        r"итого[:\s]+\$?-?\d+",  # "итого: 5"
+        r"результат[:\s]+\$?-?\d+",  # "результат: 5"
+        r"x\s*=\s*-?\d+(?:\.\d+)?(?!\s*[+\-*/])",  # "x = 5" (не часть уравнения)
+        r"решение[:\s]+\$?-?\d+",  # "решение: 5"
         # Новые паттерны для stricter detection
-        r'правильн(?:ый|о)\s+(?:ответ|решение)',  # "правильный ответ"
-        r'верн(?:о|ый)[:\s]+\$?-?\d+',            # "верно: 5"
-        r'значит[,\s]+\$?-?\d+',                  # "значит, 5"
-        r'следовательно[,\s]+\$?x?\s*=\s*-?\d+',  # "следовательно, x = 5"
-        r'ответ\s+(?:будет|составит|равен)',      # "ответ будет"
-        r'(?:корень|корни)\s*[:=]\s*\$?-?\d+',    # "корень: 5"
-        r'в\s+итоге\s+\$?-?\d+',                  # "в итоге 5"
-        r'окончательн(?:о|ый)\s+\$?-?\d+',        # "окончательно 5"
+        r"правильн(?:ый|о)\s+(?:ответ|решение)",  # "правильный ответ"
+        r"верн(?:о|ый)[:\s]+\$?-?\d+",  # "верно: 5"
+        r"значит[,\s]+\$?-?\d+",  # "значит, 5"
+        r"следовательно[,\s]+\$?x?\s*=\s*-?\d+",  # "следовательно, x = 5"
+        r"ответ\s+(?:будет|составит|равен)",  # "ответ будет"
+        r"(?:корень|корни)\s*[:=]\s*\$?-?\d+",  # "корень: 5"
+        r"в\s+итоге\s+\$?-?\d+",  # "в итоге 5"
+        r"окончательн(?:о|ый)\s+\$?-?\d+",  # "окончательно 5"
         # English patterns (fallback)
-        r'the\s+answer\s+is\s+\$?-?\d+',          # "the answer is 5"
-        r'solution\s*[:=]\s*\$?-?\d+',            # "solution: 5"
+        r"the\s+answer\s+is\s+\$?-?\d+",  # "the answer is 5"
+        r"solution\s*[:=]\s*\$?-?\d+",  # "solution: 5"
     ]
 
     # Паттерны формул, которые выглядят как решения
     SOLUTION_REVEAL_PATTERNS = [
-        r'подставляя.*получ(?:аем|им)\s+\$?-?\d+',  # "подставляя, получаем 5"
-        r'(?:упрощ|сокращ)ая.*=\s*\$?-?\d+$',       # "упрощая...= 5"
-        r'раскрыва[яв].*=\s*\$?-?\d+',              # "раскрывая...= 5"
+        r"подставляя.*получ(?:аем|им)\s+\$?-?\d+",  # "подставляя, получаем 5"
+        r"(?:упрощ|сокращ)ая.*=\s*\$?-?\d+$",  # "упрощая...= 5"
+        r"раскрыва[яв].*=\s*\$?-?\d+",  # "раскрывая...= 5"
     ]
 
     # Паттерны вопросов
     QUESTION_PATTERNS = [
-        r'\?$',                              # Заканчивается на ?
-        r'\?["\']?\s*$',                     # ? с кавычками
-        r'можешь\s+ли',                      # "можешь ли"
-        r'как\s+ты\s+думаешь',               # "как ты думаешь"
-        r'что\s+(?:будет|получится)',        # "что будет/получится"
-        r'почему',                           # "почему"
-        r'какой\s+(?:шаг|этап)',             # "какой шаг"
+        r"\?$",  # Заканчивается на ?
+        r'\?["\']?\s*$',  # ? с кавычками
+        r"можешь\s+ли",  # "можешь ли"
+        r"как\s+ты\s+думаешь",  # "как ты думаешь"
+        r"что\s+(?:будет|получится)",  # "что будет/получится"
+        r"почему",  # "почему"
+        r"какой\s+(?:шаг|этап)",  # "какой шаг"
     ]
 
     # Паттерны для LaTeX
     MATH_INDICATORS = [
-        r'\d+[+\-*/^]\d+',                   # Арифметика
-        r'[xyz]\s*[+\-*/^=]',                # Переменные
-        r'уравнен',                          # "уравнение"
-        r'формул',                           # "формула"
-        r'выражен',                          # "выражение"
-        r'производн',                        # "производная"
-        r'интеграл',                         # "интеграл"
-        r'корн[яеь]',                        # "корень"
-        r'степен',                           # "степень"
-        r'дроб',                             # "дробь"
+        r"\d+[+\-*/^]\d+",  # Арифметика
+        r"[xyz]\s*[+\-*/^=]",  # Переменные
+        r"уравнен",  # "уравнение"
+        r"формул",  # "формула"
+        r"выражен",  # "выражение"
+        r"производн",  # "производная"
+        r"интеграл",  # "интеграл"
+        r"корн[яеь]",  # "корень"
+        r"степен",  # "степень"
+        r"дроб",  # "дробь"
     ]
 
     # Допустимые ходы
     VALID_MOVES = {
-        "scaffolding", "problematize", "rectify",
-        "encourage", "hint", "tell", "clarify", "summarize"
+        "scaffolding",
+        "problematize",
+        "rectify",
+        "encourage",
+        "hint",
+        "tell",
+        "clarify",
+        "summarize",
     }
 
     # Лимиты длины ответа
@@ -169,7 +184,9 @@ class VerifierAgent:
 
         # Компилируем регулярные выражения
         self.answer_leak_re = [re.compile(p, re.IGNORECASE) for p in self.ANSWER_LEAK_PATTERNS]
-        self.solution_reveal_re = [re.compile(p, re.IGNORECASE) for p in self.SOLUTION_REVEAL_PATTERNS]
+        self.solution_reveal_re = [
+            re.compile(p, re.IGNORECASE) for p in self.SOLUTION_REVEAL_PATTERNS
+        ]
         self.question_re = [re.compile(p, re.IGNORECASE) for p in self.QUESTION_PATTERNS]
         self.math_re = [re.compile(p, re.IGNORECASE) for p in self.MATH_INDICATORS]
 
@@ -180,7 +197,7 @@ class VerifierAgent:
         response: str,
         problem: Optional[str] = None,
         correct_answer: Optional[str] = None,
-        move_type: Optional[str] = None
+        move_type: Optional[str] = None,
     ) -> VerificationResult:
         """
         Полная верификация ответа репетитора.
@@ -248,11 +265,7 @@ class VerifierAgent:
         critical_count = len([c for c in checks if c.severity == Severity.CRITICAL])
         is_valid = critical_count == 0
 
-        result = VerificationResult(
-            is_valid=is_valid,
-            score=score,
-            checks=checks
-        )
+        result = VerificationResult(is_valid=is_valid, score=score, checks=checks)
 
         logger.debug(
             "Верификация завершена",
@@ -260,8 +273,8 @@ class VerifierAgent:
                 "is_valid": is_valid,
                 "score": score,
                 "critical_issues": critical_count,
-                "total_checks": len(checks)
-            }
+                "total_checks": len(checks),
+            },
         )
 
         return result
@@ -269,7 +282,7 @@ class VerifierAgent:
     def _check_json_format(self, response: str) -> Tuple[Optional[QualityCheck], Optional[dict]]:
         """Проверка валидности JSON формата."""
         # Если строка не похожа на JSON, это не ошибка
-        if not response.strip().startswith('{'):
+        if not response.strip().startswith("{"):
             return None, None
 
         try:
@@ -281,7 +294,7 @@ class VerifierAgent:
                     issue=QualityIssue.INVALID_JSON,
                     severity=Severity.WARNING,
                     message="JSON не содержит поле 'move'",
-                    suggestion="Добавьте поле 'move' с типом хода"
+                    suggestion="Добавьте поле 'move' с типом хода",
                 ), data
 
             if "message" not in data:
@@ -289,7 +302,7 @@ class VerifierAgent:
                     issue=QualityIssue.INVALID_JSON,
                     severity=Severity.WARNING,
                     message="JSON не содержит поле 'message'",
-                    suggestion="Добавьте поле 'message' с текстом ответа"
+                    suggestion="Добавьте поле 'message' с текстом ответа",
                 ), data
 
             # Проверяем валидность хода
@@ -298,7 +311,7 @@ class VerifierAgent:
                     issue=QualityIssue.WRONG_MOVE,
                     severity=Severity.WARNING,
                     message=f"Неизвестный тип хода: {data['move']}",
-                    suggestion=f"Используйте один из: {', '.join(self.VALID_MOVES)}"
+                    suggestion=f"Используйте один из: {', '.join(self.VALID_MOVES)}",
                 ), data
 
             return None, data
@@ -309,13 +322,11 @@ class VerifierAgent:
                 severity=Severity.CRITICAL if self.strict_mode else Severity.WARNING,
                 message=f"Невалидный JSON: {str(e)}",
                 location=f"позиция {e.pos}",
-                suggestion="Проверьте синтаксис JSON"
+                suggestion="Проверьте синтаксис JSON",
             ), None
 
     def _check_answer_leak(
-        self,
-        message: str,
-        correct_answer: Optional[str]
+        self, message: str, correct_answer: Optional[str]
     ) -> Optional[QualityCheck]:
         """Проверка на утечку ответа (ENHANCED)."""
         # Проверяем по основным паттернам
@@ -327,7 +338,7 @@ class VerifierAgent:
                     severity=Severity.CRITICAL,
                     message="Обнаружена возможная утечка ответа",
                     location=match.group(),
-                    suggestion="Замените прямой ответ на наводящий вопрос"
+                    suggestion="Замените прямой ответ на наводящий вопрос",
                 )
 
         # Проверяем паттерны раскрытия решения
@@ -339,7 +350,7 @@ class VerifierAgent:
                     severity=Severity.CRITICAL,
                     message="Обнаружено раскрытие полного решения",
                     location=match.group(),
-                    suggestion="Не показывайте конечный результат вычислений"
+                    suggestion="Не показывайте конечный результат вычислений",
                 )
 
         # Если известен правильный ответ, проверяем его наличие
@@ -348,19 +359,26 @@ class VerifierAgent:
             clean_answer = str(correct_answer).strip()
 
             # Проверяем точное вхождение числа
-            if re.search(rf'\b{re.escape(clean_answer)}\b', message):
+            if re.search(rf"\b{re.escape(clean_answer)}\b", message):
                 # Но не в контексте вопроса или примера
-                context_before = message[:message.find(clean_answer)]
+                context_before = message[: message.find(clean_answer)]
                 safe_contexts = [
-                    'например', 'допустим', 'если', 'пусть', 'подставим',
-                    'что если', 'а что если', 'предположим', 'представь'
+                    "например",
+                    "допустим",
+                    "если",
+                    "пусть",
+                    "подставим",
+                    "что если",
+                    "а что если",
+                    "предположим",
+                    "представь",
                 ]
                 if not any(word in context_before.lower()[-50:] for word in safe_contexts):
                     return QualityCheck(
                         issue=QualityIssue.ANSWER_LEAK,
                         severity=Severity.CRITICAL,
                         message=f"Ответ '{clean_answer}' обнаружен в тексте",
-                        suggestion="Не давайте прямой ответ, используйте наводящие вопросы"
+                        suggestion="Не давайте прямой ответ, используйте наводящие вопросы",
                     )
 
             # Проверяем также варианты записи ответа
@@ -369,14 +387,14 @@ class VerifierAgent:
                 if variant in message.lower():
                     # Проверяем контекст
                     idx = message.lower().find(variant)
-                    context = message[max(0, idx-50):idx]
-                    safe_contexts = ['например', 'допустим', 'если', 'пусть']
+                    context = message[max(0, idx - 50) : idx]
+                    safe_contexts = ["например", "допустим", "если", "пусть"]
                     if not any(word in context.lower() for word in safe_contexts):
                         return QualityCheck(
                             issue=QualityIssue.ANSWER_LEAK,
                             severity=Severity.CRITICAL,
                             message=f"Вариант ответа '{variant}' обнаружен в тексте",
-                            suggestion="Не давайте прямой ответ, используйте наводящие вопросы"
+                            suggestion="Не давайте прямой ответ, используйте наводящие вопросы",
                         )
 
         return None
@@ -400,8 +418,8 @@ class VerifierAgent:
             pass
 
         # Fraction variants
-        if '/' in answer:
-            parts = answer.split('/')
+        if "/" in answer:
+            parts = answer.split("/")
             if len(parts) == 2:
                 try:
                     result = float(parts[0]) / float(parts[1])
@@ -411,18 +429,14 @@ class VerifierAgent:
 
         return variants
 
-    def _check_has_question(
-        self,
-        message: str,
-        move_type: Optional[str]
-    ) -> Optional[QualityCheck]:
+    def _check_has_question(self, message: str, move_type: Optional[str]) -> Optional[QualityCheck]:
         """Проверка наличия вопроса (сократический метод)."""
         # Для хода "tell" вопрос не обязателен
         if move_type == "tell":
             return None
 
         # Для "encourage" тоже не всегда нужен вопрос
-        if move_type == "encourage" and '!' in message:
+        if move_type == "encourage" and "!" in message:
             return None
 
         # Проверяем наличие вопроса
@@ -433,15 +447,13 @@ class VerifierAgent:
                 issue=QualityIssue.MISSING_QUESTION,
                 severity=Severity.WARNING,
                 message="Ответ не содержит вопроса",
-                suggestion="Добавьте наводящий вопрос для вовлечения ученика"
+                suggestion="Добавьте наводящий вопрос для вовлечения ученика",
             )
 
         return None
 
     def _check_move_type(
-        self,
-        actual_move: Optional[str],
-        expected_move: str
+        self, actual_move: Optional[str], expected_move: str
     ) -> Optional[QualityCheck]:
         """Проверка соответствия типа хода ожидаемому."""
         if actual_move is None:
@@ -453,7 +465,7 @@ class VerifierAgent:
                 "scaffolding": {"hint", "clarify"},
                 "hint": {"scaffolding"},
                 "encourage": {"scaffolding"},
-                "rectify": {"problematize", "clarify"}
+                "rectify": {"problematize", "clarify"},
             }
 
             if expected_move in compatible_moves and actual_move in compatible_moves[expected_move]:
@@ -463,7 +475,7 @@ class VerifierAgent:
                 issue=QualityIssue.WRONG_MOVE,
                 severity=Severity.INFO,
                 message=f"Тип хода '{actual_move}' отличается от ожидаемого '{expected_move}'",
-                suggestion=f"Рассмотрите использование хода '{expected_move}'"
+                suggestion=f"Рассмотрите использование хода '{expected_move}'",
             )
 
         return None
@@ -477,14 +489,14 @@ class VerifierAgent:
             return None
 
         # Проверяем наличие LaTeX
-        has_latex = '$' in message or '\\(' in message or '\\[' in message
+        has_latex = "$" in message or "\\(" in message or "\\[" in message
 
         if not has_latex:
             return QualityCheck(
                 issue=QualityIssue.NO_LATEX,
                 severity=Severity.INFO,
                 message="Математические выражения не оформлены в LaTeX",
-                suggestion="Оберните формулы в $...$ для лучшего отображения"
+                suggestion="Оберните формулы в $...$ для лучшего отображения",
             )
 
         return None
@@ -492,20 +504,20 @@ class VerifierAgent:
     def _check_language(self, message: str) -> Optional[QualityCheck]:
         """Проверка языка ответа."""
         # Простая эвристика: считаем кириллические символы
-        cyrillic_count = len(re.findall(r'[а-яА-ЯёЁ]', message))
-        latin_count = len(re.findall(r'[a-zA-Z]', message))
+        cyrillic_count = len(re.findall(r"[а-яА-ЯёЁ]", message))
+        latin_count = len(re.findall(r"[a-zA-Z]", message))
 
         # Если латиницы больше (исключая LaTeX), возможно не русский
         # LaTeX содержит много латиницы, поэтому исключаем контент в $...$
-        message_without_latex = re.sub(r'\$[^$]+\$', '', message)
-        latin_in_text = len(re.findall(r'[a-zA-Z]', message_without_latex))
+        message_without_latex = re.sub(r"\$[^$]+\$", "", message)
+        latin_in_text = len(re.findall(r"[a-zA-Z]", message_without_latex))
 
         if latin_in_text > cyrillic_count and cyrillic_count < 10:
             return QualityCheck(
                 issue=QualityIssue.WRONG_LANGUAGE,
                 severity=Severity.WARNING,
                 message="Ответ может быть не на русском языке",
-                suggestion="Убедитесь, что ответ написан на русском"
+                suggestion="Убедитесь, что ответ написан на русском",
             )
 
         return None
@@ -519,7 +531,7 @@ class VerifierAgent:
                 issue=QualityIssue.TOO_SHORT,
                 severity=Severity.WARNING,
                 message=f"Ответ слишком короткий ({length} символов)",
-                suggestion=f"Расширьте ответ, минимум {self.MIN_RESPONSE_LENGTH} символов"
+                suggestion=f"Расширьте ответ, минимум {self.MIN_RESPONSE_LENGTH} символов",
             )
 
         if length > self.MAX_RESPONSE_LENGTH:
@@ -527,16 +539,12 @@ class VerifierAgent:
                 issue=QualityIssue.TOO_LONG,
                 severity=Severity.INFO,
                 message=f"Ответ очень длинный ({length} символов)",
-                suggestion="Рассмотрите разбиение на несколько сообщений"
+                suggestion="Рассмотрите разбиение на несколько сообщений",
             )
 
         return None
 
-    def _check_too_direct(
-        self,
-        message: str,
-        move_type: Optional[str]
-    ) -> Optional[QualityCheck]:
+    def _check_too_direct(self, message: str, move_type: Optional[str]) -> Optional[QualityCheck]:
         """Проверка на слишком прямое объяснение."""
         # Для "tell" прямое объяснение допустимо
         if move_type == "tell":
@@ -544,13 +552,13 @@ class VerifierAgent:
 
         # Паттерны прямых объяснений
         direct_patterns = [
-            r'нужно\s+(?:просто\s+)?сделать',
-            r'(?:ты\s+)?должен\s+',
-            r'правильный\s+(?:способ|метод|подход)',
-            r'делай\s+так[:\s]',
-            r'вот\s+как\s+это\s+делается',
-            r'формула[:\s]+',
-            r'алгоритм[:\s]+',
+            r"нужно\s+(?:просто\s+)?сделать",
+            r"(?:ты\s+)?должен\s+",
+            r"правильный\s+(?:способ|метод|подход)",
+            r"делай\s+так[:\s]",
+            r"вот\s+как\s+это\s+делается",
+            r"формула[:\s]+",
+            r"алгоритм[:\s]+",
         ]
 
         for pattern in direct_patterns:
@@ -559,7 +567,7 @@ class VerifierAgent:
                     issue=QualityIssue.TOO_DIRECT,
                     severity=Severity.WARNING,
                     message="Ответ содержит слишком прямое указание",
-                    suggestion="Переформулируйте как наводящий вопрос"
+                    suggestion="Переформулируйте как наводящий вопрос",
                 )
 
         return None
@@ -582,11 +590,7 @@ class VerifierAgent:
             return 1.0
 
         # Веса для разных уровней серьёзности
-        weights = {
-            Severity.CRITICAL: 0.4,
-            Severity.WARNING: 0.15,
-            Severity.INFO: 0.05
-        }
+        weights = {Severity.CRITICAL: 0.4, Severity.WARNING: 0.15, Severity.INFO: 0.05}
 
         penalty = sum(weights[c.severity] for c in checks)
 
@@ -596,7 +600,7 @@ class VerifierAgent:
         self,
         responses: List[str],
         problems: Optional[List[str]] = None,
-        answers: Optional[List[str]] = None
+        answers: Optional[List[str]] = None,
     ) -> List[VerificationResult]:
         """
         Верификация батча ответов.
@@ -647,7 +651,7 @@ class VerifierAgent:
             "valid_rate": valid / total if total > 0 else 0,
             "average_score": avg_score,
             "issue_counts": issue_counts,
-            "most_common_issue": max(issue_counts, key=issue_counts.get) if issue_counts else None
+            "most_common_issue": max(issue_counts, key=issue_counts.get) if issue_counts else None,
         }
 
 
@@ -675,18 +679,14 @@ if __name__ == "__main__":
     test_cases = [
         # Хороший ответ
         '{"move": "scaffolding", "message": "Давай разберём это уравнение. Что нам нужно сделать, чтобы найти $x$?"}',
-
         # Утечка ответа
         '{"move": "tell", "message": "Ответ: 5. Теперь ты понял?"}',
-
         # Нет вопроса
         '{"move": "scaffolding", "message": "Перенеси 5 на другую сторону уравнения."}',
-
         # Невалидный JSON
         '{"move": "hint", "message": "Подумай о знаке"',
-
         # Хороший ответ без JSON
-        "Отлично! Ты верно определил, что нужно перенести число. А что происходит со знаком при переносе?"
+        "Отлично! Ты верно определил, что нужно перенести число. А что происходит со знаком при переносе?",
     ]
 
     print("=== Тестирование Верификатора ===\n")

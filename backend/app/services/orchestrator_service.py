@@ -95,6 +95,54 @@ class ModeConfig:
     placeholder_text: str = "Ваш ответ или вопрос..."
 
 
+def _dialog_cache_key(session) -> str:
+    """Контекстный ключ кэша: идентификатор задачи + хэш последних реплик.
+
+    Без него короткие реплики ('да', 'почему?') коллизировали между сессиями и
+    задачами, и кэш возвращал чужой ответ — баг корректности многоходового диалога.
+    """
+    import hashlib
+
+    task = ""
+    if getattr(session, "task", None):
+        task = session.task.get("problem", "") or ""
+    msgs = getattr(session, "messages", []) or []
+    hist = "|".join(getattr(m, "content", "") for m in msgs[-4:])
+    return hashlib.sha256(f"{task}|{hist}".encode()).hexdigest()[:16]
+
+
+def _verify_student_answer(student_text: str, task: Optional[Dict]) -> Optional[bool]:
+    """Проверка финального ответа ученика против эталона задачи через SymPy.
+
+    Возвращает True/False, если удалось сопоставить ответ, иначе None (судить нельзя —
+    решённым НЕ помечаем). Заменяет ложный сигнал is_correct = (move == 'encourage'),
+    который ставил «решено» по выбору хода планировщика, а не по проверке ответа.
+    Безопасно: без eval — sympy.sympify с пустым окружением.
+    """
+    if not task:
+        return None
+    correct = task.get("answer")
+    if correct is None or str(correct).strip() == "":
+        return None
+    try:
+        import re
+
+        import sympy
+
+        nums = re.findall(r"-?\d+(?:[.,]\d+)?", student_text or "")
+        if not nums:
+            return None
+        cand = nums[-1].replace(",", ".")
+        want = str(correct).strip().replace(",", ".")
+        try:
+            diff = sympy.simplify(sympy.sympify(cand) - sympy.sympify(want))
+            return bool(diff == 0)
+        except Exception:
+            return cand == want
+    except Exception:
+        return None
+
+
 MODE_CONFIGS = {
     "chat": ModeConfig(
         system_prompt_key="CHAT_MODE_SYSTEM",
@@ -745,9 +793,12 @@ class OrchestratorService:
                 tutor_content = result.response
                 move_type = result.move_type
 
-                if move_type == "encourage" and session.task:
+                verified = _verify_student_answer(content, session.task)
+                if verified is True:
                     is_correct = True
                     session.is_solved = True
+                elif verified is False:
+                    is_correct = False
 
                 if result.pipeline_trace:
                     thinking = result.pipeline_trace.summary()
@@ -938,7 +989,9 @@ class OrchestratorService:
                 from backend.app.services.cache_service import get_cache_service
 
                 cache = get_cache_service()
-                cached_response = cache.get(content, session.mode)
+                cached_response = cache.get(
+                    content, session.mode, context_key=_dialog_cache_key(session)
+                )
                 _cache_span.set_attr("cache.hit", cached_response is not None)
             except Exception:
                 cache = None
@@ -1333,16 +1386,26 @@ class OrchestratorService:
         display_content = visible_content if not backend_settings.SHOW_THINKING else tutor_content
         extracted_move = move_type  # Use planner's move type
 
-        # Check correctness
+        # Check correctness через реальную верификацию ответа (SymPy/ChemPy),
+        # а НЕ по выбору хода планировщика (move == 'encourage' давал ложный сигнал).
         is_correct = None
-        if extracted_move == "encourage" and session.task:
+        verified = _verify_student_answer(content, session.task)
+        if verified is True:
             is_correct = True
             session.is_solved = True
+        elif verified is False:
+            is_correct = False
 
         # Store response in cache for future reuse
         if cache and tutor_content:
             try:
-                cache.put(content, session.mode, tutor_content, move_type=extracted_move)
+                cache.put(
+                    content,
+                    session.mode,
+                    tutor_content,
+                    move_type=extracted_move,
+                    context_key=_dialog_cache_key(session),
+                )
             except Exception as e:
                 logger.debug(f"Cache store skipped: {e}")
 

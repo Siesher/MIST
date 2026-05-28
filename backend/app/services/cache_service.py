@@ -6,11 +6,11 @@ and TTL-based expiration for use in FastAPI orchestrator.
 """
 
 import hashlib
-import time
 import logging
-from typing import Optional, Dict, Any, Tuple
+import time
 from collections import OrderedDict
 from threading import RLock
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,18 +36,23 @@ class LLMCacheService:
         logger.info(f"LLMCacheService initialized: max_size={max_size}, ttl={ttl_seconds}s")
 
     @staticmethod
-    def _make_key(prompt: str, mode: str) -> str:
-        """Create cache key from prompt hash and mode."""
-        raw = f"{mode}|{prompt.strip()}"
+    def _make_key(prompt: str, mode: str, context_key: str = "") -> str:
+        """Create cache key from prompt hash, mode и контекст диалога.
+
+        context_key включает идентификатор задачи и хэш последних реплик: без него
+        короткие реплики ('да', 'почему?') в разных сессиях/задачах коллизировали и
+        возвращали чужой закэшированный ответ — баг корректности многоходового диалога.
+        """
+        raw = f"{mode}|{context_key}|{prompt.strip()}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
-    def get(self, prompt: str, mode: str) -> Optional[str]:
+    def get(self, prompt: str, mode: str, context_key: str = "") -> Optional[str]:
         """
         Look up cached response.
 
         Returns cached response string or None on miss/expiry.
         """
-        key = self._make_key(prompt, mode)
+        key = self._make_key(prompt, mode, context_key)
 
         with self._lock:
             entry = self._cache.get(key)
@@ -67,9 +72,11 @@ class LLMCacheService:
             self._hits += 1
             return entry["response"]
 
-    def put(self, prompt: str, mode: str, response: str, move_type: str = "") -> None:
+    def put(
+        self, prompt: str, mode: str, response: str, move_type: str = "", context_key: str = ""
+    ) -> None:
         """Store a response in the cache."""
-        key = self._make_key(prompt, mode)
+        key = self._make_key(prompt, mode, context_key)
 
         with self._lock:
             if key in self._cache:

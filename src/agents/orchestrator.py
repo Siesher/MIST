@@ -813,11 +813,13 @@ class AgentOrchestrator:
     def _fallback_verifier(self, context: TurnContext, error: Exception) -> VerificationResult:
         """Fallback верификатора - пропускаем проверку."""
         logger.info("Verifier fallback: skipping verification")
+        # NB: critical_issues/warnings — это @property (выводятся из checks), а
+        # поле оценки называется score, а не quality_score. Передаём только
+        # реальные поля dataclass, иначе VerificationResult(...) бросает TypeError.
         return VerificationResult(
             is_valid=True,  # Assume valid
-            critical_issues=[],
-            warnings=[{"issue": "verification_skipped", "reason": str(error)}],
-            quality_score=0.7,
+            score=0.7,
+            checks=[],
         )
 
     # === T040: Agent Health Check ===
@@ -983,6 +985,33 @@ class AgentOrchestrator:
                 # T039: Graceful degradation
                 profile = self._handle_agent_failure("profiler", e, trace, context)
 
+        # 1.4. Knowledge Forge: навигация по графу знаний.
+        # ВАЖНО: блок ДОЛЖЕН идти до MENTAL_MODEL и PLANNER — оба используют
+        # graph_context. Раньше он стоял ниже (после планировщика), из-за чего
+        # graph_context был неопределён на :1010/:1047 и фича молча отключалась.
+        graph_context = None
+        try:
+            from src.tools.navigator_tools import get_navigator, set_mastery_source
+
+            if session and hasattr(session, "student_id") and self.memory_manager:
+                set_mastery_source(self.memory_manager)
+            nav = get_navigator()
+            if nav and context.topic:
+                student_id = (
+                    session.student_id
+                    if session and hasattr(session, "student_id")
+                    else "anonymous"
+                )
+                graph_context = nav.get_concept_context(
+                    student_id, f"math:{context.topic}:definition"
+                )
+                if graph_context:
+                    logger.debug(
+                        "Knowledge Forge: graph context loaded", extra={"topic": context.topic}
+                    )
+        except Exception as e:
+            logger.debug(f"Knowledge Forge unavailable (graceful skip): {e}")
+
         # 1.5. MENTAL_MODEL: ToM-Tutor inference (017)
         # Между PROFILER и PLANNER: выводим BeliefState для stratification.
         # Graceful degradation: при любой ошибке — empty BeliefState.
@@ -1077,29 +1106,8 @@ class AgentOrchestrator:
                 move_sequence=[primary],
             )
 
-        # 2.4. Knowledge Forge: Graph navigation for context
-        graph_context = None
-        try:
-            from src.tools.navigator_tools import get_navigator, set_mastery_source
-
-            if session and hasattr(session, "student_id") and self.memory_manager:
-                set_mastery_source(self.memory_manager)
-            nav = get_navigator()
-            if nav and context.topic:
-                student_id = (
-                    session.student_id
-                    if session and hasattr(session, "student_id")
-                    else "anonymous"
-                )
-                graph_context = nav.get_concept_context(
-                    student_id, f"math:{context.topic}:definition"
-                )
-                if graph_context:
-                    logger.debug(
-                        "Knowledge Forge: graph context loaded", extra={"topic": context.topic}
-                    )
-        except Exception as e:
-            logger.debug(f"Knowledge Forge unavailable (graceful skip): {e}")
+        # 2.4. Knowledge Forge: блок перенесён выше (до MENTAL_MODEL, см. 1.4) —
+        # graph_context должен существовать до его использования в ToM/Planner.
 
         # 2.5. RAG: Извлечение контекста
         rag_context = None
