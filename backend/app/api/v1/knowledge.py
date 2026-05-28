@@ -177,7 +177,6 @@ async def _run_extraction(source_id: str) -> None:
     """Background task: extract knowledge from source text via LLM."""
     from backend.app.models.database import async_session_factory
     from src.knowledge.source_extractor import SourceExtractor
-    from src.models.llm_client import LLMClient
 
     async with async_session_factory() as db:
         src_row = await db.get(SourceTable, source_id)
@@ -188,9 +187,11 @@ async def _run_extraction(source_id: str) -> None:
 
         try:
             logger.info(f"Extraction started: {src_row.title}")
-            llm = LLMClient()
             graph = get_graph()
-            extractor = SourceExtractor(llm_client=llm)
+            # llm_client=None → SourceExtractor сам выберет живой бэкенд (llama-swap
+            # через _make_llm), а не жёстко Ollama LLMClient (который может быть не
+            # запущен). Иначе извлечение по API-пути молча падает.
+            extractor = SourceExtractor()
 
             def _sync_extract():
                 return extractor.extract(
