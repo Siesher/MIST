@@ -85,7 +85,9 @@ class KGEvolutionService:
 
                 forge_path = Path("data/knowledge/forge.json")
                 graph = KnowledgeGraph(storage_path=forge_path)
-                self._navigator = PersonalizedNavigator(graph)
+                # Empty mastery source — analytics path doesn't need personalization;
+                # tool dispatch in chat/guided uses set_mastery_source() separately.
+                self._navigator = PersonalizedNavigator(graph, {})
                 self._analyzer = SessionAnalyzer(self._navigator)
                 if self._queue is None:
                     self._queue = ProposalQueue()

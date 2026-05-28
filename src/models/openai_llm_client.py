@@ -152,7 +152,7 @@ class OpenAICompatLLMClient:
         tools: list,
         tool_executor: Callable[[str, dict], str],
         thinking: bool = True,
-        max_rounds: int = 5,
+        max_rounds: int = 7,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
     ) -> Generator[Tuple[str, str], None, None]:
@@ -172,6 +172,11 @@ class OpenAICompatLLMClient:
           max_rounds: safety net to break runaway loops (default 5).
         """
         msgs: list = list(messages)
+        # Lower temp for tool-loop: stalls in reasoning_content are more frequent
+        # at temp=1.0; 0.6 makes the "tool_call vs final answer" decision firmer.
+        effective_temp = temperature if temperature is not None else 0.6
+        tools_used = False  # flips true once we execute at least one tool
+
         for round_idx in range(max_rounds):
             body: dict = {
                 "model": self.model,
@@ -180,9 +185,8 @@ class OpenAICompatLLMClient:
                 "tools": tools,
                 "chat_template_kwargs": {"enable_thinking": bool(thinking)},
                 **DEFAULT_SAMPLING,
+                "temperature": effective_temp,
             }
-            if temperature is not None:
-                body["temperature"] = temperature
             if max_tokens is not None:
                 body["max_tokens"] = max_tokens
 
@@ -196,14 +200,35 @@ class OpenAICompatLLMClient:
                 yield ("content", "(модель вернула пустой ответ)")
                 return
 
-            reasoning = msg.get("reasoning_content") or ""
+            reasoning = (msg.get("reasoning_content") or "").strip()
             if reasoning:
                 yield ("thinking", reasoning)
 
             tool_calls = msg.get("tool_calls") or []
+            content_text = (msg.get("content") or "").strip()
+
             if not tool_calls:
+                # Stall recovery: model emitted reasoning + empty content + no
+                # tool_call after we've already used tools. It "thought about
+                # retrying" without committing to either a tool_call or a final
+                # answer. Inject a nudge and let it try once more.
+                if not content_text and tools_used and reasoning and round_idx < max_rounds - 1:
+                    yield ("thinking", "\n[stall — ре-промпт: tool либо финал]\n")
+                    msgs.append({"role": "assistant", "content": reasoning})
+                    msgs.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Продолжи: либо ПОЗОВИ web_search ещё раз с другой "
+                                "формулировкой (короче, без 'news', с конкретным "
+                                "именем/датой), либо дай ИТОГОВЫЙ ответ пользователю "
+                                "в обычном тексте на основе того, что уже нашёл."
+                            ),
+                        }
+                    )
+                    continue
                 # Final assistant turn — no more tools needed.
-                yield ("content", msg.get("content") or "")
+                yield ("content", content_text)
                 return
 
             # Has tool_calls — record the assistant turn (with its tool_calls)
@@ -215,6 +240,7 @@ class OpenAICompatLLMClient:
                     "tool_calls": tool_calls,
                 }
             )
+            tools_used = True
 
             for tc in tool_calls:
                 tc_id = tc.get("id") or f"call_{round_idx}_{len(msgs)}"

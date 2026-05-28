@@ -1129,28 +1129,34 @@ class OrchestratorService:
             user_prompt = "\n".join(history_lines) if history_lines else content
             move_type = "tell" if mode == "chat" else "scaffolding"
 
-        # Agentic tool-use for chat mode: assemble OpenAI-format messages,
-        # load tool definitions (web search + SKI lookup), build executor.
+        # Agentic tool-use: assemble OpenAI-format messages and load tools.
+        # Both chat AND guided_learning get pedagogical tools (SKI + Navigator);
+        # web_search/fetch_url ONLY in chat — anti-pedagogical in Socratic guided.
         chat_messages: list = []
         tool_defs: list = []
         tool_funcs: dict = {}
-        if mode == "chat":
-            if system_prompt:
-                chat_messages.append({"role": "system", "content": system_prompt})
-            for _m in session.messages[-24:]:
-                chat_messages.append(
-                    {
-                        "role": "user" if _m.role == "user" else "assistant",
-                        "content": _m.content,
-                    }
-                )
-            try:
-                from src.tools.web_tools import WEB_FUNCTIONS, WEB_TOOL_DEFINITIONS
+        if mode in ("chat", "guided_learning"):
+            if mode == "chat":
+                # Free chat: full conversation history as messages.
+                if system_prompt:
+                    chat_messages.append({"role": "system", "content": system_prompt})
+                for _m in session.messages[-24:]:
+                    chat_messages.append(
+                        {
+                            "role": "user" if _m.role == "user" else "assistant",
+                            "content": _m.content,
+                        }
+                    )
+            else:
+                # Guided: keep the rich pre-built system+user prompt from the
+                # guided pipeline (Profiler+Planner+RAG already baked it in).
+                if system_prompt:
+                    chat_messages.append({"role": "system", "content": system_prompt})
+                if user_prompt:
+                    chat_messages.append({"role": "user", "content": user_prompt})
 
-                tool_defs.extend(WEB_TOOL_DEFINITIONS)
-                tool_funcs.update(WEB_FUNCTIONS)
-            except Exception as e:
-                logger.warning(f"web_tools unavailable: {e}")
+            # SKI tools — pedagogical aids (definitions/examples/methods/prereqs),
+            # safe in BOTH modes; they don't give the answer, they help the tutor.
             try:
                 from src.tools.ski_tools import SKI_FUNCTIONS, SKI_TOOL_DEFINITIONS
 
@@ -1158,6 +1164,28 @@ class OrchestratorService:
                 tool_funcs.update(SKI_FUNCTIONS)
             except Exception as e:
                 logger.warning(f"ski_tools unavailable: {e}")
+            # Navigator tools — Knowledge Forge graph navigation; also safe in both.
+            try:
+                from src.tools.navigator_tools import (
+                    NAVIGATOR_FUNCTIONS,
+                    NAVIGATOR_TOOL_DEFINITIONS,
+                    set_mastery_source,
+                )
+
+                set_mastery_source({})  # empty source — no personalization yet
+                tool_defs.extend(NAVIGATOR_TOOL_DEFINITIONS)
+                tool_funcs.update(NAVIGATOR_FUNCTIONS)
+            except Exception as e:
+                logger.warning(f"navigator_tools unavailable: {e}")
+            # Web tools — ONLY in chat (web_search in Socratic = student bypass).
+            if mode == "chat":
+                try:
+                    from src.tools.web_tools import WEB_FUNCTIONS, WEB_TOOL_DEFINITIONS
+
+                    tool_defs.extend(WEB_TOOL_DEFINITIONS)
+                    tool_funcs.update(WEB_FUNCTIONS)
+                except Exception as e:
+                    logger.warning(f"web_tools unavailable: {e}")
 
         def _tool_executor(name: str, args: dict) -> str:
             """Dispatch a tool by name → string. Errors flow into the loop as JSON."""
@@ -1184,13 +1212,13 @@ class OrchestratorService:
 
                 # Decide iterator: chat-mode with tools → agentic loop; else → plain stream.
                 use_tools = (
-                    mode == "chat"
+                    mode in ("chat", "guided_learning")
                     and hasattr(self._llm_client, "chat_with_tools")
                     and bool(tool_defs)
                 )
                 if use_tools:
                     logger.info(
-                        f"Agentic chat: {len(tool_defs)} tools available "
+                        f"Agentic {mode}: {len(tool_defs)} tools available "
                         f"({', '.join(t['function']['name'] for t in tool_defs)})"
                     )
 

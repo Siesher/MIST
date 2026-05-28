@@ -27,11 +27,11 @@ def _ddgs_available() -> bool:
     global _DDGS_AVAILABLE
     if _DDGS_AVAILABLE is None:
         try:
-            import duckduckgo_search  # noqa: F401
+            import ddgs  # noqa: F401
 
             _DDGS_AVAILABLE = True
         except ImportError:
-            logger.warning("duckduckgo-search not installed; web_search disabled")
+            logger.warning("ddgs not installed; web_search disabled")
             _DDGS_AVAILABLE = False
     return _DDGS_AVAILABLE
 
@@ -42,11 +42,9 @@ def web_search(query: str, max_results: int = 5) -> str:
     Лимиты: max_results кэпируется до 10 — модели достаточно, а ответ короткий.
     """
     if not _ddgs_available():
-        return json.dumps(
-            {"error": "web_search недоступен (нет duckduckgo-search)"}, ensure_ascii=False
-        )
+        return json.dumps({"error": "web_search недоступен (нет ddgs)"}, ensure_ascii=False)
 
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 
     capped = max(1, min(int(max_results) if max_results else 5, 10))
     try:
@@ -131,9 +129,13 @@ WEB_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "web_search",
             "description": (
-                "Поиск в интернете через DuckDuckGo. Используй, когда нужна "
-                "актуальная информация (новости, свежие данные, факты после "
-                "обучающей выборки). Возвращает JSON со списком title/url/snippet."
+                "Поиск в интернете через DuckDuckGo. Используй для актуальной "
+                "информации (новости, релизы, факты после обучающей выборки). "
+                "Возвращает JSON со списком title/url/snippet. ВАЖНО: если "
+                "первый запрос дал нерелевантные результаты — ПЕРЕФОРМУЛИРУЙ "
+                "и попробуй ещё раз (убери лишние слова типа 'news', добавь "
+                "конкретное имя/дату, попробуй английский и русский варианты). "
+                "Минимум 2 попытки прежде чем сказать пользователю «не нашёл»."
             ),
             "parameters": {
                 "type": "object",

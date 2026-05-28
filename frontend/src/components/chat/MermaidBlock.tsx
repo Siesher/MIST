@@ -33,6 +33,24 @@ interface Props {
   code: string;
 }
 
+// Sanitize node labels: LLMs love to put formulas in [labels] which mermaid
+// rejects. We strip "(", ")", "=", "<br>" and common math glyphs INSIDE label
+// brackets [...] / {...} / ((...)) only — leaving the diagram structure intact.
+function sanitizeLabels(src: string): string {
+  const cleanLabel = (s: string) =>
+    s
+      .replace(/<br\s*\/?>/gi, " ")
+      .replace(/[()=]/g, " ")
+      .replace(/[√²³±×]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  // Order matters: handle (( )) first, then [ ], { }
+  return src
+    .replace(/\(\(([^()]*)\)\)/g, (_m, inner) => `((${cleanLabel(inner)}))`)
+    .replace(/\[([^\[\]]+)\]/g, (_m, inner) => `[${cleanLabel(inner)}]`)
+    .replace(/\{([^{}]+)\}/g, (_m, inner) => `{${cleanLabel(inner)}}`);
+}
+
 export function MermaidBlock({ code }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +63,16 @@ export function MermaidBlock({ code }: Props) {
         setError(null);
         const { svg } = await mermaid.render(id, code.trim());
         if (ref.current) ref.current.innerHTML = svg;
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
+        return;
+      } catch {
+        /* fall through to sanitized retry */
+      }
+      try {
+        const cleaned = sanitizeLabels(code.trim());
+        const { svg } = await mermaid.render(id + "-retry", cleaned);
+        if (ref.current) ref.current.innerHTML = svg;
+      } catch (e2) {
+        const msg = e2 instanceof Error ? e2.message : String(e2);
         setError(msg);
       }
     })();
