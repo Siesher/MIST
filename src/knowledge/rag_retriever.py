@@ -13,11 +13,11 @@ RAG Retriever для MITS.
 """
 
 import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
-import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from src.models.knowledge_tracing import KnowledgeTracker
@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 class HintLevel(Enum):
     """Уровни подсказок для progressive scaffolding."""
-    CONCEPTUAL = "conceptual"    # Концептуальные вопросы
-    PROCEDURAL = "procedural"    # Процедурные подсказки
-    SPECIFIC = "specific"        # Конкретные указания
+
+    CONCEPTUAL = "conceptual"  # Концептуальные вопросы
+    PROCEDURAL = "procedural"  # Процедурные подсказки
+    SPECIFIC = "specific"  # Конкретные указания
 
 
 # Minimum similarity score for RAG results (fallback threshold)
@@ -38,8 +39,9 @@ RAG_FALLBACK_THRESHOLD = 0.2
 
 # Опциональные зависимости для векторного поиска
 try:
-    from sentence_transformers import SentenceTransformer
     import numpy as np
+    from sentence_transformers import SentenceTransformer
+
     HAS_EMBEDDINGS = True
 except ImportError:
     HAS_EMBEDDINGS = False
@@ -47,6 +49,7 @@ except ImportError:
 
 try:
     import chromadb
+
     HAS_CHROMADB = True
 except ImportError:
     HAS_CHROMADB = False
@@ -55,6 +58,7 @@ except ImportError:
 @dataclass
 class Hint:
     """Подсказка для репетитора с поддержкой progressive scaffolding."""
+
     id: str
     skill: str
     level: HintLevel
@@ -74,14 +78,12 @@ class Hint:
     @property
     def hint_level(self) -> int:
         """Numeric level for backward compatibility."""
-        return {
-            HintLevel.CONCEPTUAL: 1,
-            HintLevel.PROCEDURAL: 2,
-            HintLevel.SPECIFIC: 3
-        }.get(self.level, 1)
+        return {HintLevel.CONCEPTUAL: 1, HintLevel.PROCEDURAL: 2, HintLevel.SPECIFIC: 3}.get(
+            self.level, 1
+        )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], topic: str = "") -> 'Hint':
+    def from_dict(cls, data: Dict[str, Any], topic: str = "") -> "Hint":
         # Parse level from string
         level_str = data.get("level", "conceptual").lower()
         try:
@@ -99,13 +101,14 @@ class Hint:
             follow_up_question=data.get("follow_up_question", ""),
             topic=topic or data.get("topic", ""),
             difficulty=data.get("difficulty", "medium"),
-            keywords=data.get("keywords", [])
+            keywords=data.get("keywords", []),
         )
 
 
 @dataclass
 class Misconception:
     """Типичная ошибка ученика."""
+
     id: str
     topic: str
     skill: str
@@ -135,7 +138,7 @@ class Misconception:
         return f"Давай проверим: {self.example_ru}"
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Misconception':
+    def from_dict(cls, data: Dict[str, Any]) -> "Misconception":
         return cls(
             id=data.get("id", ""),
             topic=data.get("topic", ""),
@@ -148,13 +151,14 @@ class Misconception:
             example_ru=data.get("example_ru", ""),
             example_en=data.get("example_en", ""),
             severity=float(data.get("severity", 0.5)),
-            frequency=data.get("frequency", "common")
+            frequency=data.get("frequency", "common"),
         )
 
 
 @dataclass
 class HintProgressionState:
     """Состояние прогрессии подсказок для сессии."""
+
     skill: str
     current_level: HintLevel = HintLevel.CONCEPTUAL
     hints_given: int = 0
@@ -173,12 +177,16 @@ class HintProgressionState:
 @dataclass
 class TutoringContext:
     """Контекст для репетитора, извлечённый из RAG."""
+
     hints: List[Hint] = field(default_factory=list)
     misconceptions: List[Misconception] = field(default_factory=list)
     related_topics: List[str] = field(default_factory=list)
     hint_progression: Optional[HintProgressionState] = None
     retrieval_scores: List[float] = field(default_factory=list)
     used_fallback: bool = False
+    # Чанки прикреплённого источника (document-RAG, этап 2). Наполняются на уровне
+    # сервиса по релевантности к вопросу; попадают в промпт первым блоком.
+    chunks: List[str] = field(default_factory=list)
 
     def get_hint_for_level(self, level: HintLevel) -> Optional[Hint]:
         """Получить подсказку определённого уровня."""
@@ -197,6 +205,13 @@ class TutoringContext:
         """Преобразование в текст для добавления в промпт."""
         parts = []
 
+        # Материал из прикреплённого источника — первым: для ответа важнее подсказок.
+        if self.chunks:
+            parts.append("МАТЕРИАЛ ИЗ ИСТОЧНИКА (используй, если относится к вопросу):")
+            for i, chunk in enumerate(self.chunks, 1):
+                parts.append(f"  [{i}] {chunk.strip()}")
+            parts.append("")
+
         if self.hints:
             parts.append("ПОДСКАЗКИ ДЛЯ ЭТОЙ ТЕМЫ:")
             # Группируем по уровням
@@ -206,7 +221,7 @@ class TutoringContext:
                     level_name = {
                         HintLevel.CONCEPTUAL: "Концептуальный",
                         HintLevel.PROCEDURAL: "Процедурный",
-                        HintLevel.SPECIFIC: "Конкретный"
+                        HintLevel.SPECIFIC: "Конкретный",
                     }[level]
                     for hint in level_hints[:1]:  # Одна подсказка каждого уровня
                         parts.append(f"  - [{level_name}] {hint.content}")
@@ -250,7 +265,7 @@ class TutoringRAG:
         use_embeddings: bool = True,
         knowledge_tracker: Optional["KnowledgeTracker"] = None,
         similarity_threshold: float = RAG_SIMILARITY_THRESHOLD,
-        fallback_threshold: float = RAG_FALLBACK_THRESHOLD
+        fallback_threshold: float = RAG_FALLBACK_THRESHOLD,
     ):
         """
         Инициализация RAG системы.
@@ -281,7 +296,9 @@ class TutoringRAG:
         self.all_misconceptions: List[Misconception] = []
 
         # Hint progression tracking per session
-        self._hint_progressions: Dict[str, Dict[str, HintProgressionState]] = {}  # student_id -> skill -> state
+        self._hint_progressions: Dict[
+            str, Dict[str, HintProgressionState]
+        ] = {}  # student_id -> skill -> state
 
         self._load_knowledge_base()
 
@@ -344,7 +361,7 @@ class TutoringRAG:
     def _load_hints_from_json(self, file: Path, topic: str):
         """Load hints from JSON file (new format)."""
         try:
-            with open(file, 'r', encoding='utf-8') as f:
+            with open(file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             hints_data = data.get("hints", [])
@@ -373,7 +390,7 @@ class TutoringRAG:
             if topic not in self.hints:
                 self.hints[topic] = []
 
-            with open(file, 'r', encoding='utf-8') as f:
+            with open(file, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)
@@ -392,7 +409,7 @@ class TutoringRAG:
     def _load_misconceptions_from_json(self, file: Path):
         """Load misconceptions from JSON file (new format)."""
         try:
-            with open(file, 'r', encoding='utf-8') as f:
+            with open(file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             misconceptions_data = data.get("misconceptions", [])
@@ -420,7 +437,7 @@ class TutoringRAG:
     def _load_misconceptions_from_jsonl(self, file: Path):
         """Load misconceptions from JSONL file (legacy format)."""
         try:
-            with open(file, 'r', encoding='utf-8') as f:
+            with open(file, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)
@@ -445,7 +462,7 @@ class TutoringRAG:
         """Инициализация модели эмбеддингов."""
         try:
             # Используем маленькую многоязычную модель
-            self.embedder = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            self.embedder = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
             # Создаём эмбеддинги для подсказок
             hint_texts = [h.content for h in self.all_hints]
@@ -453,8 +470,9 @@ class TutoringRAG:
                 self.hint_embeddings = self.embedder.encode(hint_texts)
 
             # Создаём эмбеддинги для ошибок
-            misc_texts = [m.error_pattern + " " + m.correction_question
-                         for m in self.all_misconceptions]
+            misc_texts = [
+                m.error_pattern + " " + m.correction_question for m in self.all_misconceptions
+            ]
             if misc_texts:
                 self.misconception_embeddings = self.embedder.encode(misc_texts)
 
@@ -471,7 +489,7 @@ class TutoringRAG:
         skill: Optional[str] = None,
         difficulty: Optional[str] = None,
         student_id: Optional[str] = None,
-        top_k: int = 3
+        top_k: int = 3,
     ) -> Tuple[List[Hint], List[float], bool]:
         """
         Извлечение релевантных подсказок с context-aware re-ranking.
@@ -496,9 +514,7 @@ class TutoringRAG:
                 h for h in self.all_hints if h.skill != skill
             ]
         elif topic and topic in self.hints:
-            candidate_hints = self.hints[topic] + [
-                h for h in self.all_hints if h.topic != topic
-            ]
+            candidate_hints = self.hints[topic] + [h for h in self.all_hints if h.topic != topic]
 
         # Фильтр по сложности
         if difficulty:
@@ -512,21 +528,16 @@ class TutoringRAG:
                 problem,
                 self.hint_embeddings,
                 self.all_hints,
-                top_k * 2  # Get more for re-ranking
+                top_k * 2,  # Get more for re-ranking
             )
         else:
             hints, scores = self._keyword_match_with_scores(
-                problem,
-                candidate_hints,
-                lambda h: h.keywords + [h.topic, h.skill],
-                top_k * 2
+                problem, candidate_hints, lambda h: h.keywords + [h.topic, h.skill], top_k * 2
             )
 
         # Context-aware re-ranking if knowledge tracker available
         if student_id and self.knowledge_tracker and hints:
-            hints, scores = self._rerank_by_knowledge_state(
-                hints, scores, student_id
-            )
+            hints, scores = self._rerank_by_knowledge_state(hints, scores, student_id)
 
         # Check threshold and apply fallback if needed
         if not hints or (scores and max(scores) < self.fallback_threshold):
@@ -541,10 +552,7 @@ class TutoringRAG:
         return hints[:top_k], scores[:top_k], used_fallback
 
     def _rerank_by_knowledge_state(
-        self,
-        hints: List[Hint],
-        scores: List[float],
-        student_id: str
+        self, hints: List[Hint], scores: List[float], student_id: str
     ) -> Tuple[List[Hint], List[float]]:
         """
         Re-rank hints based on student's knowledge state.
@@ -576,10 +584,7 @@ class TutoringRAG:
             return hints, scores
 
     def _get_fallback_hints(
-        self,
-        topic: Optional[str],
-        skill: Optional[str],
-        count: int
+        self, topic: Optional[str], skill: Optional[str], count: int
     ) -> List[Hint]:
         """Get fallback hints when similarity search fails."""
         if skill and skill in self.hints_by_skill:
@@ -589,11 +594,7 @@ class TutoringRAG:
         return self.all_hints[:count] if self.all_hints else []
 
     def _semantic_search_with_scores(
-        self,
-        query: str,
-        embeddings,
-        items: List[Any],
-        top_k: int
+        self, query: str, embeddings, items: List[Any], top_k: int
     ) -> Tuple[List[Any], List[float]]:
         """Semantic search returning items with scores."""
         if embeddings is None or len(embeddings) == 0:
@@ -619,11 +620,7 @@ class TutoringRAG:
         return results, scores
 
     def _keyword_match_with_scores(
-        self,
-        query: str,
-        items: List[Any],
-        get_keywords: callable,
-        top_k: int
+        self, query: str, items: List[Any], get_keywords: callable, top_k: int
     ) -> Tuple[List[Any], List[float]]:
         """Keyword matching returning items with scores."""
         query_words = set(query.lower().split())
@@ -637,8 +634,9 @@ class TutoringRAG:
             score = len(query_words & keyword_set)
 
             # Также проверяем вхождение слов запроса в контент
-            content = str(item.content if hasattr(item, 'content') else
-                         getattr(item, 'error_pattern', ''))
+            content = str(
+                item.content if hasattr(item, "content") else getattr(item, "error_pattern", "")
+            )
             for word in query_words:
                 if len(word) > 2 and word in content.lower():
                     score += 0.5
@@ -652,8 +650,10 @@ class TutoringRAG:
 
         # Сортируем по score
         scored_items.sort(key=lambda x: x[1], reverse=True)
-        return ([item for item, _ in scored_items[:top_k]],
-                [score for _, score in scored_items[:top_k]])
+        return (
+            [item for item, _ in scored_items[:top_k]],
+            [score for _, score in scored_items[:top_k]],
+        )
 
     def retrieve_misconceptions(
         self,
@@ -662,7 +662,7 @@ class TutoringRAG:
         topic: Optional[str] = None,
         skill: Optional[str] = None,
         student_id: Optional[str] = None,
-        top_k: int = 2
+        top_k: int = 2,
     ) -> Tuple[List[Misconception], List[float], bool]:
         """
         Извлечение релевантных типичных ошибок.
@@ -696,17 +696,14 @@ class TutoringRAG:
 
         if self.use_embeddings and self.misconception_embeddings is not None:
             misconceptions, scores = self._semantic_search_with_scores(
-                query,
-                self.misconception_embeddings,
-                self.all_misconceptions,
-                top_k * 2
+                query, self.misconception_embeddings, self.all_misconceptions, top_k * 2
             )
         else:
             misconceptions, scores = self._keyword_match_with_scores(
                 query,
                 candidate_misconceptions,
                 lambda m: [m.topic, m.skill] + m.error_pattern.lower().split()[:5],
-                top_k * 2
+                top_k * 2,
             )
 
         # Fallback if no good matches
@@ -720,10 +717,7 @@ class TutoringRAG:
         return misconceptions[:top_k], scores[:top_k], used_fallback
 
     def _get_fallback_misconceptions(
-        self,
-        topic: Optional[str],
-        skill: Optional[str],
-        count: int
+        self, topic: Optional[str], skill: Optional[str], count: int
     ) -> List[Misconception]:
         """Get fallback misconceptions when similarity search fails."""
         if skill and skill in self.misconceptions_by_skill:
@@ -739,7 +733,7 @@ class TutoringRAG:
         topic: Optional[str] = None,
         skill: Optional[str] = None,
         difficulty: Optional[str] = None,
-        student_id: Optional[str] = None
+        student_id: Optional[str] = None,
     ) -> TutoringContext:
         """
         Извлечение полного контекста для репетитора.
@@ -773,14 +767,10 @@ class TutoringRAG:
             related_topics=[topic] if topic else [],
             hint_progression=hint_progression,
             retrieval_scores=hint_scores + misc_scores,
-            used_fallback=hint_fallback or misc_fallback
+            used_fallback=hint_fallback or misc_fallback,
         )
 
-    def get_hint_progression(
-        self,
-        student_id: str,
-        skill: str
-    ) -> HintProgressionState:
+    def get_hint_progression(self, student_id: str, skill: str) -> HintProgressionState:
         """Get or create hint progression state for a student/skill."""
         if student_id not in self._hint_progressions:
             self._hint_progressions[student_id] = {}
@@ -791,10 +781,7 @@ class TutoringRAG:
         return self._hint_progressions[student_id][skill]
 
     def advance_hint_progression(
-        self,
-        student_id: str,
-        skill: str,
-        hint_id: Optional[str] = None
+        self, student_id: str, skill: str, hint_id: Optional[str] = None
     ) -> HintLevel:
         """
         Advance hint progression for a student/skill.
@@ -805,21 +792,13 @@ class TutoringRAG:
         progression.last_hint_id = hint_id
         return progression.advance()
 
-    def get_next_hint_level(
-        self,
-        student_id: str,
-        skill: str
-    ) -> HintLevel:
+    def get_next_hint_level(self, student_id: str, skill: str) -> HintLevel:
         """Get the next hint level for progressive scaffolding."""
         progression = self.get_hint_progression(student_id, skill)
         return progression.current_level
 
     def retrieve_progressive_hint(
-        self,
-        problem: str,
-        student_id: str,
-        skill: str,
-        topic: Optional[str] = None
+        self, problem: str, student_id: str, skill: str, topic: Optional[str] = None
     ) -> Optional[Hint]:
         """
         Retrieve the next hint in the progression sequence.
@@ -831,12 +810,10 @@ class TutoringRAG:
         # Get hints for this skill at the current level
         candidates = []
         if skill in self.hints_by_skill:
-            candidates = [h for h in self.hints_by_skill[skill]
-                         if h.level == current_level]
+            candidates = [h for h in self.hints_by_skill[skill] if h.level == current_level]
 
         if not candidates and topic and topic in self.hints:
-            candidates = [h for h in self.hints[topic]
-                         if h.level == current_level]
+            candidates = [h for h in self.hints[topic] if h.level == current_level]
 
         if not candidates:
             # Fallback to any hint at this level
@@ -845,9 +822,7 @@ class TutoringRAG:
         if candidates:
             # Select best match using keyword matching
             hints, _ = self._keyword_match_with_scores(
-                problem, candidates,
-                lambda h: h.keywords + [h.skill, h.trigger],
-                1
+                problem, candidates, lambda h: h.keywords + [h.skill, h.trigger], 1
             )
             if hints:
                 self.advance_hint_progression(student_id, skill, hints[0].id)
@@ -890,9 +865,7 @@ if __name__ == "__main__":
 
     problem = "Решить уравнение x^2 - 5x + 6 = 0"
     context = rag.retrieve_context(
-        problem=problem,
-        topic="quadratic_equations",
-        difficulty="medium"
+        problem=problem, topic="quadratic_equations", difficulty="medium"
     )
 
     print(f"\nЗадача: {problem}")
