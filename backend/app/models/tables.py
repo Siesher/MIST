@@ -70,6 +70,7 @@ class MessageTable(Base):
     move_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     thinking: Mapped[str | None] = mapped_column(Text, nullable=True)
+    citations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     session: Mapped["SessionTable"] = relationship(back_populates="messages")

@@ -1,24 +1,25 @@
 """Session management endpoints."""
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 
 from backend.app.models.database import get_db
 from backend.app.schemas.chat import (
-    CreateSessionRequest,
     ChangeModeRequest,
     ChangeModeResponse,
-    SessionResponse,
-    SessionWithTaskResponse,
+    ChatMode,
+    CreateSessionRequest,
+    Difficulty,
+    MessageResponse,
+    MessageRole,
     SessionDetailResponse,
     SessionListResponse,
-    TaskResponse,
-    MessageResponse,
-    ChatMode,
-    Difficulty,
+    SessionResponse,
     SessionStatus,
-    MessageRole,
+    SessionWithTaskResponse,
+    TaskResponse,
     TutorMoveType,
 )
 from backend.app.services.orchestrator_service import get_orchestrator_service
@@ -80,18 +81,20 @@ async def list_sessions(
 
     sessions = []
     for s in result["sessions"]:
-        sessions.append(SessionResponse(
-            id=s.id,
-            created_at=s.created_at,
-            updated_at=s.updated_at,
-            topic=s.topic,
-            difficulty=Difficulty(s.difficulty) if s.difficulty else None,
-            status=SessionStatus(s.status),
-            mode=ChatMode(s.mode),
-            message_count=len(s.messages),
-            is_solved=s.is_solved,
-            hints_used=s.hints_used,
-        ))
+        sessions.append(
+            SessionResponse(
+                id=s.id,
+                created_at=s.created_at,
+                updated_at=s.updated_at,
+                topic=s.topic,
+                difficulty=Difficulty(s.difficulty) if s.difficulty else None,
+                status=SessionStatus(s.status),
+                mode=ChatMode(s.mode),
+                message_count=len(s.messages),
+                is_solved=s.is_solved,
+                hints_used=s.hints_used,
+            )
+        )
 
     return SessionListResponse(
         sessions=sessions,
@@ -112,15 +115,18 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
     messages = []
     for m in session.messages:
-        messages.append(MessageResponse(
-            id=m.id,
-            session_id=session.id,
-            role=MessageRole(m.role),
-            content=m.content,
-            timestamp=m.timestamp,
-            move_type=TutorMoveType(m.move_type) if m.move_type else None,
-            is_correct=m.is_correct,
-        ))
+        messages.append(
+            MessageResponse(
+                id=m.id,
+                session_id=session.id,
+                role=MessageRole(m.role),
+                content=m.content,
+                timestamp=m.timestamp,
+                move_type=TutorMoveType(m.move_type) if m.move_type else None,
+                is_correct=m.is_correct,
+                citations=m.citations,
+            )
+        )
 
     task_resp = None
     if session.task:
@@ -150,7 +156,9 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{session_id}/mode", response_model=ChangeModeResponse)
-async def change_session_mode(session_id: str, request: ChangeModeRequest, db: AsyncSession = Depends(get_db)):
+async def change_session_mode(
+    session_id: str, request: ChangeModeRequest, db: AsyncSession = Depends(get_db)
+):
     """Change the mode of an existing session."""
     service = await get_orchestrator_service()
     result = await service.change_mode(db, session_id, request.mode.value)

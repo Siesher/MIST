@@ -61,6 +61,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
             move_type: msg.response.move_type,
             is_correct: msg.response.is_correct,
             thinking: reasoning || undefined,
+            citations: msg.response.citations,
           };
           addMessage(sessionId, tutorMessage);
           break;

@@ -68,6 +68,12 @@ export interface GenerateTaskRequest {
 
 // --- Response types ---
 
+export interface Citation {
+  source_id: string;
+  title: string;
+  excerpt?: string;
+}
+
 export interface Message {
   id: string;
   session_id: string;
@@ -77,6 +83,7 @@ export interface Message {
   move_type?: TutorMoveType;
   is_correct?: boolean;
   thinking?: string;
+  citations?: Citation[];
 }
 
 export interface Task {
@@ -123,6 +130,7 @@ export interface TutorResponse {
   move_type?: TutorMoveType;
   is_correct?: boolean;
   thinking?: string;
+  citations?: Citation[];
 }
 
 export interface SessionState {

@@ -31,6 +31,15 @@ async def init_db() -> None:
     """Create all tables (for development). Use Alembic migrations in production."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Лёгкая идемпотентная миграция (в репо нет alembic): добавить колонку
+        # messages.citations_json в существующую БД, если её ещё нет.
+        try:
+            res = await conn.exec_driver_sql("PRAGMA table_info(messages)")
+            cols = {row[1] for row in res}
+            if "citations_json" not in cols:
+                await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN citations_json TEXT")
+        except Exception:
+            pass
 
 
 async def close_db() -> None:

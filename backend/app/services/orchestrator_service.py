@@ -186,6 +186,7 @@ class StoredMessage:
     move_type: Optional[str] = None
     is_correct: Optional[bool] = None
     thinking: Optional[str] = None
+    citations: Optional[list] = None
 
 
 @dataclass
@@ -208,6 +209,17 @@ class StoredSession:
     user_id: Optional[str] = None
 
 
+def _loads_citations(raw):
+    """Безопасно разбирает citations_json → list|None."""
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, list) else None
+    except Exception:
+        return None
+
+
 def _row_to_session(row: SessionTable) -> StoredSession:
     """Convert ORM row to DTO."""
     messages = [
@@ -219,6 +231,7 @@ def _row_to_session(row: SessionTable) -> StoredSession:
             move_type=m.move_type,
             is_correct=m.is_correct,
             thinking=m.thinking,
+            citations=_loads_citations(getattr(m, "citations_json", None)),
         )
         for m in (row.messages or [])
     ]
@@ -727,6 +740,9 @@ class OrchestratorService:
                 is_correct=msg.is_correct,
                 thinking=msg.thinking,
                 timestamp=msg.timestamp,
+                citations_json=(
+                    json.dumps(msg.citations, ensure_ascii=False) if msg.citations else None
+                ),
             )
         )
 
@@ -1318,8 +1334,13 @@ class OrchestratorService:
                 except Exception as e:
                     logger.warning(f"web_tools unavailable: {e}")
 
+        citations_acc: list = []
+
         def _tool_executor(name: str, args: dict) -> str:
-            """Dispatch a tool by name → string. Errors flow into the loop as JSON."""
+            """Dispatch a tool by name → string. Errors flow into the loop as JSON.
+
+            Попутно копит атрибуцию — какие источники агент реально прочитал.
+            """
             fn = tool_funcs.get(name)
             if not fn:
                 return f'{{"error":"unknown tool: {name}"}}'
@@ -1327,7 +1348,14 @@ class OrchestratorService:
                 result = fn(**args)
             except TypeError as e:
                 return f'{{"error":"bad args for {name}: {e}"}}'
-            return result if isinstance(result, str) else str(result)
+            out = result if isinstance(result, str) else str(result)
+            try:
+                from src.tools.source_tools import citations_from_result
+
+                citations_acc.extend(citations_from_result(name, out))
+            except Exception:
+                pass
+            return out
 
         # Stream from LLM — real token-by-token streaming (no JSON buffering)
         full_response = ""
@@ -1488,6 +1516,14 @@ class OrchestratorService:
             except Exception as e:
                 logger.debug(f"Cache store skipped: {e}")
 
+        # Атрибуция: дедуп реально прочитанных источников (порядок сохраняем).
+        _seen_src: set = set()
+        citations: list = []
+        for _c in citations_acc:
+            if _c.get("source_id") and _c["source_id"] not in _seen_src:
+                _seen_src.add(_c["source_id"])
+                citations.append(_c)
+
         # Persist tutor response (store visible content, thinking separately)
         tutor_msg = StoredMessage(
             id=message_id,
@@ -1497,6 +1533,7 @@ class OrchestratorService:
             move_type=extracted_move,
             is_correct=is_correct,
             thinking=stream_thinking,
+            citations=citations or None,
         )
         await self._save_message(db, session_id, tutor_msg)
         if session.is_solved:
@@ -1511,6 +1548,7 @@ class OrchestratorService:
                 "content": display_content,
                 "move_type": extracted_move,
                 "is_correct": is_correct,
+                "citations": citations,
             },
             "session_state": {
                 "is_solved": session.is_solved,

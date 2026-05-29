@@ -157,6 +157,38 @@ function Message({ m }: { m: MessageType }) {
         <div className="msg-body">
           <SmartContent content={m.content} />
         </div>
+        {m.citations && m.citations.length > 0 && (
+          <div
+            className="msg-citations"
+            style={{
+              marginTop: 8,
+              paddingTop: 6,
+              borderTop: "1px solid var(--line, rgba(255,255,255,0.08))",
+            }}
+          >
+            <div style={{ fontSize: 10, letterSpacing: "0.15em", opacity: 0.6, marginBottom: 4 }}>
+              {t("citations_label")}
+            </div>
+            {m.citations.map((c, i) => (
+              <a
+                key={c.source_id + i}
+                href="/sources"
+                title={t("citations_open")}
+                style={{ display: "block", fontSize: 11.5, textDecoration: "none", marginBottom: 3 }}
+              >
+                <span style={{ color: "var(--violet, #b58aff)" }}>📄 {c.title}</span>
+                {c.excerpt && (
+                  <span style={{ color: "var(--text-dim, #9aa)", opacity: 0.8 }}>
+                    {" — «"}
+                    {c.excerpt.slice(0, 140)}
+                    {c.excerpt.length > 140 ? "…" : ""}
+                    {"»"}
+                  </span>
+                )}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

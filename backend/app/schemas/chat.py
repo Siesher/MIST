@@ -1,13 +1,13 @@
 """API schemas for the MITS backend."""
 
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from enum import Enum
 from datetime import datetime
-import uuid
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
 
 # --- Enums ---
+
 
 class ChatMode(str, Enum):
     chat = "chat"
@@ -46,6 +46,7 @@ class TutorMoveType(str, Enum):
 
 # --- Request Schemas ---
 
+
 class CreateSessionRequest(BaseModel):
     topic: Optional[str] = None
     difficulty: Optional[Difficulty] = None
@@ -76,6 +77,7 @@ class GenerateTaskRequest(BaseModel):
 
 # --- Response Schemas ---
 
+
 class MessageResponse(BaseModel):
     id: str
     session_id: str
@@ -84,6 +86,7 @@ class MessageResponse(BaseModel):
     timestamp: datetime
     move_type: Optional[TutorMoveType] = None
     is_correct: Optional[bool] = None
+    citations: Optional[List[dict]] = None
 
 
 class TaskResponse(BaseModel):
@@ -130,6 +133,7 @@ class TutorResponseData(BaseModel):
     move_type: Optional[TutorMoveType] = None
     is_correct: Optional[bool] = None
     thinking: Optional[str] = None
+    citations: Optional[List[dict]] = None
 
 
 class SessionState(BaseModel):

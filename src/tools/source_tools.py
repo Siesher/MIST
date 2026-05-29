@@ -207,6 +207,43 @@ def search_in_source(
     return json.dumps({"query": query, "hits": hits, "count": len(hits)}, ensure_ascii=False)
 
 
+def citations_from_result(tool_name: str, result: str) -> List[Dict[str, str]]:
+    """Извлекает {source_id, title, excerpt} из JSON-результата source-инструмента.
+
+    Используется orchestrator для атрибуции: какие источники агент реально прочитал.
+    list_sources игнорируется (это лишь перечисление, не использование факта).
+    """
+    if tool_name not in ("search_in_source", "read_source"):
+        return []
+    try:
+        data = json.loads(result)
+    except Exception:
+        return []
+    if not isinstance(data, dict):
+        return []
+    out: List[Dict[str, str]] = []
+    if tool_name == "search_in_source":
+        for hit in data.get("hits", []):
+            sid = hit.get("source_id")
+            if sid:
+                out.append(
+                    {
+                        "source_id": sid,
+                        "title": hit.get("title", "—"),
+                        "excerpt": (hit.get("excerpt", "") or "")[:200],
+                    }
+                )
+    elif tool_name == "read_source" and data.get("source_id"):
+        out.append(
+            {
+                "source_id": data["source_id"],
+                "title": data.get("title", "—"),
+                "excerpt": (data.get("text", "") or "")[:200],
+            }
+        )
+    return out
+
+
 # ── Tool definitions (OpenAI function-calling format) ─────────────────
 
 SOURCE_TOOL_DEFINITIONS = [

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 
 from src.tools.source_tools import (
+    citations_from_result,
     list_sources,
     read_source,
     search_in_source,
@@ -78,6 +79,25 @@ def test_empty_library_graceful():
     assert json.loads(list_sources())["count"] == 0
     assert "error" in json.loads(read_source("s1"))
     assert json.loads(search_in_source("x"))["count"] == 0
+
+
+def test_citations_from_search_result():
+    res = search_in_source("интеграл предел")  # s1 from LIB (setup)
+    cites = citations_from_result("search_in_source", res)
+    assert cites and all({"source_id", "title", "excerpt"} <= set(c) for c in cites)
+
+
+def test_citations_from_read_result():
+    cites = citations_from_result("read_source", read_source("s1"))
+    assert len(cites) == 1
+    assert cites[0]["source_id"] == "s1"
+    assert len(cites[0]["excerpt"]) <= 200
+
+
+def test_citations_ignores_list_and_bad_json():
+    assert citations_from_result("list_sources", list_sources()) == []
+    assert citations_from_result("search_in_source", "{не json") == []
+    assert citations_from_result("read_source", "null") == []
 
 
 def test_search_matches_inflected_forms():
