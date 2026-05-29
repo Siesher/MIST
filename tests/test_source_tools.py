@@ -78,3 +78,20 @@ def test_empty_library_graceful():
     assert json.loads(list_sources())["count"] == 0
     assert "error" in json.loads(read_source("s1"))
     assert json.loads(search_in_source("x"))["count"] == 0
+
+
+def test_search_matches_inflected_forms():
+    """RU-стемминг: запрос «производные» находит «производной» (грамм. вариант)."""
+    set_source_library(
+        {
+            "m": {
+                "title": "Производные",
+                "domain": "math",
+                "kind": "text",
+                "text": "Производной функции называется предел отношения приращения функции.",
+            }
+        }
+    )
+    res = json.loads(search_in_source("вычисли производные функции"))
+    assert res["count"] >= 1
+    assert res["hits"][0]["source_id"] == "m"

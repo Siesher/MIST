@@ -111,6 +111,64 @@ def read_source(source_id: str, part: int = 1, part_size: int = READ_PART_CHARS)
     )
 
 
+_RU_SUFFIXES = (
+    "ами",
+    "ями",
+    "ого",
+    "его",
+    "ому",
+    "ему",
+    "ыми",
+    "ими",
+    "ах",
+    "ях",
+    "ой",
+    "ей",
+    "ую",
+    "юю",
+    "ая",
+    "яя",
+    "ое",
+    "ее",
+    "ые",
+    "ие",
+    "ам",
+    "ям",
+    "ом",
+    "ем",
+    "ов",
+    "ев",
+    "ий",
+    "ый",
+    "их",
+    "ых",
+    "ть",
+    "ся",
+    "сь",
+    "и",
+    "ы",
+    "а",
+    "я",
+    "е",
+    "о",
+    "у",
+    "ь",
+    "й",
+)
+
+
+def _stem(token: str) -> str:
+    """Грубый русский стемминг: отбрасывает частые окончания (без зависимостей).
+
+    Чтобы запрос «производные» находил «производной/производных» — иначе keyword-
+    поиск по неизменяемой подстроке теряет грамматические варианты.
+    """
+    for suf in _RU_SUFFIXES:
+        if token.endswith(suf) and len(token) - len(suf) >= 4:
+            return token[: -len(suf)]
+    return token
+
+
 def search_in_source(
     query: str,
     source_id: Optional[str] = None,
@@ -118,8 +176,8 @@ def search_in_source(
 ) -> str:
     """Поиск по словам (keyword-IR, НЕ эмбеддинги): сегменты с наибольшим числом
     совпавших слов запроса. По одному источнику (source_id) или по всем."""
-    q_set = {t for t in _tokenize(query) if len(t) >= 3 and t not in _STOPWORDS}
-    if not q_set:
+    q_stems = {_stem(t) for t in _tokenize(query) if len(t) >= 3 and t not in _STOPWORDS}
+    if not q_stems:
         return json.dumps({"query": query, "hits": [], "count": 0}, ensure_ascii=False)
 
     targets = (
@@ -136,7 +194,7 @@ def search_in_source(
             if not seg:
                 continue
             seg_low = seg.lower()
-            matched = sum(1 for t in q_set if t in seg_low)
+            matched = sum(1 for s in q_stems if s in seg_low)
             if matched:
                 excerpt = seg[:400] + ("…" if len(seg) > 400 else "")
                 scored.append((matched, sid, title, excerpt))

@@ -222,6 +222,12 @@ def _row_to_session(row: SessionTable) -> StoredSession:
         )
         for m in (row.messages or [])
     ]
+    task_data = None
+    if row.task_json:
+        try:
+            task_data = json.loads(row.task_json)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"task_json повреждён для сессии {row.id}: {e}")
     return StoredSession(
         id=row.id,
         created_at=row.created_at,
@@ -234,8 +240,8 @@ def _row_to_session(row: SessionTable) -> StoredSession:
         hints_used=row.hints_used,
         attempts=row.attempts,
         messages=messages,
-        task=json.loads(row.task_json) if row.task_json else None,
-        task_id=json.loads(row.task_json).get("id") if row.task_json else None,
+        task=task_data,
+        task_id=task_data.get("id") if isinstance(task_data, dict) else None,
         user_id=row.user_id,
     )
 
@@ -1237,7 +1243,8 @@ class OrchestratorService:
                 "один вызов), read_source (прочитать раздел). ПРАВИЛО: если ответ МОЖЕТ "
                 "быть в загруженных источниках, СНАЧАЛА вызови search_in_source и опирайся "
                 "на найденное; общие знания или веб — только если в источниках ответа нет. "
-                "Не отвечай из общих знаний, не проверив источники."
+                "Не отвечай из общих знаний, не проверив источники. Если search_in_source "
+                "вернул 0 результатов — переформулируй короче/синонимом или открой read_source."
             )
 
         # Agentic tool-use: assemble OpenAI-format messages and load tools.
