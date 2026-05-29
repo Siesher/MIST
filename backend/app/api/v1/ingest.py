@@ -13,11 +13,11 @@ Usage pattern in frontend:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
+import json as _json
 import logging
-import tempfile
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -98,6 +98,18 @@ async def ingest_pdf(file: UploadFile = File(...)) -> IngestResponse:
             full_text = "\n\n".join(t.strip() for t in pages_text if t.strip())
         except Exception as e:
             logger.error(f"Both pypdf and pdfplumber failed: {e}")
+
+    # Скан без текстового слоя → vision-OCR через mits-vision (родная мультимодальность).
+    if len(full_text) < 100:
+        try:
+            from src.tools.vision_ocr import ocr_pdf
+
+            ocr_text = ocr_pdf(content)
+            if ocr_text:
+                full_text = ocr_text
+                meta["ocr"] = "mits-vision"
+        except Exception as e:
+            logger.warning(f"vision OCR PDF fallback failed: {e}")
 
     text, truncated = _truncate(full_text)
     return IngestResponse(
@@ -193,63 +205,42 @@ async def ingest_image(
     if len(content) > MAX_FILE_BYTES:
         raise HTTPException(413, f"file > {MAX_FILE_BYTES // (1024 * 1024)}MB")
 
-    # Try VisionAnalyzer (handwritten math pipeline). If not available or
-    # fails for generic images, describe via LLM with base64.
+    # Primary: mits-vision — родная мультимодальность Qwen3.5 через llama-swap
+    # (проверенный путь: data-URI image_url + enable_thinking=false).
     description = ""
     metadata: dict[str, Any] = {"content_type": file.content_type}
-
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
-
     try:
-        from src.config import settings
-        from src.models.vision_analyzer import VisionAnalyzer
+        from src.tools.vision_ocr import ocr_image
 
-        analyzer = VisionAnalyzer(vision_model=getattr(settings, "VISION_MODEL", "qwen2.5vl:7b"))
-        result = await analyzer.analyze_image(
-            image_path=tmp_path,
-            problem=context or "Опиши что на изображении.",
-            expected_answer=None,
+        description = ocr_image(
+            content, mime=file.content_type or "image/png", prompt=context or None
         )
-        steps = []
-        for step in result.steps:
-            steps.append(f"• {step.recognized_latex}")
-        description = (result.feedback or "").strip() + (
-            "\n\nРаспознано:\n" + "\n".join(steps) if steps else ""
-        )
-        metadata["vision_model"] = "active"
+        if description:
+            metadata["vision_model"] = "mits-vision"
     except Exception as e:
-        logger.info(f"VisionAnalyzer unavailable ({e}); falling back to LLM describe")
-        # Fallback: ask the main LLM to describe via base64
+        logger.info(f"mits-vision OCR unavailable ({e}); falling back to LLM describe")
+
+    # Fallback: describe via main LLM (base64) only if vision gave nothing.
+    if not description:
         try:
             from src.models.llm_client import LLMClient
 
             b64 = base64.b64encode(content).decode("ascii")
             llm = LLMClient()
-            # Many Ollama models support images field in messages
             prompt = (
                 f"Опиши изображение кратко (5-10 предложений). "
                 f"Контекст: {context or 'общее описание'}"
             )
-            try:
-                response = llm.chat(
-                    messages=[{"role": "user", "content": prompt, "images": [b64]}],
-                    temperature=0.3,
-                )
-                description = response if isinstance(response, str) else str(response)
-                metadata["vision_model"] = "llm_fallback"
-            except Exception as llm_err:
-                logger.warning(f"LLM image describe failed: {llm_err}")
-                description = (
-                    f"[Image {file.filename}, {len(content) // 1024}KB] "
-                    "Vision model not available. Upload error-free but no description generated."
-                )
-                metadata["vision_model"] = "unavailable"
-        except Exception:
-            description = f"[Image {file.filename}] Analysis failed."
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+            response = llm.chat(
+                messages=[{"role": "user", "content": prompt, "images": [b64]}],
+                temperature=0.3,
+            )
+            description = response if isinstance(response, str) else str(response)
+            metadata["vision_model"] = "llm_fallback"
+        except Exception as llm_err:
+            logger.warning(f"LLM image describe failed: {llm_err}")
+            description = f"[Image {file.filename}, {len(content) // 1024}KB] Vision unavailable."
+            metadata["vision_model"] = "unavailable"
 
     text, truncated = _truncate(description)
     return IngestResponse(

@@ -198,7 +198,7 @@ export interface SourceList {
 export interface CreateSourceRequest {
   title: string;
   content: string;
-  kind?: "text" | "notes" | "url" | "pdf";
+  kind?: "text" | "notes" | "url" | "pdf" | "image" | "docx";
   domain?: "math" | "physics" | "chemistry" | "biology" | "cs" | "other";
 }
 
@@ -258,7 +258,7 @@ export async function getCacheStats(): Promise<CacheStats> {
 // --- File ingestion (attachments in chat) ---
 
 export interface IngestResponse {
-  kind: "pdf" | "docx" | "image" | "text";
+  kind: "pdf" | "docx" | "image" | "text" | "url";
   filename: string;
   size_bytes: number;
   text: string;
@@ -306,6 +306,13 @@ export async function ingestFile(
     );
   }
   return res.json();
+}
+
+export async function ingestUrl(url: string): Promise<IngestResponse> {
+  return request<IngestResponse>("/ingest/url", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
 }
 
 // --- WebSocket URL ---

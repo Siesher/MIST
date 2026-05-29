@@ -14,6 +14,8 @@ import { NewAppShell } from "@/components/newdesign/AppShell";
 import {
   createSource,
   getGraphStats,
+  ingestFile,
+  ingestUrl,
   listSources,
   type CreateSourceRequest,
   type GraphStats,
@@ -367,10 +369,14 @@ function AddSourceModal({
   onClose: () => void;
   onCreated: (s: SourceInfo) => void;
 }) {
+  const [mode, setMode] = useState<"text" | "file" | "url">("text");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [url, setUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [domain, setDomain] = useState<CreateSourceRequest["domain"]>("math");
   const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -378,12 +384,38 @@ function AddSourceModal({
     setErr(null);
     setSubmitting(true);
     try {
-      const created = await createSource({ title, content, domain, kind: "text" });
+      let created: SourceInfo;
+      if (mode === "text") {
+        created = await createSource({ title, content, domain, kind: "text" });
+      } else if (mode === "file") {
+        if (!file) throw new Error("Выберите файл");
+        setStatus("Извлечение текста (PDF/скан — через vision)…");
+        const res = await ingestFile(file);
+        if (!res.text.trim()) throw new Error("Из файла не извлечён текст");
+        created = await createSource({
+          title: title || file.name,
+          content: res.text,
+          domain,
+          kind: res.kind,
+        });
+      } else {
+        if (!/^https?:\/\//.test(url)) throw new Error("URL должен начинаться с http(s)://");
+        setStatus("Загрузка и извлечение текста со страницы…");
+        const res = await ingestUrl(url);
+        if (!res.text.trim()) throw new Error("Со страницы не извлечён текст");
+        created = await createSource({
+          title: title || res.filename || url,
+          content: res.text,
+          domain,
+          kind: "url",
+        });
+      }
       onCreated(created);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Не удалось загрузить источник");
     } finally {
       setSubmitting(false);
+      setStatus(null);
     }
   };
 
@@ -408,7 +440,26 @@ function AddSourceModal({
       >
         <div className="page-head-info" style={{ marginBottom: 16 }}>
           <h1 style={{ fontSize: 18, margin: 0 }}>Добавить источник</h1>
-          <div className="page-sub">текст → SourceExtractor (LLM) → узлы + рёбра графа</div>
+          <div className="page-sub">
+            текст / файл (PDF, изображение, скан) / URL → граф знаний + библиотека агента
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          {(["text", "file", "url"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={mode === m ? "btn-primary" : "btn-secondary"}
+              onClick={() => {
+                setMode(m);
+                setErr(null);
+              }}
+              style={{ flex: 1 }}
+            >
+              {m === "text" ? "Текст" : m === "file" ? "Файл" : "URL"}
+            </button>
+          ))}
         </div>
 
         <form
@@ -421,9 +472,7 @@ function AddSourceModal({
               className="composer-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Демидович · гл. 3 — Интегралы"
-              required
-              minLength={3}
+              placeholder="Название (необязательно для файла/URL)"
               maxLength={255}
               style={{ width: "100%" }}
             />
@@ -445,26 +494,64 @@ function AddSourceModal({
             </select>
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>
-              Текст источника (мин. 20 символов)
-            </span>
-            <textarea
-              className="composer-input"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Вставьте текст учебника, конспекта или статьи…"
-              rows={9}
-              required
-              minLength={20}
-              style={{
-                width: "100%",
-                resize: "vertical",
-                fontFamily: "var(--font-mono), monospace",
-                fontSize: 12.5,
-              }}
-            />
-          </label>
+          {mode === "text" && (
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+                Текст источника (мин. 20 символов)
+              </span>
+              <textarea
+                className="composer-input"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Вставьте текст учебника, конспекта или статьи…"
+                rows={9}
+                required
+                minLength={20}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  fontFamily: "var(--font-mono), monospace",
+                  fontSize: 12.5,
+                }}
+              />
+            </label>
+          )}
+
+          {mode === "file" && (
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+                Файл: PDF, DOCX, изображение/скан (PNG/JPG), текст
+              </span>
+              <input
+                className="composer-input"
+                type="file"
+                accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif,.txt,.md"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                required
+                style={{ width: "100%" }}
+              />
+              {file && (
+                <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>
+                  {file.name} · {(file.size / 1024).toFixed(0)} KB
+                </span>
+              )}
+            </label>
+          )}
+
+          {mode === "url" && (
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>URL страницы</span>
+              <input
+                className="composer-input"
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://…"
+                required
+                style={{ width: "100%" }}
+              />
+            </label>
+          )}
 
           {err && (
             <div
@@ -483,7 +570,7 @@ function AddSourceModal({
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
             <span style={{ fontSize: 11, color: "var(--ink-mute)", flex: 1 }}>
-              После загрузки запустится фоновое извлечение (30–120 сек)
+              {status || "После загрузки — фоновое извлечение в граф (30–120 сек)"}
             </span>
             <button
               type="button"
