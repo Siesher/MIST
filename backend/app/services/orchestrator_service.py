@@ -942,6 +942,39 @@ class OrchestratorService:
 
     # --- Streaming ---
 
+    async def _load_source_library(self, db: AsyncSession) -> dict:
+        """Загружает извлечённые источники в память для агентных инструментов (НЕ RAG).
+
+        Возвращает {source_id: {title, domain, kind, text}}. Агент сам решает, что
+        list/read/search через source_tools — никаких эмбеддингов и векторного поиска.
+        Любой сбой → {} (источники опциональны).
+        """
+        max_sources, max_chars = 12, 200_000
+        try:
+            from sqlalchemy import select
+
+            from backend.app.models.tables import SourceTable
+
+            result = await db.execute(
+                select(SourceTable)
+                .where(SourceTable.status == "extracted")
+                .order_by(SourceTable.created_at.desc())
+                .limit(max_sources)
+            )
+            library: dict = {}
+            for r in result.scalars():
+                if r.content:
+                    library[r.id] = {
+                        "title": r.title,
+                        "domain": r.domain,
+                        "kind": r.kind,
+                        "text": r.content[:max_chars],
+                    }
+            return library
+        except Exception as e:
+            logger.warning(f"source library load failed: {e}")
+            return {}
+
     async def process_message_stream(
         self, db: AsyncSession, session_id: str, content: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
@@ -1038,6 +1071,12 @@ class OrchestratorService:
         move_type = "scaffolding"
         system_prompt = ""
         user_prompt = content
+
+        # Агентная библиотека источников (НЕ RAG): грузим извлечённые источники в память,
+        # агент сам решит, что list/read/search через source_tools.
+        source_library: dict = {}
+        if mode in ("chat", "guided_learning", "task_generator"):
+            source_library = await self._load_source_library(db)
 
         if mode_config.use_pipeline and self._orchestrator:
             # GUIDED LEARNING: Full agent pipeline (profiler → planner → tutor → verifier)
@@ -1182,15 +1221,33 @@ class OrchestratorService:
             user_prompt = "\n".join(history_lines) if history_lines else content
             move_type = "tell" if mode == "chat" else "scaffolding"
 
+        # Подсказка агенту про библиотеку источников (НЕ RAG): агент сам решает,
+        # вызывать ли list_sources / read_source / search_in_source.
+        if source_library and mode in ("chat", "guided_learning", "task_generator"):
+            system_prompt = (system_prompt or "") + (
+                f"\n\nУ тебя есть библиотека из {len(source_library)} загруженных источников. "
+                "Доступ: list_sources (что есть), search_in_source (найти факт/термин — "
+                "один вызов), read_source (прочитать раздел). ПРАВИЛО: если ответ МОЖЕТ "
+                "быть в загруженных источниках, СНАЧАЛА вызови search_in_source и опирайся "
+                "на найденное; общие знания или веб — только если в источниках ответа нет. "
+                "Не отвечай из общих знаний, не проверив источники."
+            )
+
         # Agentic tool-use: assemble OpenAI-format messages and load tools.
-        # Both chat AND guided_learning get pedagogical tools (SKI + Navigator);
-        # web_search/fetch_url ONLY in chat — anti-pedagogical in Socratic guided.
+        # chat & task_generator → история-как-сообщения; guided → готовый system+user.
+        # Источники (list/read/grep) — во всех трёх; Navigator — chat/guided; web — только chat.
         chat_messages: list = []
         tool_defs: list = []
         tool_funcs: dict = {}
-        if mode in ("chat", "guided_learning"):
-            if mode == "chat":
-                # Free chat: full conversation history as messages.
+        if mode in ("chat", "guided_learning", "task_generator"):
+            if mode == "guided_learning":
+                # Guided: rich pre-built system+user prompt (Profiler+Planner baked in).
+                if system_prompt:
+                    chat_messages.append({"role": "system", "content": system_prompt})
+                if user_prompt:
+                    chat_messages.append({"role": "user", "content": user_prompt})
+            else:
+                # chat / task_generator: system + полная история диалога как сообщения.
                 if system_prompt:
                     chat_messages.append({"role": "system", "content": system_prompt})
                 for _m in session.messages[-24:]:
@@ -1200,16 +1257,22 @@ class OrchestratorService:
                             "content": _m.content,
                         }
                     )
-            else:
-                # Guided: keep the rich pre-built system+user prompt from the
-                # guided pipeline (Profiler+Planner+RAG already baked it in).
-                if system_prompt:
-                    chat_messages.append({"role": "system", "content": system_prompt})
-                if user_prompt:
-                    chat_messages.append({"role": "user", "content": user_prompt})
 
-            # SKI tools — pedagogical aids (definitions/examples/methods/prereqs),
-            # safe in BOTH modes; they don't give the answer, they help the tutor.
+            # Source library tools — агентный доступ к загруженным источникам (НЕ RAG):
+            # list/read/search. Во всех трёх режимах — для ответов И генерации заданий.
+            try:
+                from src.tools.source_tools import (
+                    SOURCE_FUNCTIONS,
+                    SOURCE_TOOL_DEFINITIONS,
+                    set_source_library,
+                )
+
+                set_source_library(source_library)
+                tool_defs.extend(SOURCE_TOOL_DEFINITIONS)
+                tool_funcs.update(SOURCE_FUNCTIONS)
+            except Exception as e:
+                logger.warning(f"source_tools unavailable: {e}")
+            # SKI tools — pedagogical aids (definitions/examples/methods/prereqs).
             try:
                 from src.tools.ski_tools import SKI_FUNCTIONS, SKI_TOOL_DEFINITIONS
 
@@ -1217,19 +1280,20 @@ class OrchestratorService:
                 tool_funcs.update(SKI_FUNCTIONS)
             except Exception as e:
                 logger.warning(f"ski_tools unavailable: {e}")
-            # Navigator tools — Knowledge Forge graph navigation; also safe in both.
-            try:
-                from src.tools.navigator_tools import (
-                    NAVIGATOR_FUNCTIONS,
-                    NAVIGATOR_TOOL_DEFINITIONS,
-                    set_mastery_source,
-                )
+            # Navigator tools — Knowledge Forge graph navigation; chat & guided only.
+            if mode in ("chat", "guided_learning"):
+                try:
+                    from src.tools.navigator_tools import (
+                        NAVIGATOR_FUNCTIONS,
+                        NAVIGATOR_TOOL_DEFINITIONS,
+                        set_mastery_source,
+                    )
 
-                set_mastery_source({})  # empty source — no personalization yet
-                tool_defs.extend(NAVIGATOR_TOOL_DEFINITIONS)
-                tool_funcs.update(NAVIGATOR_FUNCTIONS)
-            except Exception as e:
-                logger.warning(f"navigator_tools unavailable: {e}")
+                    set_mastery_source({})  # empty source — no personalization yet
+                    tool_defs.extend(NAVIGATOR_TOOL_DEFINITIONS)
+                    tool_funcs.update(NAVIGATOR_FUNCTIONS)
+                except Exception as e:
+                    logger.warning(f"navigator_tools unavailable: {e}")
             # Web tools — ONLY in chat (web_search in Socratic = student bypass).
             if mode == "chat":
                 try:
@@ -1265,7 +1329,7 @@ class OrchestratorService:
 
                 # Decide iterator: chat-mode with tools → agentic loop; else → plain stream.
                 use_tools = (
-                    mode in ("chat", "guided_learning")
+                    mode in ("chat", "guided_learning", "task_generator")
                     and hasattr(self._llm_client, "chat_with_tools")
                     and bool(tool_defs)
                 )
@@ -1287,6 +1351,7 @@ class OrchestratorService:
                                 tools=tool_defs,
                                 tool_executor=_tool_executor,
                                 thinking=True,
+                                max_rounds=8,
                             )
                             if use_tools
                             else self._llm_client.generate_stream(
