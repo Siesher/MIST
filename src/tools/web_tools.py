@@ -10,10 +10,13 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import re
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -83,6 +86,41 @@ def _strip_html(html: str) -> str:
     return text
 
 
+def is_public_url(url: str) -> bool:
+    """True, если хост URL резолвится только в публичные IP (защита от SSRF).
+
+    Блокирует localhost и приватные/служебные диапазоны (10/8, 172.16/12,
+    192.168/16, 169.254/16, ::1 и т.п.), чтобы нельзя было дёрнуть внутренние
+    сервисы (например, llama-swap на 127.0.0.1:8090) через /ingest/url.
+    """
+    try:
+        host = urlparse(url).hostname
+        if not host:
+            return False
+
+        def _blocked(ip_str: str) -> bool:
+            ip = ipaddress.ip_address(ip_str)
+            return (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+                or ip.is_unspecified
+            )
+
+        # Литеральный IP — проверяем напрямую (без DNS).
+        try:
+            return not _blocked(host)
+        except ValueError:
+            pass
+        # Имя хоста — резолвим и проверяем все полученные адреса.
+        addrs = socket.getaddrinfo(host, None)
+        return bool(addrs) and not any(_blocked(info[4][0]) for info in addrs)
+    except Exception:
+        return False
+
+
 def fetch_url(url: str, max_chars: int = 4000) -> str:
     """Скачать страницу и вернуть plain text.
 
@@ -94,6 +132,11 @@ def fetch_url(url: str, max_chars: int = 4000) -> str:
         return json.dumps({"error": "url пустой или не строка"}, ensure_ascii=False)
     if not (url.startswith("http://") or url.startswith("https://")):
         return json.dumps({"error": "url должен начинаться с http(s)://"}, ensure_ascii=False)
+    if not is_public_url(url):
+        return json.dumps(
+            {"error": "URL заблокирован: приватный или локальный адрес недопустим"},
+            ensure_ascii=False,
+        )
 
     try:
         r = httpx.get(

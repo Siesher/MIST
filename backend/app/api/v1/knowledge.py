@@ -14,11 +14,12 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.api.v1.auth import get_optional_user
 from backend.app.models.database import get_db
-from backend.app.models.tables import SourceTable
+from backend.app.models.tables import SourceTable, UserTable
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,13 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 # Lazy-loaded graph to avoid heavy imports during API startup
 _graph = None
+
+
+def _owns(row: SourceTable, user: UserTable | None) -> bool:
+    """Доступ к источнику: владелец или legacy-публичный (user_id IS NULL)."""
+    if row.user_id is None:
+        return True
+    return user is not None and row.user_id == user.id
 
 
 def get_graph():
@@ -241,6 +249,7 @@ async def create_source(
     payload: SourceCreate,
     bg: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(get_optional_user),
 ):
     """Upload a source; trigger extraction in background."""
     row = SourceTable(
@@ -249,6 +258,7 @@ async def create_source(
         domain=payload.domain,
         content=payload.content,
         status="pending",
+        user_id=user.id if user else None,
     )
     db.add(row)
     await db.commit()
@@ -260,25 +270,40 @@ async def create_source(
 
 
 @router.get("/sources", response_model=SourceList)
-async def list_sources(db: AsyncSession = Depends(get_db)):
-    """List uploaded sources with extraction status."""
-    result = await db.execute(select(SourceTable).order_by(SourceTable.created_at.desc()))
-    rows = list(result.scalars())
+async def list_sources(
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(get_optional_user),
+):
+    """List sources owned by the current user (plus legacy public ones)."""
+    q = select(SourceTable).order_by(SourceTable.created_at.desc())
+    if user:
+        q = q.where(or_(SourceTable.user_id == user.id, SourceTable.user_id.is_(None)))
+    else:
+        q = q.where(SourceTable.user_id.is_(None))
+    rows = list((await db.execute(q)).scalars())
     return SourceList(sources=[_to_info(r) for r in rows], total=len(rows))
 
 
 @router.get("/sources/{source_id}", response_model=SourceInfo)
-async def get_source(source_id: str, db: AsyncSession = Depends(get_db)):
+async def get_source(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(get_optional_user),
+):
     row = await db.get(SourceTable, source_id)
-    if not row:
+    if not row or not _owns(row, user):
         raise HTTPException(404, "Source not found")
     return _to_info(row)
 
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_source(source_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_source(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(get_optional_user),
+):
     row = await db.get(SourceTable, source_id)
-    if not row:
+    if not row or not _owns(row, user):
         raise HTTPException(404, "Source not found")
     await db.delete(row)
     await db.commit()

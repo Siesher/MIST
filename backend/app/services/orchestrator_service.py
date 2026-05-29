@@ -942,22 +942,29 @@ class OrchestratorService:
 
     # --- Streaming ---
 
-    async def _load_source_library(self, db: AsyncSession) -> dict:
+    async def _load_source_library(self, db: AsyncSession, user_id: Optional[str] = None) -> dict:
         """Загружает извлечённые источники в память для агентных инструментов (НЕ RAG).
 
         Возвращает {source_id: {title, domain, kind, text}}. Агент сам решает, что
         list/read/search через source_tools — никаких эмбеддингов и векторного поиска.
-        Любой сбой → {} (источники опциональны).
+        Фильтр по владельцу: источники текущего пользователя + legacy-публичные
+        (user_id IS NULL). Любой сбой → {} (источники опциональны).
         """
         max_sources, max_chars = 12, 200_000
         try:
-            from sqlalchemy import select
+            from sqlalchemy import or_, select
 
             from backend.app.models.tables import SourceTable
 
+            owner_filter = (
+                or_(SourceTable.user_id == user_id, SourceTable.user_id.is_(None))
+                if user_id
+                else SourceTable.user_id.is_(None)
+            )
             result = await db.execute(
                 select(SourceTable)
                 .where(SourceTable.status == "extracted")
+                .where(owner_filter)
                 .order_by(SourceTable.created_at.desc())
                 .limit(max_sources)
             )
@@ -1076,7 +1083,7 @@ class OrchestratorService:
         # агент сам решит, что list/read/search через source_tools.
         source_library: dict = {}
         if mode in ("chat", "guided_learning", "task_generator"):
-            source_library = await self._load_source_library(db)
+            source_library = await self._load_source_library(db, user_id=session.user_id)
 
         if mode_config.use_pipeline and self._orchestrator:
             # GUIDED LEARNING: Full agent pipeline (profiler → planner → tutor → verifier)
