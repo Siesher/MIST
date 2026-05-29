@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NewAppShell } from "@/components/newdesign/AppShell";
 import {
   createSource,
+  deleteSource,
   getGraphStats,
   ingestFile,
   ingestUrl,
@@ -206,6 +207,16 @@ export default function SourcesPage() {
     [stats],
   );
 
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm("Удалить источник? Это действие необратимо.")) return;
+    try {
+      if (!id.startsWith("fallback-")) await deleteSource(id);
+    } catch {
+      // даже при ошибке API убираем из списка локально
+    }
+    setSources((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   return (
     <NewAppShell>
       <main className="main">
@@ -282,7 +293,7 @@ export default function SourcesPage() {
             ) : (
               <div className="src-grid">
                 {sources.map((s) => (
-                  <SourceCard key={s.id} source={s} />
+                  <SourceCard key={s.id} source={s} onDelete={handleDelete} />
                 ))}
               </div>
             )}
@@ -307,7 +318,13 @@ export default function SourcesPage() {
   );
 }
 
-function SourceCard({ source }: { source: SourceInfo }) {
+function SourceCard({
+  source,
+  onDelete,
+}: {
+  source: SourceInfo;
+  onDelete: (id: string) => void;
+}) {
   const inProgress = source.status === "extracting" || source.status === "pending";
   const fillBackground =
     source.status === "extracted"
@@ -336,6 +353,24 @@ function SourceCard({ source }: { source: SourceInfo }) {
           {source.status === "extracted" && "✓ "}
           {STATUS_LABEL[source.status]}
         </span>
+        <button
+          type="button"
+          onClick={() => onDelete(source.id)}
+          title="Удалить источник"
+          aria-label="Удалить источник"
+          style={{
+            marginLeft: "auto",
+            background: "transparent",
+            border: "none",
+            color: "var(--ink-mute)",
+            cursor: "pointer",
+            fontSize: 18,
+            lineHeight: 1,
+            padding: "0 2px",
+          }}
+        >
+          ×
+        </button>
       </div>
       <h3 className="src-title">{source.title}</h3>
       <div className="src-preview">{source.preview}</div>
