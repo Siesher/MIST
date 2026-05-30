@@ -567,3 +567,66 @@
   background: rgba(255, 255, 255, 0.16);
   color: var(--user-bubble-text);
 }
+
+/* ===== GFM tables rendered from model markdown ===== */
+.msg-body .md-table-wrap {
+  margin: 14px 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  box-shadow: 0 10px 30px -22px var(--accent);
+  -webkit-overflow-scrolling: touch;
+}
+.msg-body .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.msg-body .md-table thead th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+  background: var(--accent-tint);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.msg-body .md-table tbody td {
+  padding: 9px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  vertical-align: top;
+}
+.msg-body .md-table tbody tr:first-child td {
+  border-top: none;
+}
+/* Zebra striping — theme-aware via the accent tint, very subtle. */
+.msg-body .md-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--accent-tint) 50%, transparent);
+}
+.msg-body .md-table tbody tr:hover {
+  background: var(--accent-tint);
+}
+/* First column reads as a label: accent-tinted, doesn't wrap. */
+.msg-body .md-table tbody td:first-child {
+  color: var(--accent-soft);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.msg-body .md-table tbody td:first-child strong {
+  font-weight: 600;
+}
+/* Formulas/KaTeX sit on the text baseline inside cells. */
+.msg-body .md-table td .katex {
+  font-size: 1em;
+}
+/* The lightweight renderer appends <br> after block elements; collapse the one
+   that can land right after a table so it doesn't add a dangling blank line. */
+.msg-body .md-table-wrap + br {
+  display: none;
+}
