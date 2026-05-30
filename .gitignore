@@ -163,3 +163,22 @@ docs/diploma/*.pptx
 docs/diploma/*.pdf
 docs/diploma/*.png
 docs/diploma/*.html
+
+# Cleanup additions 2026-05-30 (продовый запуск + чистка)
+# Скретч-скриншоты в корне (верификация UI/слайдов)
+/_verify_slide1.png
+/guided-viz-success.png
+/i18n-before-ru.png
+/render_check.png
+/Снимок экрана*.png
+# Учебник-скан для бенчмарка (копирайт, не часть репо)
+/Теория вероятности и статистика.pdf
+# Локальные Claude-бэкапы во фронте
+frontend/.claude/
+# Скретч-дампы ruff (regeneratable отчёты линтера)
+/_ruff_full.txt
+/_ruff_warn.txt
+# Рабочие папки презентаций/дизайна (черновики, в приложение не подключены)
+/new_design/
+/new_presentation/
+/presentation/
