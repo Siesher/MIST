@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { CodeBlock } from "./CodeBlock";
 import { MathRenderer } from "./MathRenderer";
 import { MermaidBlock } from "./MermaidBlock";
 import { PlotlyBlock } from "./PlotlyBlock";
@@ -56,25 +57,7 @@ export function SmartContent({ content }: Props) {
           return <PlotlyBlock key={i} code={seg.content} />;
         }
         if (seg.kind === "code") {
-          return (
-            <pre
-              key={i}
-              className="my-2 p-3 overflow-x-auto font-mono text-[12px]"
-              style={{
-                background: "rgba(0,0,0,0.4)",
-                border: "1px solid var(--line)",
-                borderRadius: 3,
-                color: "var(--text)",
-              }}
-            >
-              {seg.lang && (
-                <div className="up ghost text-[9px] mb-1 tracking-[0.2em]">
-                  {seg.lang}
-                </div>
-              )}
-              <code>{seg.content}</code>
-            </pre>
-          );
+          return <CodeBlock key={i} code={seg.content} lang={seg.lang} />;
         }
         return <MathRenderer key={i} content={seg.content} />;
       })}

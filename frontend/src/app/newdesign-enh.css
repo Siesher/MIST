@@ -630,3 +630,125 @@
 .msg-body .md-table-wrap + br {
   display: none;
 }
+
+/* ===== Lists (override the old flex .md-ul that hid markers) + blockquotes ===== */
+.msg-body .md-ul,
+.msg-body .md-ol {
+  display: block;
+  list-style: none;
+  margin: 8px 0;
+  padding-left: 24px;
+}
+.msg-body .md-ul li,
+.msg-body .md-ol li {
+  position: relative;
+  line-height: 1.6;
+  margin: 4px 0;
+}
+/* Unordered: a small accent dot. */
+.msg-body .md-ul > li::before {
+  content: "";
+  position: absolute;
+  left: -15px;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  opacity: 0.9;
+}
+/* Ordered: accent, right-aligned, tabular numerals. */
+.msg-body .md-ol {
+  counter-reset: md-counter;
+}
+.msg-body .md-ol > li {
+  counter-increment: md-counter;
+}
+.msg-body .md-ol > li::before {
+  content: counter(md-counter) ".";
+  position: absolute;
+  left: -24px;
+  top: 0;
+  width: 19px;
+  text-align: right;
+  color: var(--accent-soft);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.msg-body .md-quote {
+  margin: 10px 0;
+  padding: 7px 14px;
+  border-left: 3px solid var(--accent-soft);
+  background: var(--accent-tint);
+  border-radius: 0 8px 8px 0;
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.msg-body .md-quote strong {
+  color: var(--ink);
+}
+
+/* ===== Fenced code blocks with highlight.js ===== */
+.msg-body pre.md-code {
+  margin: 12px 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.msg-body pre.md-code .code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--accent-tint);
+  border-bottom: 1px solid var(--line);
+}
+.msg-body pre.md-code .code-lang {
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+}
+.msg-body pre.md-code .code-copy {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--ink-mute);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  transition: color 0.15s ease;
+}
+.msg-body pre.md-code .code-copy:hover {
+  color: var(--accent-soft);
+}
+.msg-body pre.md-code code {
+  display: block;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+/* highlight.js token palette tuned to the violet theme (works on light + dark) */
+.msg-body .hljs-keyword,
+.msg-body .hljs-built_in { color: #c792ea; }
+.msg-body .hljs-string,
+.msg-body .hljs-regexp { color: #89c47e; }
+.msg-body .hljs-number,
+.msg-body .hljs-literal { color: #f78c6c; }
+.msg-body .hljs-comment { color: var(--ink-mute); font-style: italic; }
+.msg-body .hljs-title.function_,
+.msg-body .hljs-title { color: #5b9bff; }
+.msg-body .hljs-title.class_,
+.msg-body .hljs-type { color: #ffb454; }
+.msg-body .hljs-attr,
+.msg-body .hljs-attribute { color: #ffb454; }
+.msg-body .hljs-variable,
+.msg-body .hljs-params { color: var(--ink); }
+.msg-body .hljs-tag .hljs-name { color: #f07178; }
+.msg-body .hljs-meta { color: var(--ink-mute); }
+.msg-body .hljs-symbol,
+.msg-body .hljs-bullet { color: #c792ea; }
