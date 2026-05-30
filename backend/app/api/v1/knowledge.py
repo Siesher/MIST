@@ -75,6 +75,18 @@ class NodeDetail(NodeSummary):
     neighbors: dict[str, list[dict[str, Any]]]
 
 
+class CreateNodeRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=200)
+    title_en: str | None = None
+    domain: str = Field(default="math", pattern="^(math|physics|chemistry|biology|cs|other)$")
+    node_type: str = Field(
+        default="concept",
+        pattern="^(concept|formula|theorem|example|method|misconception)$",
+    )
+    difficulty: float = Field(default=0.5, ge=0.0, le=1.0)
+    content: str = ""
+
+
 class SourceCreate(BaseModel):
     title: str = Field(min_length=3, max_length=255)
     content: str = Field(min_length=20)
@@ -104,6 +116,44 @@ class SourceList(BaseModel):
 # ─────────────────────────────────────────────────────────────────────
 # Graph endpoints
 # ─────────────────────────────────────────────────────────────────────
+
+
+@router.post("/nodes", response_model=NodeSummary, status_code=status.HTTP_201_CREATED)
+async def create_node(req: CreateNodeRequest):
+    """Manually add a node to the Knowledge Forge graph (the «+ тема» button)."""
+    import re
+    import uuid
+
+    from src.knowledge.knowledge_forge import KnowledgeNode, NodeType
+
+    g = get_graph()
+    base = (req.title_en or req.title).lower()
+    slug = re.sub(r"[^a-z0-9]+", "_", base).strip("_")[:40] or uuid.uuid4().hex[:8]
+    node_id = f"{req.domain}:{slug}:{req.node_type}"
+    if g.get_node(node_id) is not None:
+        node_id = f"{node_id}:{uuid.uuid4().hex[:4]}"
+    node = KnowledgeNode(
+        id=node_id,
+        node_type=NodeType(req.node_type),
+        title=req.title,
+        title_en=req.title_en or req.title,
+        content=req.content,
+        domain=req.domain,
+        difficulty=req.difficulty,
+        source="manual_add",
+    )
+    g.add_node(node)
+    g.save()
+    logger.info("Forge node added manually: %s", node_id)
+    return NodeSummary(
+        id=node.id,
+        title=node.title,
+        title_en=node.title_en,
+        type=node.node_type.value,
+        domain=node.domain,
+        difficulty=node.difficulty,
+        confidence=node.confidence,
+    )
 
 
 @router.get("/stats", response_model=GraphStats)

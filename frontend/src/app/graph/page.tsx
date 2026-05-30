@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { NewAppShell } from "@/components/newdesign/AppShell";
 import { ThemeToggle } from "@/components/newdesign/ThemeToggle";
 import { useChatStore } from "@/store/chatStore";
-import { createSession } from "@/lib/api";
+import { createKnowledgeNode, createSession } from "@/lib/api";
 import type { Session } from "@/types/api";
 import {
   DOMAIN_KEYS,
@@ -117,6 +117,40 @@ export default function GraphPage() {
   const [hover, setHover] = useState<string | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [practicing, setPracticing] = useState(false);
+  // Which metric the node badges show — cycled by the top-bar button.
+  const [metric, setMetric] = useState<"mastery" | "bkt" | "dkt">("mastery");
+  // «+ тема»: add a node to the Knowledge Forge graph.
+  const [addOpen, setAddOpen] = useState(false);
+  const [addTitle, setAddTitle] = useState("");
+  const [addDomain, setAddDomain] = useState("math");
+  const [addType, setAddType] = useState("concept");
+  const [addBusy, setAddBusy] = useState(false);
+
+  const fieldStyle = {
+    flex: 1,
+    padding: "8px 10px",
+    borderRadius: 8,
+    background: "var(--bg)",
+    border: "1px solid var(--line)",
+    color: "var(--ink)",
+    fontSize: 13,
+  };
+
+  const handleAddTopic = async () => {
+    const title = addTitle.trim();
+    if (!title || addBusy) return;
+    setAddBusy(true);
+    try {
+      await createKnowledgeNode({ title, domain: addDomain, node_type: addType });
+      setData(await fetchGraph());
+      setAddTitle("");
+      setAddOpen(false);
+    } catch (e) {
+      console.error("Failed to add topic:", e);
+    } finally {
+      setAddBusy(false);
+    }
+  };
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const tt = (k: string) => GRAPH_I18N[lang][k] ?? k;
@@ -244,11 +278,96 @@ export default function GraphPage() {
               <div className="page-sub">{tt("graphSub")}</div>
             </div>
             <PageControls lang={lang} setLang={changeLang} />
-            <button className="btn-secondary">
-              {tt("graphBKT")} · {tt("graphDKT")}
+            <button
+              className="btn-secondary"
+              title="Переключить метрику узлов"
+              onClick={() =>
+                setMetric((m) => (m === "mastery" ? "bkt" : m === "bkt" ? "dkt" : "mastery"))
+              }
+            >
+              {metric === "bkt"
+                ? tt("graphBKT")
+                : metric === "dkt"
+                  ? tt("graphDKT")
+                  : `${tt("graphMastery")} %`}
             </button>
-            <button className="btn-primary">+ {tt("topic")}</button>
+            <button className="btn-primary" onClick={() => setAddOpen(true)}>
+              + {tt("topic")}
+            </button>
           </div>
+
+          {addOpen && (
+            <div
+              onClick={() => !addBusy && setAddOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 50,
+                background: "rgba(0,0,0,0.55)",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: 380,
+                  maxWidth: "92vw",
+                  padding: 20,
+                  borderRadius: 14,
+                  background: "var(--bg-elev)",
+                  border: "1px solid var(--line)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                  color: "var(--ink)",
+                }}
+              >
+                <div style={{ fontSize: 15, fontWeight: 600 }}>
+                  {lang === "ru" ? "Новая тема в граф" : "New graph topic"}
+                </div>
+                <input
+                  autoFocus
+                  value={addTitle}
+                  onChange={(e) => setAddTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleAddTopic();
+                  }}
+                  placeholder={lang === "ru" ? "Название темы" : "Topic name"}
+                  style={fieldStyle}
+                />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <select value={addDomain} onChange={(e) => setAddDomain(e.target.value)} style={fieldStyle}>
+                    <option value="math">math</option>
+                    <option value="physics">physics</option>
+                    <option value="chemistry">chemistry</option>
+                    <option value="biology">biology</option>
+                    <option value="cs">cs</option>
+                  </select>
+                  <select value={addType} onChange={(e) => setAddType(e.target.value)} style={fieldStyle}>
+                    <option value="concept">concept</option>
+                    <option value="formula">formula</option>
+                    <option value="theorem">theorem</option>
+                    <option value="method">method</option>
+                    <option value="example">example</option>
+                    <option value="misconception">misconception</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+                  <button className="btn-secondary" onClick={() => setAddOpen(false)} disabled={addBusy}>
+                    {lang === "ru" ? "Отмена" : "Cancel"}
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => void handleAddTopic()}
+                    disabled={addBusy || !addTitle.trim()}
+                  >
+                    {addBusy ? "…" : lang === "ru" ? "Добавить" : "Add"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="page-body" style={{ padding: 0, overflow: "hidden" }}>
             <div className="graph-wrap">
@@ -456,7 +575,11 @@ export default function GraphPage() {
                           fill={isSel ? (THEME === "midnight" ? "#0a0518" : "#fff") : c}
                           style={{ pointerEvents: "none" }}
                         >
-                          {Math.round(n.m * 100)}
+                          {metric === "bkt"
+                            ? (n.m * 0.95).toFixed(2)
+                            : metric === "dkt"
+                              ? ((n.m - 0.5) * 4).toFixed(2)
+                              : Math.round(n.m * 100)}
                         </text>
                         <text
                           x={cx}

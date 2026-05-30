@@ -12,7 +12,7 @@ import { Icon } from "./icons";
 import { useTheme, applyThemeToBody } from "./useTheme";
 import { useI18n, type StringKey } from "@/lib/i18n";
 import { useChatStore } from "@/store/chatStore";
-import { listSessions, createSession } from "@/lib/api";
+import { listSessions, createSession, deleteSession } from "@/lib/api";
 import type { ChatMode, Session } from "@/types/api";
 
 // ---------- Nav rail (leftmost) ----------
@@ -98,6 +98,7 @@ function Sidebar() {
   const setSessions = useChatStore((s) => s.setSessions);
   const addSession = useChatStore((s) => s.addSession);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
+  const removeSession = useChatStore((s) => s.removeSession);
   const [creating, setCreating] = useState(false);
 
   // Active session id derived from the URL (/chat/<id>)
@@ -151,6 +152,20 @@ function Sidebar() {
     }
   };
 
+  // Delete a session: backend DELETE + drop from store; leave the chat if it was open.
+  const handleDelete = async (id: string) => {
+    if (typeof window !== "undefined" && !window.confirm("Удалить эту сессию? Действие необратимо.")) {
+      return;
+    }
+    try {
+      await deleteSession(id);
+    } catch (e) {
+      console.error("Failed to delete session:", e);
+    }
+    removeSession(id);
+    if (id === activeId) router.push("/");
+  };
+
   return (
     <aside className="sidebar">
       <Link href="/" className="brand" style={{ textDecoration: "none" }}>
@@ -192,6 +207,22 @@ function Sidebar() {
               <span className="session-dot" style={{ background: dotForMode(s.mode) }} />
               <span className="session-title">{sessionTitle(s)}</span>
               <span className="session-meta">{timeLabel(s.updated_at || s.created_at)}</span>
+              <button
+                className="session-del"
+                title="Удалить сессию"
+                aria-label="Удалить сессию"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void handleDelete(s.id);
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+              </button>
             </Link>
           ))}
         </div>

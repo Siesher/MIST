@@ -224,6 +224,20 @@ export async function getKnowledgeNode(id: string): Promise<KnowledgeNodeDetail>
   return request<KnowledgeNodeDetail>(`/knowledge/nodes/${encodeURIComponent(id)}`);
 }
 
+export async function createKnowledgeNode(body: {
+  title: string;
+  title_en?: string;
+  domain?: string;
+  node_type?: string;
+  difficulty?: number;
+  content?: string;
+}): Promise<KnowledgeNodeSummary> {
+  return request<KnowledgeNodeSummary>("/knowledge/nodes", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function listSources(): Promise<SourceList> {
   return request<SourceList>("/knowledge/sources");
 }
