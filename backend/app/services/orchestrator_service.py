@@ -1182,10 +1182,15 @@ class OrchestratorService:
                         session_id=session_id,
                         correlation_id=correlation_id,
                     ) as _plan_span:
+                        # Реальный номер хода = сколько ответов тьютора уже было.
+                        # Было захардкожено 0 → планировщик каждый ход выбирал
+                        # ПЕРВЫЙ ход последовательности (вводный «разбери по шагам»)
+                        # и переспрашивал уже решённое. Теперь план продвигается.
+                        prior_turns = sum(1 for _m in session.messages if _m.role == "tutor")
                         planner_ctx = PlannerSessionContext(
                             topic=context.topic or "general",
                             difficulty="medium",
-                            turn_number=0,
+                            turn_number=prior_turns,
                         )
                         plan = self._orchestrator.planner.create_plan(
                             profile=profile or StudentProfile(),
@@ -1271,10 +1276,44 @@ class OrchestratorService:
         tool_funcs: dict = {}
         if mode in ("chat", "guided_learning", "task_generator"):
             if mode == "guided_learning":
-                # Guided: rich pre-built system+user prompt (Profiler+Planner baked in).
+                # System = сократический план (от планировщика) + статический контекст
+                # (задача, RAG, диагностика). Сам ДИАЛОГ идёт настоящим multi-turn
+                # массивом messages — раньше история запихивалась обрезанным до 200
+                # символов блобом «История диалога» в одно user-сообщение (слабый
+                # сигнал → тьютор не видел уже установленные шаги и переспрашивал их).
+                sys_parts: list = []
                 if system_prompt:
-                    chat_messages.append({"role": "system", "content": system_prompt})
-                if user_prompt:
+                    sys_parts.append(system_prompt)
+                if session.task and session.task.get("problem"):
+                    sys_parts.append(f"Задача: {session.task['problem']}")
+                if rag_context is not None:
+                    try:
+                        _rt = rag_context.to_prompt_context()
+                        if _rt:
+                            sys_parts.append(_rt)
+                    except Exception:
+                        pass
+                _diag: list = []
+                if profile is not None and getattr(profile, "error_type", None):
+                    _diag.append(f"тип ошибки: {profile.error_type}")
+                if profile is not None and getattr(profile, "knowledge_gaps", None):
+                    _diag.append("пробелы: " + ", ".join(profile.knowledge_gaps[:3]))
+                if _diag:
+                    sys_parts.append(
+                        "Диагностика (для тебя, не озвучивай дословно): " + "; ".join(_diag)
+                    )
+                if sys_parts:
+                    chat_messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
+                _dialogue = list(session.messages[-24:])
+                for _m in _dialogue:
+                    chat_messages.append(
+                        {
+                            "role": "user" if _m.role == "user" else "assistant",
+                            "content": _m.content,
+                        }
+                    )
+                # Fallback: истории нет (напр. самый первый ход) → готовый user_prompt.
+                if not _dialogue and user_prompt:
                     chat_messages.append({"role": "user", "content": user_prompt})
             else:
                 # chat / task_generator: system + полная история диалога как сообщения.
