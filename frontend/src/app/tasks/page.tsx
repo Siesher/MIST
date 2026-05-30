@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NewAppShell } from "@/components/newdesign/AppShell";
-import { Icon } from "@/components/newdesign/icons";
+import { ThemeToggle } from "@/components/newdesign/ThemeToggle";
 import {
   createSession,
   generateTask,
@@ -39,10 +39,6 @@ export default function TasksPage() {
 
   // --- language (synced with the rest of the app via localStorage) ---
   const [lang, setLangState] = useState<Lang>("ru");
-  // theme toggle is cosmetic only — the shell is fixed to .theme-midnight,
-  // so this just flips the sun/moon glyph to match the design header.
-  const [mode, setMode] = useState<"light" | "dark">("dark");
-
   useEffect(() => {
     const saved = (typeof window !== "undefined"
       ? (localStorage.getItem("mits-lang") as Lang | null)
@@ -208,13 +204,7 @@ export default function TasksPage() {
                 EN
               </button>
             </div>
-            <button
-              className="theme-toggle"
-              onClick={() => setMode(mode === "light" ? "dark" : "light")}
-              title="Toggle theme"
-            >
-              {mode === "light" ? Icon.moon : Icon.sun}
-            </button>
+            <ThemeToggle />
 
             <button className="btn-secondary" onClick={() => setDialogOpen(true)}>
               ⌘F · {t("filter")}

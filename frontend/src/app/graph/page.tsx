@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NewAppShell } from "@/components/newdesign/AppShell";
+import { ThemeToggle } from "@/components/newdesign/ThemeToggle";
 import { useChatStore } from "@/store/chatStore";
 import { createSession } from "@/lib/api";
 import type { Session } from "@/types/api";
@@ -93,13 +94,7 @@ function PageControls({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => voi
           EN
         </button>
       </div>
-      {/* Shell is locked to midnight; toggle kept for visual parity. */}
-      <button className="theme-toggle" title="Theme">
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="8" cy="8" r="3" />
-          <path strokeLinecap="round" d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5 13 13M3 13l1.5-1.5M11.5 4.5 13 3" />
-        </svg>
-      </button>
+      <ThemeToggle />
     </>
   );
 }
