@@ -54,6 +54,31 @@ def parse_sse_line(raw_line: bytes) -> List[Tuple[str, str]]:
     return out
 
 
+def parse_sse_chunk(raw_line: bytes) -> Optional[dict]:
+    """SSE-строку → объект choices[0] ({"delta", "finish_reason", ...}) или None.
+
+    Богаче parse_sse_line: сохраняет tool_calls и finish_reason — нужно tool-loop'у,
+    который стримит content/reasoning И аккумулирует tool_calls по index. Чистая
+    функция (без сети), поэтому тестируется без поднятого backend/сервера.
+    """
+    if not raw_line:
+        return None
+    s = raw_line.decode("utf-8", errors="replace").strip()
+    if not s.startswith("data: "):
+        return None
+    payload = s[6:]
+    if payload == "[DONE]":
+        return None
+    try:
+        chunk = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    choices = chunk.get("choices") or []
+    if not choices:
+        return None
+    return choices[0]
+
+
 class OpenAICompatLLMClient:
     """LLM-клиент к OpenAI-совместимому endpoint (llama-swap/llama-server)."""
 
@@ -181,7 +206,7 @@ class OpenAICompatLLMClient:
             body: dict = {
                 "model": self.model,
                 "messages": msgs,
-                "stream": False,
+                "stream": True,
                 "tools": tools,
                 "chat_template_kwargs": {"enable_thinking": bool(thinking)},
                 **DEFAULT_SAMPLING,
@@ -190,29 +215,56 @@ class OpenAICompatLLMClient:
             if max_tokens is not None:
                 body["max_tokens"] = max_tokens
 
-            r = requests.post(self.chat_url, json=body, timeout=(30, 600))
-            r.raise_for_status()
-            resp = r.json()
-            try:
-                msg = resp["choices"][0]["message"]
-            except (KeyError, IndexError):
-                logger.warning("chat_with_tools_unexpected_response", body=resp)
-                yield ("content", "(модель вернула пустой ответ)")
-                return
+            # Стримим раунд: reasoning/content дельты отдаём СРАЗУ (real-time чат),
+            # а tool_calls аккумулируем по index до конца раунда. llama-server отдаёт
+            # tool_calls дельтами с finish_reason="tool_calls" (проверено на :8090).
+            reasoning_parts: List[str] = []
+            content_streamed = False
+            tc_acc: dict = {}  # index -> {"id","name","args"}
 
-            reasoning = (msg.get("reasoning_content") or "").strip()
-            if reasoning:
-                yield ("thinking", reasoning)
+            with requests.post(self.chat_url, json=body, stream=True, timeout=(30, 600)) as r:
+                r.raise_for_status()
+                for raw_line in r.iter_lines(decode_unicode=False):
+                    choice = parse_sse_chunk(raw_line)
+                    if not choice:
+                        continue
+                    delta = choice.get("delta") or {}
+                    rc = delta.get("reasoning_content")
+                    if rc:
+                        reasoning_parts.append(rc)
+                        yield ("thinking", rc)
+                    ct = delta.get("content")
+                    if ct:
+                        content_streamed = True
+                        yield ("content", ct)
+                    for tc in delta.get("tool_calls") or []:
+                        idx = tc.get("index", 0)
+                        acc = tc_acc.setdefault(idx, {"id": "", "name": "", "args": ""})
+                        if tc.get("id"):
+                            acc["id"] = tc["id"]
+                        fn = tc.get("function") or {}
+                        if fn.get("name"):
+                            acc["name"] = fn["name"]
+                        if fn.get("arguments"):
+                            acc["args"] += fn["arguments"]
 
-            tool_calls = msg.get("tool_calls") or []
-            content_text = (msg.get("content") or "").strip()
+            reasoning = "".join(reasoning_parts).strip()
+            # Реконструируем OpenAI tool_calls в стабильном порядке index.
+            tool_calls = [
+                {
+                    "id": acc["id"] or f"call_{round_idx}_{idx}",
+                    "type": "function",
+                    "function": {"name": acc["name"], "arguments": acc["args"] or "{}"},
+                }
+                for idx, acc in sorted(tc_acc.items())
+                if acc["name"]
+            ]
 
             if not tool_calls:
-                # Stall recovery: model emitted reasoning + empty content + no
-                # tool_call after we've already used tools. It "thought about
-                # retrying" without committing to either a tool_call or a final
-                # answer. Inject a nudge and let it try once more.
-                if not content_text and tools_used and reasoning and round_idx < max_rounds - 1:
+                # Stall recovery: модель выдала reasoning + пустой content + ни одного
+                # tool_call ПОСЛЕ того как мы уже звали инструменты — "подумала о повторе",
+                # не выбрав ни tool_call, ни финальный ответ. Пнём и дадим ещё попытку.
+                if not content_streamed and tools_used and reasoning and round_idx < max_rounds - 1:
                     yield ("thinking", "\n[stall — ре-промпт: tool либо финал]\n")
                     msgs.append({"role": "assistant", "content": reasoning})
                     msgs.append(
@@ -227,27 +279,22 @@ class OpenAICompatLLMClient:
                         }
                     )
                     continue
-                # Final assistant turn — no more tools needed.
-                yield ("content", content_text)
+                # Финальный ответ уже отстримлен дельтами выше. Если модель не выдала
+                # видимого текста — отдаём маркер, чтобы UI не остался пустым.
+                if not content_streamed:
+                    yield ("content", "(модель вернула пустой ответ)")
                 return
 
-            # Has tool_calls — record the assistant turn (with its tool_calls)
-            # before executing, so the next round sees the full history.
-            msgs.append(
-                {
-                    "role": "assistant",
-                    "content": msg.get("content") or "",
-                    "tool_calls": tool_calls,
-                }
-            )
+            # Есть tool_calls — записываем ход ассистента (с tool_calls) до выполнения,
+            # чтобы следующий раунд видел полную историю.
+            msgs.append({"role": "assistant", "content": "", "tool_calls": tool_calls})
             tools_used = True
 
             for tc in tool_calls:
-                tc_id = tc.get("id") or f"call_{round_idx}_{len(msgs)}"
-                fn = tc.get("function") or {}
-                fn_name = fn.get("name") or ""
+                tc_id = tc["id"]
+                fn_name = tc["function"]["name"]
                 try:
-                    fn_args = json.loads(fn.get("arguments") or "{}")
+                    fn_args = json.loads(tc["function"]["arguments"] or "{}")
                 except json.JSONDecodeError:
                     fn_args = {}
 
@@ -267,13 +314,7 @@ class OpenAICompatLLMClient:
                 preview = result_text if len(result_text) <= 400 else result_text[:400] + "…"
                 yield ("thinking", f"← {preview}\n")
 
-                msgs.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc_id,
-                        "content": result_text,
-                    }
-                )
+                msgs.append({"role": "tool", "tool_call_id": tc_id, "content": result_text})
 
         # Safety: hit the round cap without finishing.
         yield ("content", "(достигнут лимит вызовов инструментов)")
