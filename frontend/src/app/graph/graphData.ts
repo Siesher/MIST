@@ -4,9 +4,10 @@
 // into the new_design GraphPage visual model (GRAPH_NODES / GRAPH_EDGES / DOMAIN_COLOR).
 //
 // The backend exposes nodes (id/title/type/domain/difficulty/confidence) and, per node,
-// categorized neighbors — but NO 2D positions, mastery or attempts. We therefore:
+// categorized neighbors — but NO 2D positions. We therefore:
 //   1. map real domains → new_design domain keys (programming → cs, …),
-//   2. synthesize mastery/attempts deterministically from difficulty/degree,
+//   2. fetch real per-student BKT mastery (GET /students/me/mastery) and map it onto
+//      nodes by the concept slug; unpractised nodes carry no mastery ("no data"),
 //   3. lay nodes out with a stable domain-clustered radial algorithm,
 //   4. reconstruct typed edges (prereq / related / derived) from neighbors.
 //
@@ -14,7 +15,7 @@
 // so the screen always renders a full, demo-ready map.
 
 import {
-  getGraphStats,
+  getMastery,
   listKnowledgeNodes,
   getKnowledgeNode,
   type KnowledgeNodeSummary,
@@ -40,6 +41,8 @@ export interface GraphNode {
   m: number;
   /** Attempts (new_design `att`). */
   att: number;
+  /** Whether `m` is real per-student mastery (vs unpractised "no data"). */
+  hasMastery?: boolean;
   active?: boolean;
   highlight?: boolean;
 }
@@ -143,7 +146,7 @@ const CLUSTER_CENTER: Record<Domain, { cx: number; cy: number }> = {
  * so easy/foundational concepts sit nearer the cluster core). Stable for a given
  * node-id set, so the layout does not jump between renders.
  */
-type RawNode = { id: string; lab: string; labRu?: string; d: Domain; m: number; att: number; difficulty: number };
+type RawNode = { id: string; lab: string; labRu?: string; d: Domain; m: number; att: number; difficulty: number; hasMastery: boolean };
 
 function layoutNodes(raw: RawNode[]): GraphNode[] {
   const byDomain: Partial<Record<Domain, RawNode[]>> = {};
@@ -170,7 +173,7 @@ function layoutNodes(raw: RawNode[]): GraphNode[] {
       x = Math.max(70, Math.min(VIEW_W - 70, x));
       y = Math.max(60, Math.min(VIEW_H - 70, y));
       // Node radius from mastery + attempts (bigger = more practised), 18..28.
-      const r = Math.round(18 + n.m * 6 + Math.min(1, n.att / 120) * 4);
+      const r = Math.round(18 + (n.hasMastery ? n.m * 6 : 0) + Math.min(1, n.att / 120) * 4);
       out.push({
         id: n.id,
         x: Math.round(x),
@@ -181,23 +184,17 @@ function layoutNodes(raw: RawNode[]): GraphNode[] {
         d: n.d,
         m: n.m,
         att: n.att,
+        hasMastery: n.hasMastery,
       });
     });
   }
   return out;
 }
 
-/** Synthesize a plausible mastery from difficulty + confidence (backend lacks BKT here). */
-function synthMastery(difficulty: number, confidence: number, id: string): number {
-  const base = 0.95 - difficulty * 0.7; // harder topic → lower assumed mastery
-  const conf = 0.6 + confidence * 0.4; // scale by extraction confidence
-  const jitter = (rand01(id + ":m") - 0.5) * 0.12;
-  return Math.max(0.12, Math.min(0.96, base * conf + jitter));
-}
-
-/** Synthesize attempts deterministically (more for easier / higher-mastery nodes). */
-function synthAttempts(m: number, id: string): number {
-  return Math.round(6 + m * 130 + rand01(id + ":a") * 24);
+/** Concept slug of a node id `<domain>:<slug>:<type>`, normalized for topic matching. */
+function nodeSlug(id: string): string {
+  const seg = id.split(":")[1] ?? "";
+  return seg.trim().toLowerCase().replace(/[\s-]+/g, "_");
 }
 
 // ── Fallback graph (ported from new_design chat-app-data GRAPH_NODES/EDGES) ──
@@ -258,20 +255,27 @@ export function defaultSelected(data: GraphData): string {
  * Throws on failure so the caller can fall back to FALLBACK_DATA.
  */
 export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
-  // 1. Pull node summaries (and stats, best-effort, for domain ordering).
-  const [summaries] = await Promise.all([
+  // 1. Pull node summaries and real per-student mastery (best-effort).
+  const [summaries, mastery] = await Promise.all([
     listKnowledgeNodes({ limit: maxNodes }),
-    getGraphStats().catch(() => null),
+    getMastery().catch(() => ({ mastery_by_skill: {} as Record<string, number> })),
   ]);
+  const masteryMap: Record<string, number> = {};
+  for (const [topic, pk] of Object.entries(mastery.mastery_by_skill ?? {})) {
+    masteryMap[topic.trim().toLowerCase().replace(/[\s-]+/g, "_")] = pk;
+  }
 
   if (!summaries || summaries.length === 0) {
     throw new Error("empty-graph");
   }
 
-  // 2. Build base nodes with synthesized mastery / attempts.
+  // 2. Build base nodes with real per-student mastery (no-data when unpractised).
   const baseNodes = summaries.map((s: KnowledgeNodeSummary) => {
     const d = mapDomain(s.domain);
-    const m = synthMastery(s.difficulty ?? 0.5, s.confidence ?? 1, s.id);
+    const slug = nodeSlug(s.id);
+    const real = masteryMap[slug];
+    const hasMastery = real !== undefined;
+    const m = hasMastery ? real : 0;
     const labEn = s.title_en?.trim() || s.title?.trim() || s.id;
     return {
       id: s.id,
@@ -279,8 +283,9 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
       labRu: s.title?.trim() || labEn,
       d,
       m,
-      att: synthAttempts(m, s.id),
+      att: 0,
       difficulty: s.difficulty ?? 0.5,
+      hasMastery,
     };
   });
 
@@ -316,8 +321,9 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
   // 4. Lay out nodes; mark the most-practised as active and the weakest as highlight.
   const nodes = layoutNodes(baseNodes);
   if (nodes.length) {
+    const practised = nodes.filter((n) => n.hasMastery);
     const active = [...nodes].sort((a, b) => b.att - a.att)[0];
-    const weak = [...nodes].sort((a, b) => a.m - b.m)[0];
+    const weak = [...practised].sort((a, b) => a.m - b.m)[0];
     if (active) active.active = true;
     if (weak && weak.id !== active?.id) weak.highlight = true;
   }

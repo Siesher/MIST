@@ -275,6 +275,22 @@ export async function getDreamMemory(): Promise<{
   return request("/dream/memory");
 }
 
+// --- Mastery (per-student BKT) ---
+
+export interface MasterySignal {
+  topic: string;
+  p_known: number;
+  attempts: number;
+  correct: number;
+  last_seen: string | null;
+}
+export async function getMastery(): Promise<{
+  topics: MasterySignal[];
+  mastery_by_skill: Record<string, number>;
+}> {
+  return request("/students/me/mastery");
+}
+
 // --- Inference metrics ---
 
 export interface CacheStats {
