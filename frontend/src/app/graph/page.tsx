@@ -46,6 +46,8 @@ const GRAPH_I18N: Record<Lang, Record<string, string>> = {
     graphLastErr: "Посл. ошибка",
     graphBKT: "BKT p(known)",
     graphDKT: "DKT логит",
+    graphNoData: "нет данных",
+    graphSoon: "D2",
     graph3hAgo: "3ч назад",
     edgePrereq: "prerequisite",
     edgeRelated: "связано",
@@ -66,6 +68,8 @@ const GRAPH_I18N: Record<Lang, Record<string, string>> = {
     graphLastErr: "Last error",
     graphBKT: "BKT p(known)",
     graphDKT: "DKT logit",
+    graphNoData: "no data",
+    graphSoon: "D2",
     graph3hAgo: "3h ago",
     edgePrereq: "prerequisite",
     edgeRelated: "related",
@@ -549,7 +553,7 @@ export default function GraphPage() {
                           stroke={c}
                           strokeWidth="2"
                           fill="none"
-                          strokeDasharray={`${(n.m * 2 * Math.PI * (n.r + 4)).toFixed(1)} 9999`}
+                          strokeDasharray={`${(n.hasMastery === false ? 0 : n.m * 2 * Math.PI * (n.r + 4)).toFixed(1)} 9999`}
                           transform={`rotate(-90 ${cx} ${cy})`}
                           opacity={isSel ? 1 : 0.85}
                         />
@@ -575,11 +579,13 @@ export default function GraphPage() {
                           fill={isSel ? (THEME === "midnight" ? "#0a0518" : "#fff") : c}
                           style={{ pointerEvents: "none" }}
                         >
-                          {metric === "bkt"
-                            ? (n.m * 0.95).toFixed(2)
-                            : metric === "dkt"
-                              ? ((n.m - 0.5) * 4).toFixed(2)
-                              : Math.round(n.m * 100)}
+                          {n.hasMastery === false
+                            ? "—"
+                            : metric === "bkt"
+                              ? n.m.toFixed(2)
+                              : metric === "dkt"
+                                ? tt("graphSoon")
+                                : Math.round(n.m * 100)}
                         </text>
                         <text
                           x={cx}
@@ -665,21 +671,21 @@ export default function GraphPage() {
                     <div className="gs-mastery-row">
                       <span style={{ color: "var(--ink-mute)" }}>{tt("graphMastery")}</span>
                       <span style={{ color: "var(--ink)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
-                        {Math.round(sel.m * 100)}%
+                        {Math.round((sel.hasMastery === false ? 0 : sel.m) * 100)}%
                       </span>
                     </div>
                     <div className="gs-bar">
-                      <div className="gs-bar-fill" style={{ width: sel.m * 100 + "%" }} />
+                      <div className="gs-bar-fill" style={{ width: (sel.hasMastery === false ? 0 : sel.m) * 100 + "%" }} />
                     </div>
 
                     <div className="gs-mini-stats">
                       <div className="gs-mini">
                         <div className="k">{tt("graphBKT")}</div>
-                        <div className="v">{(sel.m * 0.95).toFixed(2)}</div>
+                        <div className="v">{sel.hasMastery === false ? tt("graphNoData") : sel.m.toFixed(2)}</div>
                       </div>
                       <div className="gs-mini">
                         <div className="k">{tt("graphDKT")}</div>
-                        <div className="v">{((sel.m - 0.5) * 4).toFixed(2)}</div>
+                        <div className="v">{tt("graphSoon")}</div>
                       </div>
                       <div className="gs-mini">
                         <div className="k">{tt("graphAttempts")}</div>
