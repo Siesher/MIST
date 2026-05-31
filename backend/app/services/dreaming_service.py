@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import uuid
@@ -11,23 +10,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List
 
+from backend.app.services.session_signals import parse_task_json, resolve_topic
 from src.agents.reflection import ReflectionGenerator, SessionDigest
 from src.memory.memory_files import StudentMemoryFiles
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_task(task_json: Any) -> dict:
-    """Parse a session's ``task_json`` column into a dict (best-effort)."""
-    if not task_json:
-        return {}
-    if isinstance(task_json, dict):
-        return task_json
-    try:
-        data = json.loads(task_json)
-    except (json.JSONDecodeError, TypeError):
-        return {}
-    return data if isinstance(data, dict) else {}
 
 
 def _duration_min(created: Any, updated: Any) -> float:
@@ -98,9 +85,9 @@ def _digest_from_rows(rows: List[Any]) -> List[SessionDigest]:
     digests: List[SessionDigest] = []
     for r in rows:
         msgs = list(getattr(r, "messages", []) or [])
-        task = _parse_task(getattr(r, "task_json", None))
+        task = parse_task_json(getattr(r, "task_json", None))
         subject = str(task.get("subject") or "")
-        topic = getattr(r, "topic", None) or task.get("topic") or subject or "general"
+        topic = resolve_topic(r)
         answer = task.get("answer") or task.get("solution") or ""
         errors = [m.content[:120] for m in msgs if getattr(m, "is_correct", None) is False]
         digests.append(
