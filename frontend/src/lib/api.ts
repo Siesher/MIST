@@ -253,6 +253,28 @@ export async function deleteSource(id: string): Promise<void> {
   return request<void>(`/knowledge/sources/${id}`, { method: "DELETE" });
 }
 
+// --- Dreaming ---
+
+export interface DreamReport {
+  sessions_count: number;
+  reflection_excerpt: string;
+  misconceptions: string[];
+  next_focus: string[];
+  graph_changes: Record<string, number>;
+  files_updated: string[];
+}
+
+export async function runDream(): Promise<DreamReport> {
+  return request<DreamReport>("/dream", { method: "POST" });
+}
+
+export async function getDreamMemory(): Promise<{
+  profile: string;
+  dreams: { name: string; content: string }[];
+}> {
+  return request("/dream/memory");
+}
+
 // --- Inference metrics ---
 
 export interface CacheStats {

@@ -21,6 +21,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
   const setSessionMode = useChatStore((s) => s.setSessionMode);
   const beginStream = useChatStore((s) => s.beginStream);
   const finalizeStreamMetrics = useChatStore((s) => s.finalizeStreamMetrics);
+  const setRestSuggested = useChatStore((s) => s.setRestSuggested);
 
   const handleWSMessage = useCallback(
     (msg: WSServerMessage) => {
@@ -97,6 +98,13 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
           break;
         }
 
+        case "suggest_rest":
+          // Cognitive overload flagged by the profiler → offer a "sleep & reflect"
+          // break. ChatScreen reconciles this with the idle timer into one card.
+          console.log("[Chat] Rest suggested, reason:", msg.reason);
+          setRestSuggested(true);
+          break;
+
         case "error":
           setIsStreaming(false);
           setIsLoading(false);
@@ -108,7 +116,7 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
           break;
       }
     },
-    [sessionId, addMessage, setStreamingMessage, appendStreamingContent, setIsStreaming, setIsLoading, setSessionState, setSessionMode, finalizeStreamMetrics],
+    [sessionId, addMessage, setStreamingMessage, appendStreamingContent, setIsStreaming, setIsLoading, setSessionState, setSessionMode, finalizeStreamMetrics, setRestSuggested],
   );
 
   const {

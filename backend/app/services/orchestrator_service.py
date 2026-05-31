@@ -1244,6 +1244,16 @@ class OrchestratorService:
                     "content": thinking_text,
                     "is_thinking": True,
                 }
+
+            # Dreaming trigger: when the profiler detects cognitive overload,
+            # surface a non-token `suggest_rest` event during the stream so the
+            # frontend can offer a "sleep & reflect" break. Emitted BEFORE the
+            # response_complete yield so the client sees it mid-stream.
+            if profile is not None and getattr(profile, "should_offer_break", False):
+                yield {
+                    "type": "suggest_rest",
+                    "reason": getattr(profile, "cognitive_load_level", "high"),
+                }
         else:
             # CHAT / TASK_GENERATOR: Direct LLM with mode-specific prompt
             system_prompt = self._get_system_prompt_for_mode(mode)

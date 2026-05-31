@@ -11,7 +11,8 @@ import { useTheme, THEMES, THEME_LABELS } from "./useTheme";
 import { useI18n, type StringKey } from "@/lib/i18n";
 import { SmartContent } from "@/components/chat/SmartContent";
 import { useChatStore } from "@/store/chatStore";
-import { ingestFile } from "@/lib/api";
+import { ingestFile, runDream, type DreamReport } from "@/lib/api";
+import { useIdleTimer } from "@/hooks/useIdleTimer";
 import type { ChatMode, Message as MessageType, TutorMoveType } from "@/types/api";
 
 const EMPTY_MESSAGES: MessageType[] = [];
@@ -555,6 +556,43 @@ function ChatRail({ sessionId }: { sessionId: string }) {
   );
 }
 
+// ---------- Rest / "dreaming" prompt (cognitive break + reflection) ----------
+function RestCard({ onClose }: { onClose: () => void }) {
+  const [dreaming, setDreaming] = useState(false);
+  const [dreamReport, setDreamReport] = useState<DreamReport | null>(null);
+
+  const sleep = async () => {
+    setDreaming(true);
+    try {
+      const r = await runDream();
+      setDreamReport(r);
+    } catch (error) {
+      console.error("Failed to run dream:", error);
+    } finally {
+      setDreaming(false);
+    }
+  };
+
+  if (dreamReport) {
+    return (
+      <div className="rest-card">
+        <span>Я осмыслил {dreamReport.sessions_count} сессий 💤 — заметки в разделе «Сны».</span>
+        <button className="btn-secondary" onClick={onClose}>Закрыть</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rest-card">
+      <span>Хочешь передохнуть? Я пока обдумаю твои сессии 💤</span>
+      <button className="btn-primary" disabled={dreaming} onClick={sleep}>
+        {dreaming ? "Сплю…" : "Отдохнуть и осмыслить"}
+      </button>
+      <button className="btn-secondary" onClick={onClose}>Позже</button>
+    </div>
+  );
+}
+
 // ---------- Public: chat main column + rail ----------
 interface ChatScreenProps {
   sessionId: string;
@@ -571,6 +609,21 @@ export function ChatMain({ sessionId, onSendMessage, onHintRequest, onModeChange
   const state = useChatStore((s) => s.sessionStates[sessionId]);
   const hintsRemaining = state ? Math.max(0, 3 - state.hints_used) : 3;
 
+  // One reconciled rest-card state: opens on a backend `suggest_rest` (cognitive
+  // overload) OR on prolonged idle. Local `restOpen` drives the card; the store
+  // flag is the cross-component bridge from the WS handler.
+  const restSuggested = useChatStore((s) => s.restSuggested);
+  const setRestSuggested = useChatStore((s) => s.setRestSuggested);
+  const [restOpen, setRestOpen] = useState(false);
+  useEffect(() => {
+    if (restSuggested) setRestOpen(true);
+  }, [restSuggested]);
+  useIdleTimer(() => setRestOpen(true));
+  const closeRest = () => {
+    setRestOpen(false);
+    setRestSuggested(false);
+  };
+
   const title = task?.topic || "Сократическая сессия";
   const subtitle = task?.difficulty ? `${task.topic ? "Задача" : ""} · ${task.difficulty}` : undefined;
 
@@ -579,6 +632,7 @@ export function ChatMain({ sessionId, onSendMessage, onHintRequest, onModeChange
       <TopBar title={title} subtitle={subtitle} />
       <AgentFlow active={isStreaming || isLoading} />
       <MessageList sessionId={sessionId} task={task} />
+      {restOpen && <RestCard onClose={closeRest} />}
       <Composer
         mode={mode}
         onSend={onSendMessage}

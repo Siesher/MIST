@@ -233,6 +233,11 @@ export interface WSModeChanged {
   message?: string;
 }
 
+export interface WSSuggestRest {
+  type: "suggest_rest";
+  reason: string;
+}
+
 export type WSServerMessage =
   | WSTokenMessage
   | WSResponseComplete
@@ -240,7 +245,8 @@ export type WSServerMessage =
   | WSConnectionReady
   | WSError
   | WSKnowledgeUpdate
-  | WSModeChanged;
+  | WSModeChanged
+  | WSSuggestRest;
 
 export interface WSClientMessage {
   type: "message" | "hint_request" | "mode_change" | "typing_start" | "typing_stop";

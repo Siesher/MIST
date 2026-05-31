@@ -60,6 +60,10 @@ interface ChatState {
   // Sidebar
   sidebarOpen: boolean;
 
+  // Dreaming: set true when the backend emits `suggest_rest` (cognitive overload).
+  // ChatScreen reconciles this with the idle timer into one rest-card state.
+  restSuggested: boolean;
+
   // Actions
   setSessions: (sessions: Session[]) => void;
   addSession: (session: Session) => void;
@@ -92,6 +96,8 @@ interface ChatState {
 
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+
+  setRestSuggested: (suggested: boolean) => void;
 }
 
 const INITIAL_STREAM_METRICS: StreamMetrics = {
@@ -127,6 +133,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   contextLength: null,
   theme: "dark",
   sidebarOpen: true,
+  restSuggested: false,
 
   setSessions: (sessions) => set({ sessions }),
   addSession: (session) => set((state) => ({ sessions: [session, ...state.sessions] })),
@@ -280,4 +287,6 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  setRestSuggested: (suggested) => set({ restSuggested: suggested }),
 }));
