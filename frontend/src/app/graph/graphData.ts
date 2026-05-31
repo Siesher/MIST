@@ -321,8 +321,8 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
   //    skip inv_* so each edge appears once). Fetch details in parallel.
   // NOTE: edges are only available via per-node detail (GET /nodes/{id}); fanning
   // out to ~80 of those overwhelms the single-worker backend (N+1 / 500 storm).
-  // Skip the fan-out — if no edges can be built we throw below so the page renders
-  // the curated FALLBACK_DATA graph (meaningful edges, clean console).
+  // Skip the fan-out — when no edges can be built we still return the real,
+  // mastery-ringed nodes below (edge-light) rather than the fake curated graph.
   const details: PromiseSettledResult<Awaited<ReturnType<typeof getKnowledgeNode>>>[] = [];
 
   const edgeSeen = new Set<string>();
@@ -358,10 +358,10 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
 
   const domains = Array.from(new Set(nodes.map((n) => n.d)));
 
-  if (edges.length === 0) {
-    // No real edges (per-node detail endpoint unstable) — fall back to the
-    // curated graph, which renders cleanly with meaningful edges.
-    throw new Error("knowledge graph edges unavailable; using curated fallback");
-  }
+  // Real nodes carry the real per-student mastery — render them even when no
+  // edges could be reconstructed (the per-node detail fan-out is disabled to
+  // spare the single-worker backend). A sparse constellation of real,
+  // mastery-ringed nodes beats the fake curated graph for showing mastery.
+  // Only the no-nodes / fetch-error paths above fall back to FALLBACK_DATA.
   return { nodes, edges, domains, isFallback: false };
 }
