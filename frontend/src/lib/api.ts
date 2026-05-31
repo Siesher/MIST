@@ -224,6 +224,15 @@ export async function getKnowledgeNode(id: string): Promise<KnowledgeNodeDetail>
   return request<KnowledgeNodeDetail>(`/knowledge/nodes/${encodeURIComponent(id)}`);
 }
 
+export interface KnowledgeEdgeSummary {
+  source: string;
+  target: string;
+  type: string;
+}
+export async function listKnowledgeEdges(limit = 500): Promise<KnowledgeEdgeSummary[]> {
+  return request<KnowledgeEdgeSummary[]>(`/knowledge/edges?limit=${limit}`);
+}
+
 export async function createKnowledgeNode(body: {
   title: string;
   title_en?: string;

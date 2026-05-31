@@ -173,6 +173,24 @@ async def get_stats():
     )
 
 
+class EdgeSummary(BaseModel):
+    """A single directed edge in the knowledge graph."""
+
+    source: str
+    target: str
+    type: str
+
+
+@router.get("/edges", response_model=list[EdgeSummary])
+async def list_edges(limit: int = 500):
+    """All graph edges (source -> target, relation type) for client-side layout."""
+    g = get_graph()
+    return [
+        EdgeSummary(source=e.source_id, target=e.target_id, type=e.edge_type.value)
+        for e in g._edges[:limit]  # noqa: SLF001
+    ]
+
+
 @router.get("/nodes", response_model=list[NodeSummary])
 async def list_nodes(
     domain: str | None = None,

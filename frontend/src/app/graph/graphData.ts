@@ -16,8 +16,9 @@
 
 import {
   getMastery,
+  listKnowledgeEdges,
   listKnowledgeNodes,
-  getKnowledgeNode,
+  type KnowledgeEdgeSummary,
   type KnowledgeNodeSummary,
   type MasterySignal,
 } from "@/lib/api";
@@ -165,11 +166,13 @@ function layoutNodes(raw: RawNode[]): GraphNode[] {
     sorted.forEach((n, i) => {
       // Spiral: radius grows with index, angle offset jittered per node-id.
       const ringStep = count <= 1 ? 0 : i / count;
-      const baseR = 18 + ringStep * 150;
+      // Spread wider as a cluster grows so dense domains (e.g. math) don't pile up.
+      const spread = Math.min(250, 120 + count * 2.2);
+      const baseR = 20 + ringStep * spread;
       const angle =
         i * 2.39996 + rand01(n.id) * 0.9 + (domain.charCodeAt(0) % 7); // golden-angle spiral
       let x = center.cx + Math.cos(angle) * baseR;
-      let y = center.cy + Math.sin(angle) * baseR * 0.78;
+      let y = center.cy + Math.sin(angle) * baseR * 0.82;
       // Keep within canvas with a margin.
       x = Math.max(70, Math.min(VIEW_W - 70, x));
       y = Math.max(60, Math.min(VIEW_H - 70, y));
@@ -276,11 +279,12 @@ export function defaultSelected(data: GraphData): string {
  * Fetch the live graph and assemble it into the visual model.
  * Throws on failure so the caller can fall back to FALLBACK_DATA.
  */
-export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
-  // 1. Pull node summaries and real per-student mastery (best-effort).
-  const [summaries, mastery] = await Promise.all([
-    listKnowledgeNodes({ limit: maxNodes }),
+export async function fetchGraph(maxNodes = 48): Promise<GraphData> {
+  // 1. Pull node summaries, real per-student mastery, and the graph edges.
+  const [rawSummaries, mastery, rawEdges] = await Promise.all([
+    listKnowledgeNodes({ limit: 200 }),
     getMastery().catch(() => ({ topics: [] as MasterySignal[] })),
+    listKnowledgeEdges(500).catch(() => [] as KnowledgeEdgeSummary[]),
   ]);
   // Key the per-topic signals by the normalized topic (same vocabulary the
   // backend uses to match topics against node-id slugs). Keep the full signal
@@ -290,7 +294,12 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
     masteryMap[normTopic(sig.topic)] = sig;
   }
 
-  if (!summaries || summaries.length === 0) {
+  // Drop misconception nodes (diagnostic, not curriculum) and cap to a readable
+  // count; curriculum order (foundational first) is preserved by the slice.
+  const summaries = (rawSummaries ?? [])
+    .filter((s) => s.type !== "misconception")
+    .slice(0, maxNodes);
+  if (summaries.length === 0) {
     throw new Error("empty-graph");
   }
 
@@ -317,32 +326,17 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
 
   const idSet = new Set(baseNodes.map((n) => n.id));
 
-  // 3. Reconstruct edges from per-node neighbors (outgoing categories only;
-  //    skip inv_* so each edge appears once). Fetch details in parallel.
-  // NOTE: edges are only available via per-node detail (GET /nodes/{id}); fanning
-  // out to ~80 of those overwhelms the single-worker backend (N+1 / 500 storm).
-  // Skip the fan-out — when no edges can be built we still return the real,
-  // mastery-ringed nodes below (edge-light) rather than the fake curated graph.
-  const details: PromiseSettledResult<Awaited<ReturnType<typeof getKnowledgeNode>>>[] = [];
-
+  // 3. Build typed edges from the bulk /knowledge/edges endpoint, keeping only
+  //    those whose endpoints are both in the rendered (filtered/capped) node set.
   const edgeSeen = new Set<string>();
   const edges: GraphEdge[] = [];
-  details.forEach((res, i) => {
-    if (res.status !== "fulfilled") return;
-    const from = baseNodes[i].id;
-    const neighbors = res.value.neighbors ?? {};
-    for (const [category, list] of Object.entries(neighbors)) {
-      if (category.startsWith("inv_")) continue; // inverse duplicates — skip
-      const kind = mapEdgeKind(category);
-      for (const nb of list ?? []) {
-        if (!nb?.id || !idSet.has(nb.id) || nb.id === from) continue;
-        const key = `${from}->${nb.id}`;
-        if (edgeSeen.has(key)) continue;
-        edgeSeen.add(key);
-        edges.push([from, nb.id, kind]);
-      }
-    }
-  });
+  for (const e of rawEdges ?? []) {
+    if (!idSet.has(e.source) || !idSet.has(e.target) || e.source === e.target) continue;
+    const key = `${e.source}->${e.target}`;
+    if (edgeSeen.has(key)) continue;
+    edgeSeen.add(key);
+    edges.push([e.source, e.target, mapEdgeKind(e.type)]);
+  }
 
   // 4. Lay out nodes; mark the most-practised as active and the weakest as highlight.
   //    Both selections consider only nodes with real mastery — unpractised nodes

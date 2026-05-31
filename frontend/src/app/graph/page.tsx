@@ -587,23 +587,25 @@ export default function GraphPage() {
                                 ? tt("graphSoon")
                                 : Math.round(n.m * 100)}
                         </text>
-                        <text
-                          x={cx}
-                          y={cy + n.r + 14}
-                          textAnchor="middle"
-                          fontFamily="JetBrains Mono"
-                          fontSize="10"
-                          fill={isSel ? c : "currentColor"}
-                          style={{
-                            letterSpacing: "0.06em",
-                            textTransform: "uppercase",
-                            pointerEvents: "none",
-                            color: "var(--ink-soft)",
-                            fontWeight: isSel ? 700 : 500,
-                          }}
-                        >
-                          {nodeLabel(n, lang)}
-                        </text>
+                        {(isSel || isHv || n.highlight || n.active) && (
+                          <text
+                            x={cx}
+                            y={cy + n.r + 14}
+                            textAnchor="middle"
+                            fontFamily="JetBrains Mono"
+                            fontSize="10"
+                            fill={isSel ? c : "currentColor"}
+                            style={{
+                              letterSpacing: "0.06em",
+                              textTransform: "uppercase",
+                              pointerEvents: "none",
+                              color: "var(--ink-soft)",
+                              fontWeight: isSel ? 700 : 500,
+                            }}
+                          >
+                            {nodeLabel(n, lang)}
+                          </text>
+                        )}
                       </g>
                     );
                   })}
