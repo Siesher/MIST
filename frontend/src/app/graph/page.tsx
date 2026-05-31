@@ -587,25 +587,31 @@ export default function GraphPage() {
                                 ? tt("graphSoon")
                                 : Math.round(n.m * 100)}
                         </text>
-                        {(isSel || isHv || n.highlight || n.active) && (
-                          <text
-                            x={cx}
-                            y={cy + n.r + 14}
-                            textAnchor="middle"
-                            fontFamily="JetBrains Mono"
-                            fontSize="10"
-                            fill={isSel ? c : "currentColor"}
-                            style={{
-                              letterSpacing: "0.06em",
-                              textTransform: "uppercase",
-                              pointerEvents: "none",
-                              color: "var(--ink-soft)",
-                              fontWeight: isSel ? 700 : 500,
-                            }}
-                          >
-                            {nodeLabel(n, lang)}
-                          </text>
-                        )}
+                        {(() => {
+                          const focused = isSel || isHv || n.highlight || n.active;
+                          return (
+                            <text
+                              x={cx}
+                              y={cy + n.r + 13}
+                              textAnchor="middle"
+                              fontFamily="JetBrains Mono"
+                              fontSize={focused ? 10.5 : 9.5}
+                              fill={isSel ? c : "currentColor"}
+                              opacity={focused ? 1 : 0.82}
+                              style={{
+                                letterSpacing: "0.01em",
+                                pointerEvents: "none",
+                                color: focused ? "var(--ink)" : "var(--ink-soft)",
+                                fontWeight: focused ? 700 : 500,
+                                paintOrder: "stroke",
+                                stroke: "var(--bg)",
+                                strokeWidth: focused ? 3 : 2.5,
+                              }}
+                            >
+                              {nodeLabel(n, lang)}
+                            </text>
+                          );
+                        })()}
                       </g>
                     );
                   })}
