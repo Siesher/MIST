@@ -76,7 +76,15 @@ async def run_dream(
     from backend.app.services.dreaming_service import DreamingService
 
     dreamer = DreamingService(llm=svc._llm_client, graph=get_graph())
-    report = dreamer.dream_from_rows(sid, rows)
+
+    # dream_from_rows runs a blocking LLM generate() plus file writes and
+    # graph.save(). Offload it to a worker thread so the dreaming pass does not
+    # freeze the asyncio event loop (same pattern as knowledge._run_extraction).
+    def _sync_dream() -> dict:
+        return dreamer.dream_from_rows(sid, rows)
+
+    loop = asyncio.get_event_loop()
+    report = await loop.run_in_executor(None, _sync_dream)
     return DreamReport(**report)
 
 
