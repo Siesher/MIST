@@ -133,66 +133,102 @@ function rand01(seed: string): number {
 const VIEW_W = 1080;
 const VIEW_H = 640;
 
-// Cluster centers per domain (roughly echo new_design's spatial grouping:
-// math centre-left, phys top-right, chem bottom-centre, cs left, bio bottom-right).
-const CLUSTER_CENTER: Record<Domain, { cx: number; cy: number }> = {
-  math: { cx: 400, cy: 300 },
-  phys: { cx: 770, cy: 270 },
-  chem: { cx: 690, cy: 470 },
-  cs: { cx: 170, cy: 450 },
-  bio: { cx: 910, cy: 480 },
-};
-
 /**
- * Place nodes deterministically: each domain forms a ring (sorted by difficulty
- * so easy/foundational concepts sit nearer the cluster core). Stable for a given
- * node-id set, so the layout does not jump between renders.
+ * Force-directed layout: repel every node, pull edge-connected nodes together,
+ * gently gravitate to centre. Deterministic (seeded golden-angle init + no RNG in
+ * the simulation) so the graph is stable across renders. This spreads a dense,
+ * single-domain graph (~90% math here) across the canvas instead of piling it up.
  */
 type RawNode = { id: string; lab: string; labRu?: string; d: Domain; m: number; att: number; difficulty: number; hasMastery: boolean };
 
-function layoutNodes(raw: RawNode[]): GraphNode[] {
-  const byDomain: Partial<Record<Domain, RawNode[]>> = {};
-  for (const n of raw) {
-    (byDomain[n.d] ??= []).push(n);
+function layoutNodes(raw: RawNode[], edges: GraphEdge[]): GraphNode[] {
+  const n = raw.length;
+  const cx0 = VIEW_W / 2;
+  const cy0 = VIEW_H / 2;
+  const px = new Float64Array(n);
+  const py = new Float64Array(n);
+  const index = new Map<string, number>(raw.map((r, i): [string, number] => [r.id, i]));
+
+  // Seed positions on a deterministic golden-angle spiral (already spread out).
+  raw.forEach((r, i) => {
+    const a = i * 2.39996;
+    const rad = 26 + Math.sqrt(i + 1) * 46;
+    px[i] = cx0 + Math.cos(a) * rad + (rand01(r.id) - 0.5) * 12;
+    py[i] = cy0 + Math.sin(a) * rad * 0.62 + (rand01(r.id + ":y") - 0.5) * 12;
+  });
+
+  const links: Array<[number, number]> = [];
+  for (const [a, b] of edges) {
+    const ia = index.get(a);
+    const ib = index.get(b);
+    if (ia !== undefined && ib !== undefined && ia !== ib) links.push([ia, ib]);
   }
 
-  const out: GraphNode[] = [];
-  for (const domain of Object.keys(byDomain) as Domain[]) {
-    const group = byDomain[domain]!;
-    const center = CLUSTER_CENTER[domain] ?? { cx: VIEW_W / 2, cy: VIEW_H / 2 };
-    // Foundational (low difficulty) first → inner rings.
-    const sorted = [...group].sort((a, b) => a.difficulty - b.difficulty);
-    const count = sorted.length;
-    sorted.forEach((n, i) => {
-      // Spiral: radius grows with index, angle offset jittered per node-id.
-      const ringStep = count <= 1 ? 0 : i / count;
-      // Spread wider as a cluster grows so dense domains (e.g. math) don't pile up.
-      const spread = Math.min(250, 120 + count * 2.2);
-      const baseR = 20 + ringStep * spread;
-      const angle =
-        i * 2.39996 + rand01(n.id) * 0.9 + (domain.charCodeAt(0) % 7); // golden-angle spiral
-      let x = center.cx + Math.cos(angle) * baseR;
-      let y = center.cy + Math.sin(angle) * baseR * 0.82;
-      // Keep within canvas with a margin.
-      x = Math.max(70, Math.min(VIEW_W - 70, x));
-      y = Math.max(60, Math.min(VIEW_H - 70, y));
-      // Node radius from mastery + attempts (bigger = more practised), 18..28.
-      const r = Math.round(18 + (n.hasMastery ? n.m * 6 : 0) + Math.min(1, n.att / 120) * 4);
-      out.push({
-        id: n.id,
-        x: Math.round(x),
-        y: Math.round(y),
-        r,
-        lab: n.lab,
-        labRu: n.labRu,
-        d: n.d,
-        m: n.m,
-        att: n.att,
-        hasMastery: n.hasMastery,
-      });
-    });
+  const ITER = 320;
+  const K_REPULSION = 95000; // pairwise push (∝ 1/d²)
+  const K_SPRING = 0.025; // edge attraction toward IDEAL_LEN
+  const IDEAL_LEN = 96;
+  const GRAVITY = 0.006; // keep the whole graph on-canvas
+  const MAX_STEP = 18;
+
+  for (let it = 0; it < ITER; it++) {
+    const fx = new Float64Array(n);
+    const fy = new Float64Array(n);
+    // Repulsion (all pairs).
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = px[i] - px[j];
+        let dy = py[i] - py[j];
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) {
+          dx = rand01(raw[i].id + j) - 0.5;
+          dy = rand01(raw[j].id + i) - 0.5;
+          d2 = dx * dx + dy * dy + 0.01;
+        }
+        const d = Math.sqrt(d2);
+        const f = K_REPULSION / d2;
+        fx[i] += (dx / d) * f;
+        fy[i] += (dy / d) * f;
+        fx[j] -= (dx / d) * f;
+        fy[j] -= (dy / d) * f;
+      }
+    }
+    // Attraction along edges.
+    for (const [a, b] of links) {
+      const dx = px[b] - px[a];
+      const dy = py[b] - py[a];
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const f = K_SPRING * (d - IDEAL_LEN);
+      fx[a] += (dx / d) * f;
+      fy[a] += (dy / d) * f;
+      fx[b] -= (dx / d) * f;
+      fy[b] -= (dy / d) * f;
+    }
+    // Integrate with center gravity + cooling, clamped to the canvas.
+    const cool = 1 - it / ITER;
+    for (let i = 0; i < n; i++) {
+      let sx = (fx[i] + (cx0 - px[i]) * GRAVITY) * cool;
+      let sy = (fy[i] + (cy0 - py[i]) * GRAVITY) * cool;
+      sx = Math.max(-MAX_STEP, Math.min(MAX_STEP, sx));
+      sy = Math.max(-MAX_STEP, Math.min(MAX_STEP, sy));
+      px[i] = Math.max(64, Math.min(VIEW_W - 64, px[i] + sx));
+      py[i] = Math.max(56, Math.min(VIEW_H - 56, py[i] + sy));
+    }
   }
-  return out;
+
+  return raw.map((r, i) => ({
+    id: r.id,
+    x: Math.round(px[i]),
+    y: Math.round(py[i]),
+    // Node radius from mastery + attempts (bigger = more practised), 18..28.
+    r: Math.round(18 + (r.hasMastery ? r.m * 6 : 0) + Math.min(1, r.att / 120) * 4),
+    lab: r.lab,
+    labRu: r.labRu,
+    d: r.d,
+    m: r.m,
+    att: r.att,
+    hasMastery: r.hasMastery,
+  }));
 }
 
 /**
@@ -341,7 +377,7 @@ export async function fetchGraph(maxNodes = 48): Promise<GraphData> {
   // 4. Lay out nodes; mark the most-practised as active and the weakest as highlight.
   //    Both selections consider only nodes with real mastery — unpractised nodes
   //    all share att=0 / m=0, so including them would make the sort arbitrary.
-  const nodes = layoutNodes(baseNodes);
+  const nodes = layoutNodes(baseNodes, edges);
   if (nodes.length) {
     const practised = nodes.filter((n) => n.hasMastery);
     const active = [...practised].sort((a, b) => b.att - a.att)[0];
