@@ -10,8 +10,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NewAppShell } from "@/components/newdesign/AppShell";
+import { SmartContent } from "@/components/chat/SmartContent";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { getAccessToken } from "@/lib/auth";
+import { getDreamMemory, runDream } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const ANALYTICS_BASE = `${API_BASE}/api/v1/analytics`;
@@ -149,8 +151,32 @@ export default function DashboardPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // "Сны" panel — per-student reflection memory (GET /dream/memory).
+  const [mem, setMem] = useState<{
+    profile: string;
+    dreams: { name: string; content: string }[];
+  } | null>(null);
+  const [dreaming, setDreaming] = useState(false);
+
   // Stable fallback heatmap (computed once).
   const fallbackHeat = useMemo(buildFallbackHeat, []);
+
+  useEffect(() => {
+    getDreamMemory().then(setMem).catch(() => {});
+  }, []);
+
+  const handleDream = useCallback(async () => {
+    setDreaming(true);
+    try {
+      await runDream();
+      const next = await getDreamMemory();
+      setMem(next);
+    } catch (e) {
+      console.error("Failed to run dream:", e);
+    } finally {
+      setDreaming(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -508,6 +534,35 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Сны — reflection memory (per-student dreaming pass) */}
+                {mem && (
+                  <div className="dash-card b-full">
+                    <div className="dash-card-title">
+                      <span>Сны · заметки</span>
+                      <button
+                        className="btn-secondary"
+                        disabled={dreaming}
+                        onClick={handleDream}
+                      >
+                        {dreaming ? "Сплю…" : "Уснуть сейчас"}
+                      </button>
+                    </div>
+                    {mem.profile && (
+                      <div className="msg-body">
+                        <SmartContent content={mem.profile} />
+                      </div>
+                    )}
+                    {mem.dreams.map((d) => (
+                      <details key={d.name}>
+                        <summary>{d.name}</summary>
+                        <div className="msg-body">
+                          <SmartContent content={d.content} />
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
