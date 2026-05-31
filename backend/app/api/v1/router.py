@@ -6,6 +6,7 @@ from backend.app.api.v1 import (
     analytics,
     auth,
     chat,
+    dream,
     experiments,
     export,
     ingest,
@@ -21,6 +22,7 @@ from backend.app.api.v1 import (
 router = APIRouter(prefix="/api/v1")
 
 router.include_router(auth.router)
+router.include_router(dream.router)
 router.include_router(sessions.router)
 router.include_router(chat.router)
 router.include_router(tasks.router)
