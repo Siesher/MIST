@@ -77,3 +77,30 @@ def test_reflection_consolidates_profile_not_append(tmp_path):
     assert prof == "ПРОФИЛЬ ВЕРСИЯ B (консолидировано)"  # overwrite, not stacked
     assert "ВЕРСИЯ A" not in prof
     assert len(mem.list_dreams()) == 2  # but both dreams are kept (append-only)
+
+
+def test_reflection_includes_mastery_block():
+    """When mastery is supplied, it is rendered into the prompt the LLM receives."""
+    import json as _json
+
+    captured = {}
+
+    class _CapturingLLM:
+        def generate(self, prompt, system=None, **kw):
+            captured["prompt"] = prompt
+            return _json.dumps({"reflection_md": "ok", "profile_md": "p"})
+
+    from src.memory.memory_files import StudentMemoryFiles
+
+    def _mk(tmp):
+        return StudentMemoryFiles("masterystud", base_dir=tmp)
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        mem = _mk(tmp)
+        gen = ReflectionGenerator(llm=_CapturingLLM(), memory=mem)
+        gen.reflect(_digest(), mastery=[{"topic": "derivatives", "p_known": 0.42, "attempts": 7}])
+    assert "Текущее мастерство" in captured["prompt"]
+    assert "derivatives" in captured["prompt"]
+    assert "0.42" in captured["prompt"]

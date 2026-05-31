@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List
 
+from backend.app.services.mastery_service import compute_mastery
 from backend.app.services.session_signals import parse_task_json, resolve_topic
 from src.agents.reflection import ReflectionGenerator, SessionDigest
 from src.memory.memory_files import StudentMemoryFiles
@@ -142,7 +143,11 @@ class DreamingService:
         mem = StudentMemoryFiles(student_id, base_dir=self._base)
         digests = _digest_from_rows(rows)
         gen = ReflectionGenerator(llm=self._llm, memory=mem)
-        result = gen.reflect(digests)
+        mastery = [
+            {"topic": s.topic, "p_known": s.p_known, "attempts": s.attempts}
+            for s in compute_mastery(rows)
+        ]
+        result = gen.reflect(digests, mastery=mastery)
         graph_changes = self._augment_graph(result.misconceptions, digests)
         state = mem.read_state()
         state["sessions_seen"] = list(

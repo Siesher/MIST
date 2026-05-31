@@ -118,17 +118,21 @@ class ReflectionGenerator:
         self._thinking = thinking
         self._max_tokens = max_tokens
 
-    def reflect(self, digests: List[SessionDigest]) -> ReflectionResult:
+    def reflect(
+        self, digests: List[SessionDigest], *, mastery: list | None = None
+    ) -> ReflectionResult:
         """Reflect over the given session digests; write memory files; return signals.
 
         Args:
             digests: Recent sessions distilled for analysis.
+            mastery: Optional list of ``{topic, p_known, attempts}`` dicts to ground
+                the analysis in the BKT estimate.
 
         Returns:
             The structured :class:`ReflectionResult`. On LLM error or unparsable
             output, falls back to a heuristic summary (still writes a dream).
         """
-        prompt = self._build_prompt(digests)
+        prompt = self._build_prompt(digests, mastery)
         fallback = self._fallback(digests)
         try:
             raw = self._llm.generate(
@@ -160,7 +164,7 @@ class ReflectionGenerator:
             next_focus=list(data.get("next_focus") or []),
         )
 
-    def _build_prompt(self, digests: List[SessionDigest]) -> str:
+    def _build_prompt(self, digests: List[SessionDigest], mastery: list | None = None) -> str:
         """Render the full evidence (problems + transcripts + profile) into a prompt."""
         blocks: List[str] = []
         for i, d in enumerate(digests, 1):
@@ -189,6 +193,14 @@ class ReflectionGenerator:
             blocks.append("\n".join(lines))
 
         prompt = "Недавние занятия ученика (разбери их подробно):\n\n" + "\n\n".join(blocks)
+        if mastery:
+            lines = ["Текущее мастерство (BKT) — p(known) по темам:"]
+            for m in mastery[:12]:
+                topic = m.get("topic", "?")
+                pk = m.get("p_known", 0.0)
+                n = m.get("attempts", 0)
+                lines.append(f"- {topic}: p(known)={pk:.2f} (попыток {n})")
+            prompt += "\n\n" + "\n".join(lines)
         prof = self._mem.read_profile()
         if prof:
             prompt += (
