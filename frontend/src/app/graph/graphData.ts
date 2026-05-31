@@ -19,6 +19,7 @@ import {
   listKnowledgeNodes,
   getKnowledgeNode,
   type KnowledgeNodeSummary,
+  type MasterySignal,
 } from "@/lib/api";
 
 // ── Visual model (mirrors new_design GRAPH_NODES / GRAPH_EDGES) ─────────
@@ -191,10 +192,31 @@ function layoutNodes(raw: RawNode[]): GraphNode[] {
   return out;
 }
 
-/** Concept slug of a node id `<domain>:<slug>:<type>`, normalized for topic matching. */
-function nodeSlug(id: string): string {
-  const seg = id.split(":")[1] ?? "";
-  return seg.trim().toLowerCase().replace(/[\s-]+/g, "_");
+/**
+ * Canonical key for matching a free-text topic against graph node identifiers.
+ * Mirrors the backend `session_signals.normalize_topic` exactly so both sides
+ * land in the same vocabulary (lowercase, spaces and hyphens → underscore).
+ */
+function normTopic(topic: string): string {
+  return topic.trim().toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
+}
+
+/**
+ * Candidate match keys for a node, all normalized via {@link normTopic}.
+ *
+ * The backend `mastery_by_skill` is keyed by the raw `resolve_topic(row)` —
+ * a free-text label that may be the node-id slug, the English title, the
+ * Russian title, or `general`. We therefore derive every plausible key for a
+ * node (id slug + English label + Russian label) so a topic recorded in any of
+ * those vocabularies still binds to the node.
+ */
+function nodeMatchKeys(s: KnowledgeNodeSummary): string[] {
+  const keys = new Set<string>();
+  const slugSeg = s.id.split(":")[1] ?? "";
+  if (slugSeg) keys.add(normTopic(slugSeg));
+  if (s.title_en) keys.add(normTopic(s.title_en));
+  if (s.title) keys.add(normTopic(s.title));
+  return Array.from(keys);
 }
 
 // ── Fallback graph (ported from new_design chat-app-data GRAPH_NODES/EDGES) ──
@@ -258,11 +280,14 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
   // 1. Pull node summaries and real per-student mastery (best-effort).
   const [summaries, mastery] = await Promise.all([
     listKnowledgeNodes({ limit: maxNodes }),
-    getMastery().catch(() => ({ mastery_by_skill: {} as Record<string, number> })),
+    getMastery().catch(() => ({ topics: [] as MasterySignal[] })),
   ]);
-  const masteryMap: Record<string, number> = {};
-  for (const [topic, pk] of Object.entries(mastery.mastery_by_skill ?? {})) {
-    masteryMap[topic.trim().toLowerCase().replace(/[\s-]+/g, "_")] = pk;
+  // Key the per-topic signals by the normalized topic (same vocabulary the
+  // backend uses to match topics against node-id slugs). Keep the full signal
+  // so we recover both p(known) and attempts for each matched node.
+  const masteryMap: Record<string, MasterySignal> = {};
+  for (const sig of mastery.topics ?? []) {
+    masteryMap[normTopic(sig.topic)] = sig;
   }
 
   if (!summaries || summaries.length === 0) {
@@ -272,10 +297,11 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
   // 2. Build base nodes with real per-student mastery (no-data when unpractised).
   const baseNodes = summaries.map((s: KnowledgeNodeSummary) => {
     const d = mapDomain(s.domain);
-    const slug = nodeSlug(s.id);
-    const real = masteryMap[slug];
-    const hasMastery = real !== undefined;
-    const m = hasMastery ? real : 0;
+    // Try every normalized identity of the node against the topic vocabulary.
+    const sig = nodeMatchKeys(s).map((k) => masteryMap[k]).find((v) => v !== undefined);
+    const hasMastery = sig !== undefined;
+    const m = hasMastery ? sig.p_known : 0;
+    const att = hasMastery ? sig.attempts : 0;
     const labEn = s.title_en?.trim() || s.title?.trim() || s.id;
     return {
       id: s.id,
@@ -283,7 +309,7 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
       labRu: s.title?.trim() || labEn,
       d,
       m,
-      att: 0,
+      att,
       difficulty: s.difficulty ?? 0.5,
       hasMastery,
     };
@@ -319,10 +345,12 @@ export async function fetchGraph(maxNodes = 80): Promise<GraphData> {
   });
 
   // 4. Lay out nodes; mark the most-practised as active and the weakest as highlight.
+  //    Both selections consider only nodes with real mastery — unpractised nodes
+  //    all share att=0 / m=0, so including them would make the sort arbitrary.
   const nodes = layoutNodes(baseNodes);
   if (nodes.length) {
     const practised = nodes.filter((n) => n.hasMastery);
-    const active = [...nodes].sort((a, b) => b.att - a.att)[0];
+    const active = [...practised].sort((a, b) => b.att - a.att)[0];
     const weak = [...practised].sort((a, b) => a.m - b.m)[0];
     if (active) active.active = true;
     if (weak && weak.id !== active?.id) weak.highlight = true;
