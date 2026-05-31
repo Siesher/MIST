@@ -5,12 +5,30 @@ from backend.app.services.dreaming_service import DreamingService, _digest_from_
 
 
 class _Row:
-    def __init__(self, topic, is_solved, messages, row_id="s1"):
+    def __init__(
+        self,
+        topic,
+        is_solved,
+        messages,
+        row_id="s1",
+        task_json=None,
+        difficulty=None,
+        mode=None,
+        attempts=0,
+        created_at=None,
+        updated_at=None,
+    ):
         self.id = row_id
         self.topic = topic
         self.is_solved = is_solved
         self.hints_used = 1
         self.messages = messages
+        self.task_json = task_json
+        self.difficulty = difficulty
+        self.mode = mode
+        self.attempts = attempts
+        self.created_at = created_at
+        self.updated_at = updated_at
 
 
 class _Msg:
@@ -62,6 +80,37 @@ def test_digest_from_rows():
     digests = _digest_from_rows(rows)
     assert digests[0].topic == "integrals"
     assert digests[0].solved is True
+
+
+def test_digest_pulls_problem_difficulty_and_transcript():
+    """task_json → real problem/answer/difficulty/subject; messages → marked transcript."""
+    task = json.dumps(
+        {"problem": "∫ x dx", "answer": "x^2/2 + C", "difficulty": "easy", "subject": "math"},
+        ensure_ascii=False,
+    )
+    row = _Row(
+        "integrals",
+        False,
+        [
+            _Msg("user", "x^2/2"),
+            _Msg("tutor", "А константа интегрирования?", "probing", False),
+            _Msg("user", "x^2/2 + C"),
+            _Msg("tutor", "Верно!", "encourage", True),
+        ],
+        task_json=task,
+        mode="guided_learning",
+    )
+    d = _digest_from_rows([row])[0]
+    assert d.problem == "∫ x dx"
+    assert d.answer.startswith("x^2/2")
+    assert d.difficulty == "easy"  # falls back to task difficulty when row.difficulty is None
+    assert d.subject == "math"
+    assert d.mode == "guided_learning"
+    # transcript renders every message with role + Socratic move + ✓/✗ markers
+    assert len(d.transcript) == 4
+    assert any(ln.strip().startswith("ученик") for ln in d.transcript)
+    assert any("[probing]" in ln and "✗" in ln for ln in d.transcript)
+    assert any("[encourage]" in ln and "✓" in ln for ln in d.transcript)
 
 
 def test_digest_extracts_errors_with_truncation():

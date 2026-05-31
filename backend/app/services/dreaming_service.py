@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import uuid
@@ -16,29 +17,109 @@ from src.memory.memory_files import StudentMemoryFiles
 logger = logging.getLogger(__name__)
 
 
-def _digest_from_rows(rows: List[Any]) -> List[SessionDigest]:
-    """Convert ORM session rows into LLM-friendly session digests.
+def _parse_task(task_json: Any) -> dict:
+    """Parse a session's ``task_json`` column into a dict (best-effort)."""
+    if not task_json:
+        return {}
+    if isinstance(task_json, dict):
+        return task_json
+    try:
+        data = json.loads(task_json)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _duration_min(created: Any, updated: Any) -> float:
+    """Minutes between two datetimes; ``0.0`` when unavailable."""
+    try:
+        if created and updated:
+            return max(0.0, (updated - created).total_seconds() / 60.0)
+    except (TypeError, AttributeError):
+        pass
+    return 0.0
+
+
+def _transcript(msgs: List[Any], *, max_msgs: int = 16, per_msg: int = 400) -> List[str]:
+    """Render messages as readable dialogue lines: role + Socratic move + ✓/✗ + content.
+
+    Long conversations keep the head and tail (the arc) with a skip marker between,
+    so the reflection sees how a session opened and how it ended.
 
     Args:
-        rows: Session rows exposing ``topic``, ``is_solved``, ``hints_used`` and
-            a ``messages`` collection (each message may carry ``content`` and
-            ``is_correct``).
+        msgs: Ordered message rows (each may expose ``role``, ``content``,
+            ``move_type``, ``is_correct``).
+        max_msgs: Cap on rendered lines before head/tail truncation kicks in.
+        per_msg: Per-message content character cap.
 
     Returns:
-        A list of :class:`SessionDigest`, one per row, with up to five error
-        excerpts harvested from messages marked ``is_correct == False``.
+        Formatted dialogue lines (indented two spaces).
+    """
+
+    def fmt(m: Any) -> str:
+        role = getattr(m, "role", "") or ""
+        who = "ученик" if role == "user" else ("тьютор" if role == "tutor" else (role or "?"))
+        move = getattr(m, "move_type", None)
+        ok = getattr(m, "is_correct", None)
+        tag = f" [{move}]" if move else ""
+        mark = " ✓" if ok is True else (" ✗" if ok is False else "")
+        content = (getattr(m, "content", "") or "").strip().replace("\n", " ")
+        if len(content) > per_msg:
+            content = content[:per_msg] + "…"
+        return f"  {who}{tag}{mark}: {content}"
+
+    if len(msgs) <= max_msgs:
+        return [fmt(m) for m in msgs]
+    head = max_msgs // 2
+    tail = max_msgs - head
+    lines = [fmt(m) for m in msgs[:head]]
+    lines.append(f"  …(пропущено {len(msgs) - max_msgs} реплик)…")
+    lines.extend(fmt(m) for m in msgs[-tail:])
+    return lines
+
+
+def _digest_from_rows(rows: List[Any]) -> List[SessionDigest]:
+    """Convert ORM session rows into rich, LLM-friendly session digests.
+
+    Pulls everything the reflection can reason over: the real problem and
+    reference answer (from ``task_json``), difficulty / mode / subject, the full
+    dialogue transcript (with Socratic moves and ✓/✗ markers), pacing (duration,
+    turns, attempts, hints) and short excerpts of incorrect messages.
+
+    Args:
+        rows: Session rows (``SessionTable`` or compatible stubs) exposing
+            ``topic``, ``is_solved``, ``hints_used``, ``messages`` and, when
+            available, ``task_json`` / ``difficulty`` / ``mode`` / ``attempts`` /
+            ``created_at`` / ``updated_at``.
+
+    Returns:
+        A list of :class:`SessionDigest`, one per row.
     """
     digests: List[SessionDigest] = []
     for r in rows:
         msgs = list(getattr(r, "messages", []) or [])
+        task = _parse_task(getattr(r, "task_json", None))
+        subject = str(task.get("subject") or "")
+        topic = getattr(r, "topic", None) or task.get("topic") or subject or "general"
+        answer = task.get("answer") or task.get("solution") or ""
         errors = [m.content[:120] for m in msgs if getattr(m, "is_correct", None) is False]
         digests.append(
             SessionDigest(
-                topic=getattr(r, "topic", None) or "general",
+                topic=str(topic),
+                problem=str(task.get("problem") or "")[:600],
+                answer=str(answer)[:300],
+                difficulty=str(getattr(r, "difficulty", None) or task.get("difficulty") or ""),
+                mode=str(getattr(r, "mode", None) or ""),
+                subject=subject,
                 solved=bool(getattr(r, "is_solved", False)),
                 hints=int(getattr(r, "hints_used", 0) or 0),
-                errors=errors[:5],
+                attempts=int(getattr(r, "attempts", 0) or 0),
                 turns=len(msgs),
+                duration_min=_duration_min(
+                    getattr(r, "created_at", None), getattr(r, "updated_at", None)
+                ),
+                transcript=_transcript(msgs),
+                errors=errors[:5],
             )
         )
     return digests

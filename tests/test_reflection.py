@@ -50,3 +50,30 @@ def test_reflection_llm_failure_fallback(tmp_path):
     result = gen.reflect(_digest())
     assert mem.list_dreams()  # fallback still wrote a dream
     assert result.misconceptions == []  # graceful empty
+
+
+def test_reflection_consolidates_profile_not_append(tmp_path):
+    """profile.md is OVERWRITTEN with the consolidated version, not stacked.
+
+    Each dream is handed the existing profile and returns the full merged profile,
+    so repeated passes must not accumulate duplicate paragraphs (the bug we fix).
+    Dreams themselves remain an append-only journal.
+    """
+    mem = StudentMemoryFiles("carol", base_dir=tmp_path)
+
+    ReflectionGenerator(
+        llm=_FakeLLM({"reflection_md": "## сон 1", "profile_md": "ПРОФИЛЬ ВЕРСИЯ A"}),
+        memory=mem,
+    ).reflect(_digest())
+
+    ReflectionGenerator(
+        llm=_FakeLLM(
+            {"reflection_md": "## сон 2", "profile_md": "ПРОФИЛЬ ВЕРСИЯ B (консолидировано)"}
+        ),
+        memory=mem,
+    ).reflect(_digest())
+
+    prof = mem.read_profile()
+    assert prof == "ПРОФИЛЬ ВЕРСИЯ B (консолидировано)"  # overwrite, not stacked
+    assert "ВЕРСИЯ A" not in prof
+    assert len(mem.list_dreams()) == 2  # but both dreams are kept (append-only)

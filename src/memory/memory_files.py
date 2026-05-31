@@ -35,8 +35,14 @@ class StudentMemoryFiles:
 
     # dreams/<ts>.md (append-only reflections)
     def append_dream(self, markdown: str, *, ts: str | None = None) -> Path:
-        stamp = ts or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
+        # Microsecond stamp + collision counter so several dreams written within the
+        # same second do not clobber one another (dreams are an append-only log).
+        stamp = ts or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%f")
         p = self.dreams_dir / f"{stamp}.md"
+        n = 1
+        while p.exists():
+            p = self.dreams_dir / f"{stamp}-{n}.md"
+            n += 1
         p.write_text(markdown, encoding="utf-8")
         return p
 
