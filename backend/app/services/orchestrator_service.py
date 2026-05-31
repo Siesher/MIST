@@ -1294,6 +1294,20 @@ class OrchestratorService:
                 sys_parts: list = []
                 if system_prompt:
                     sys_parts.append(system_prompt)
+                # Dreaming read-back: inject the student's durable profile.md
+                # (consolidated by previous "dreams") so the tutor personalizes
+                # this session. Best-effort — never block a session on memory I/O.
+                try:
+                    from src.memory.memory_files import StudentMemoryFiles
+
+                    _sid = session.user_id or "student_default"
+                    _prof = StudentMemoryFiles(_sid).read_profile()
+                    if _prof:
+                        sys_parts.append(
+                            "Что ты уже знаешь об ученике (из прошлых «снов»):\n" + _prof[:800]
+                        )
+                except Exception as e:
+                    logger.debug(f"memory read-back skipped: {e}")
                 if session.task and session.task.get("problem"):
                     sys_parts.append(f"Задача: {session.task['problem']}")
                 if rag_context is not None:
