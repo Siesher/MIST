@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -35,7 +35,7 @@ class StudentMemoryFiles:
 
     # dreams/<ts>.md (append-only reflections)
     def append_dream(self, markdown: str, *, ts: str | None = None) -> Path:
-        stamp = ts or datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
+        stamp = ts or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
         p = self.dreams_dir / f"{stamp}.md"
         p.write_text(markdown, encoding="utf-8")
         return p
