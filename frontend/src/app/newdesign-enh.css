@@ -593,6 +593,12 @@
   color: #ff6b6b;
   background: color-mix(in srgb, #ff6b6b 14%, transparent);
 }
+/* The delete button is revealed in place of the time, so they never overlap. */
+.session:hover .session-meta,
+.session.active .session-meta {
+  opacity: 0;
+  pointer-events: none;
+}
 
 /* ===== GFM tables rendered from model markdown ===== */
 .msg-body .md-table-wrap {
