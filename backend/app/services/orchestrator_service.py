@@ -1307,7 +1307,9 @@ class OrchestratorService:
                             "Что ты уже знаешь об ученике (из прошлых «снов»):\n" + _prof[:800]
                         )
                 except Exception as e:
-                    logger.debug(f"memory read-back skipped: {e}")
+                    # Log only the exception type — the message may embed the
+                    # student_id (no-PII-in-logs rule).
+                    logger.debug("memory read-back skipped: %s", type(e).__name__)
                 if session.task and session.task.get("problem"):
                     sys_parts.append(f"Задача: {session.task['problem']}")
                 if rag_context is not None:

@@ -778,3 +778,72 @@
 .msg-body .hljs-meta { color: var(--ink-mute); }
 .msg-body .hljs-symbol,
 .msg-body .hljs-bullet { color: #c792ea; }
+
+/* ===== Dreaming: rest-suggestion card (chat) + «Сны» reflections (dashboard) ===== */
+.rest-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  width: calc(100% - 32px);
+  max-width: 720px;
+  margin: 4px auto 12px;
+  padding: 12px 16px;
+  background: var(--accent-tint);
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+  border-radius: 14px;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: restIn 0.32s var(--ease-spring);
+}
+.rest-card > span { flex: 1; min-width: 220px; }
+.theme-midnight .rest-card {
+  background: linear-gradient(135deg, rgba(154, 91, 255, 0.12), rgba(154, 91, 255, 0.04));
+  border-color: rgba(154, 91, 255, 0.24);
+  box-shadow: 0 0 40px rgba(154, 91, 255, 0.08) inset;
+}
+@keyframes restIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* «Сны» reflections — disclosure list inside the dashboard card */
+.dash-card details {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+.theme-midnight .dash-card details {
+  background: rgba(24, 16, 46, 0.4);
+  border-color: var(--line-strong);
+}
+.dash-card details + details { margin-top: 8px; }
+.dash-card details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: var(--accent-soft);
+  transition: background 0.18s var(--ease-out), color 0.18s var(--ease-out);
+}
+.dash-card details > summary::-webkit-details-marker { display: none; }
+.dash-card details > summary::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--ink-mute);
+  transition: transform 0.2s var(--ease-out);
+}
+.dash-card details[open] > summary::before { transform: rotate(90deg); }
+.dash-card details > summary:hover { background: var(--accent-tint); color: var(--ink); }
+.dash-card details > .msg-body {
+  padding: 6px 14px 12px;
+  border-top: 1px solid var(--line);
+}
