@@ -157,6 +157,7 @@ export default function DashboardPage() {
     dreams: { name: string; content: string }[];
   } | null>(null);
   const [dreaming, setDreaming] = useState(false);
+  const [dreamError, setDreamError] = useState<string | null>(null);
 
   // Stable fallback heatmap (computed once).
   const fallbackHeat = useMemo(buildFallbackHeat, []);
@@ -167,12 +168,13 @@ export default function DashboardPage() {
 
   const handleDream = useCallback(async () => {
     setDreaming(true);
+    setDreamError(null);
     try {
       await runDream();
       const next = await getDreamMemory();
       setMem(next);
-    } catch (e) {
-      console.error("Failed to run dream:", e);
+    } catch {
+      setDreamError("Не удалось запустить осмысление — проверьте, что сервер запущен, и попробуйте ещё раз.");
     } finally {
       setDreaming(false);
     }
@@ -561,6 +563,16 @@ export default function DashboardPage() {
                         </div>
                       </details>
                     ))}
+                    {!mem.profile && mem.dreams.length === 0 && !dreamError && (
+                      <div className="msg-body" style={{ opacity: 0.7, fontSize: 14 }}>
+                        Снов пока нет — нажмите «Уснуть сейчас», чтобы я осмыслил ваши сессии и оставил заметки.
+                      </div>
+                    )}
+                    {dreamError && (
+                      <div className="msg-body" style={{ fontSize: 14, color: "var(--error, #e87093)" }}>
+                        {dreamError}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

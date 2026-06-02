@@ -567,14 +567,16 @@ function ChatRail({ sessionId }: { sessionId: string }) {
 function RestCard({ onClose }: { onClose: () => void }) {
   const [dreaming, setDreaming] = useState(false);
   const [dreamReport, setDreamReport] = useState<DreamReport | null>(null);
+  const [dreamErr, setDreamErr] = useState(false);
 
   const sleep = async () => {
     setDreaming(true);
+    setDreamErr(false);
     try {
       const r = await runDream();
       setDreamReport(r);
-    } catch (error) {
-      console.error("Failed to run dream:", error);
+    } catch {
+      setDreamErr(true);
     } finally {
       setDreaming(false);
     }
@@ -591,7 +593,11 @@ function RestCard({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="rest-card">
-      <span>Хочешь передохнуть? Я пока обдумаю твои сессии 💤</span>
+      <span>
+        {dreamErr
+          ? "Не удалось осмыслить сейчас — проверьте сервер и попробуйте ещё раз."
+          : "Хочешь передохнуть? Я пока обдумаю твои сессии 💤"}
+      </span>
       <button className="btn-primary" disabled={dreaming} onClick={sleep}>
         {dreaming ? "Сплю…" : "Отдохнуть и осмыслить"}
       </button>
