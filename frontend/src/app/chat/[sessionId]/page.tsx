@@ -24,10 +24,22 @@ export default function ChatPage() {
   const setSessionMode = useChatStore((s) => s.setSessionMode);
   const [task, setTask] = useState<TaskInfo | undefined>(undefined);
 
-  const { sendMessage, requestHint, changeMode } = useChat({
+  const { sendMessage, requestHint, changeMode, wsConnected } = useChat({
     sessionId,
     useStreaming: true,
   });
+
+  // Surface a "reconnecting" banner only after a real outage — the grace period
+  // avoids a flash during the normal sub-second initial WebSocket handshake.
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    if (wsConnected) {
+      setOffline(false);
+      return;
+    }
+    const id = setTimeout(() => setOffline(true), 2500);
+    return () => clearTimeout(id);
+  }, [wsConnected]);
 
   useEffect(() => {
     setActiveSession(sessionId);
@@ -67,6 +79,7 @@ export default function ChatPage() {
         onHintRequest={requestHint}
         onModeChange={changeMode}
         task={task}
+        connectionLost={offline}
       />
     </NewAppShell>
   );

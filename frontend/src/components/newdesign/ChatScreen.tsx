@@ -462,7 +462,13 @@ function Composer({
               autoSize();
             }}
             onKeyDown={onKeyDown}
-            placeholder={t("input_placeholder")}
+            placeholder={t(
+              current.id === "task_generator"
+                ? "input_placeholder_task"
+                : current.id === "guided_learning"
+                  ? "input_placeholder_guided"
+                  : "input_placeholder",
+            )}
             rows={1}
           />
           <div className="composer-tools">
@@ -601,9 +607,11 @@ interface ChatScreenProps {
   onHintRequest: () => void;
   onModeChange: (m: ChatMode) => void;
   task?: { topic?: string; difficulty?: string | null; problem?: string };
+  connectionLost?: boolean;
 }
 
-export function ChatMain({ sessionId, onSendMessage, onHintRequest, onModeChange, task }: ChatScreenProps) {
+export function ChatMain({ sessionId, onSendMessage, onHintRequest, onModeChange, task, connectionLost }: ChatScreenProps) {
+  const { t } = useI18n();
   const mode = useChatStore((s) => s.sessionModes[sessionId] ?? "guided_learning");
   const isStreaming = useChatStore((s) => s.isStreaming);
   const isLoading = useChatStore((s) => s.isLoading);
@@ -631,6 +639,35 @@ export function ChatMain({ sessionId, onSendMessage, onHintRequest, onModeChange
   return (
     <main className="main">
       <TopBar title={title} subtitle={subtitle} />
+      {connectionLost && (
+        <div
+          role="status"
+          style={{
+            margin: "0 24px 6px",
+            padding: "8px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            color: "var(--ink)",
+            background: "color-mix(in oklab, var(--warning, #f5a623) 13%, var(--bg))",
+            border: "1px solid color-mix(in oklab, var(--warning, #f5a623) 38%, var(--line))",
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: "var(--warning, #f5a623)",
+              animation: "pulse 1.2s infinite",
+              flex: "0 0 auto",
+            }}
+          />
+          {t("ws_reconnecting")}
+        </div>
+      )}
       <AgentFlow active={isStreaming || isLoading} />
       <MessageList sessionId={sessionId} task={task} />
       {restOpen && <RestCard onClose={closeRest} />}
