@@ -28,10 +28,8 @@
     "react": "^18",
     "react-activity-calendar": "^3.1.1",
     "react-dom": "^18",
-    "react-markdown": "^10.1.0",
     "react-plotly.js": "^2.6.0",
     "recharts": "^3.7.0",
-    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.11"

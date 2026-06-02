@@ -150,9 +150,26 @@ class Misconception:
             remediation_strategy=data.get("remediation_strategy", "scaffolding"),
             example_ru=data.get("example_ru", ""),
             example_en=data.get("example_en", ""),
-            severity=float(data.get("severity", 0.5)),
+            severity=_parse_severity(data.get("severity", 0.5)),
             frequency=data.get("frequency", "common"),
         )
+
+
+def _parse_severity(value: Any) -> float:
+    """Normalize a misconception severity into a [0, 1] weight for RAG ranking.
+
+    Accepts a number (clamped to [0, 1]) or a string label ('high'/'medium'/'low').
+    Fixes the crash where the data file stores ``"severity": "high"`` and the old
+    code did ``float("high")`` → ValueError, silently degrading every misconception.
+    """
+    if isinstance(value, (int, float)):
+        return max(0.0, min(1.0, float(value)))
+    label = str(value).strip().lower()
+    # String labels → [0, 1] ranking weights, strictly ordered so RAG surfaces
+    # the most severe misconceptions first. "medium" coincides with the 0.5
+    # fallback used for unknown/missing labels — i.e. neutral severity.
+    severity_map: Dict[str, float] = {"high": 0.9, "medium": 0.5, "low": 0.2}
+    return severity_map.get(label, 0.5)
 
 
 @dataclass

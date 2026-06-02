@@ -7,6 +7,7 @@ Main entry point for the tutoring API server.
 import logging
 import os
 import sys
+from contextlib import asynccontextmanager
 
 # Add project root to path for src/ imports
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -29,6 +30,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup then shutdown (replaces deprecated on_event)."""
+    logger.info("Starting MITS API server...")
+    await init_db()
+    logger.info("Database initialized")
+    await get_orchestrator_service()
+    logger.info("MITS API server ready")
+    yield
+    await close_db()
+    logger.info("MITS API server shut down")
+
+
 # Create app
 app = FastAPI(
     title="MITS API",
@@ -36,6 +51,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS
@@ -83,23 +99,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         },
         headers=headers,
     )
-
-
-@app.on_event("startup")
-async def startup():
-    """Initialize services on startup."""
-    logger.info("Starting MITS API server...")
-    await init_db()
-    logger.info("Database initialized")
-    service = await get_orchestrator_service()
-    logger.info("MITS API server ready")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    """Cleanup on shutdown."""
-    await close_db()
-    logger.info("MITS API server shut down")
 
 
 if __name__ == "__main__":

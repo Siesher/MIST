@@ -51,6 +51,9 @@ data/training/*
 !data/training/.gitkeep
 training/calibration_data/*
 !training/calibration_data/.gitkeep
+# Per-student runtime data (memory files, dreaming reflections — regenerated at runtime)
+data/students/*
+!data/students/.gitkeep
 *.db
 *.sqlite
 
