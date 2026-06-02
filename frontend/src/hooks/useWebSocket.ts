@@ -42,11 +42,9 @@ export function useWebSocket({
     }
 
     const url = getWebSocketUrl(sessionId);
-    console.log("[WS] Connecting to:", url);
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
-      console.log("[WS] Connected");
       setConnected(true);
       reconnectAttempts.current = 0;
     };
@@ -54,23 +52,18 @@ export function useWebSocket({
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as WSServerMessage;
-        if (data.type === "token" && data.content) {
-          console.log("[WS] Token:", data.content.substring(0, 20));
-        }
         // Use setTimeout to prevent React batching and ensure immediate render
         setTimeout(() => onMessageRef.current(data), 0);
       } catch {
-        console.error("[WS] Failed to parse message:", event.data);
+        // ignore malformed frames
       }
     };
 
     ws.onerror = (event) => {
-      console.error("[WS] Error:", event);
       onErrorRef.current?.(event);
     };
 
     ws.onclose = (event) => {
-      console.log("[WS] Closed:", event.code, event.reason);
       setConnected(false);
       onCloseRef.current?.(event);
 
@@ -80,12 +73,8 @@ export function useWebSocket({
         event.code !== 1008 &&
         reconnectAttempts.current < maxReconnectAttempts
       ) {
-        const delay = Math.min(
-          1000 * Math.pow(2, reconnectAttempts.current),
-          30000,
-        );
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
         reconnectAttempts.current++;
-        console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
         setTimeout(connect, delay);
       }
     };
@@ -96,7 +85,6 @@ export function useWebSocket({
   useEffect(() => {
     connect();
     return () => {
-      console.log("[WS] Cleanup - closing connection");
       wsRef.current?.close(1000);
     };
   }, [connect]);
@@ -122,14 +110,11 @@ export function useWebSocket({
     send({ type: "hint_request" });
   }, [send]);
 
-  const sendRaw = useCallback(
-    (data: Record<string, unknown>) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify(data));
-      }
-    },
-    [],
-  );
+  const sendRaw = useCallback((data: Record<string, unknown>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(data));
+    }
+  }, []);
 
   return {
     connected,

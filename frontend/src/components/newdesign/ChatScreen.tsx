@@ -198,7 +198,9 @@ function Message({ m }: { m: MessageType }) {
 // ---------- Live streaming message (thinking + answer + cursor) ----------
 function StreamingMessage() {
   const sm = useChatStore((s) => s.streamingMessage);
-  const [thinkOpen, setThinkOpen] = useState(true);
+  // Collapsed by default: a long reasoning trace must not push the actual
+  // answer off-screen while tokens stream (matches the persisted-message variant).
+  const [thinkOpen, setThinkOpen] = useState(false);
   const { t } = useI18n();
   if (!sm) return null;
   const hasThinking = !!sm.thinkingContent;
@@ -397,14 +399,16 @@ function Composer({
               </div>
             )}
           </div>
-          <button className="hint-btn" onClick={onHint} disabled={hintsRemaining <= 0}>
-            <svg viewBox="0 0 12 12" width="11" height="11" fill="currentColor">
-              <circle cx="6" cy="6" r="5" opacity="0.2" />
-              <circle cx="6" cy="6" r="2" />
-            </svg>
-            <span>{t("hint_btn")}</span>
-            <span style={{ opacity: 0.7 }}>· {hintsRemaining} {t("hints_left")}</span>
-          </button>
+          {current.id === "guided_learning" && (
+            <button className="hint-btn" onClick={onHint} disabled={hintsRemaining <= 0}>
+              <svg viewBox="0 0 12 12" width="11" height="11" fill="currentColor">
+                <circle cx="6" cy="6" r="5" opacity="0.2" />
+                <circle cx="6" cy="6" r="2" />
+              </svg>
+              <span>{t("hint_btn")}</span>
+              <span style={{ opacity: 0.7 }}>· {hintsRemaining} {t("hints_left")}</span>
+            </button>
+          )}
         </div>
         {(ingesting || attached || attachError) && (
           <div
@@ -477,9 +481,6 @@ function Composer({
               style={{ display: "none" }}
               onChange={handleFile}
             />
-            <button className="tool-btn" title={t("voice")} type="button">
-              {Icon.mic}
-            </button>
             <button
               className="send-btn magnetic"
               onClick={submit}

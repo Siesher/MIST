@@ -176,8 +176,11 @@ export default function GraphPage() {
       try {
         const g = await fetchGraph();
         if (!cancelled) {
-          setData(g);
-          setSelected(defaultSelected(g));
+          // Empty live graph (fresh account) → show the curated sample instead
+          // of a phantom-selected empty graph (HUD 0/0 with a ghost node).
+          const safe = g.nodes.length > 0 ? g : FALLBACK_DATA;
+          setData(safe);
+          setSelected(defaultSelected(safe));
         }
       } catch {
         if (!cancelled) {

@@ -25,17 +25,14 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
 
   const handleWSMessage = useCallback(
     (msg: WSServerMessage) => {
-      console.log("[Chat] Handling WS message:", msg.type);
       switch (msg.type) {
         case "connection_ready":
-          console.log("[Chat] Connection ready, session state:", msg.session_state);
           setSessionState(sessionId, msg.session_state);
           break;
 
         case "token": {
           const state = useChatStore.getState();
           if (!state.isStreaming) {
-            console.log("[Chat] Starting streaming, isThinking:", msg.is_thinking);
             setIsStreaming(true);
             setIsLoading(false);
           }
@@ -44,7 +41,6 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
         }
 
         case "response_complete": {
-          console.log("[Chat] Response complete");
           // Capture accumulated reasoning before clearing the stream so it stays
           // viewable on the persisted message (even after the answer).
           const reasoning = useChatStore.getState().streamingMessage?.thinkingContent || "";
@@ -82,7 +78,6 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
         }
 
         case "mode_changed": {
-          console.log("[Chat] Mode changed:", msg.previous_mode, "->", msg.current_mode);
           setSessionMode(sessionId, msg.current_mode as ChatMode);
           if (msg.message) {
             const systemMsg: Message = {
@@ -101,7 +96,6 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
         case "suggest_rest":
           // Cognitive overload flagged by the profiler → offer a "sleep & reflect"
           // break. ChatScreen reconciles this with the idle timer into one card.
-          console.log("[Chat] Rest suggested, reason:", msg.reason);
           setRestSuggested(true);
           break;
 
@@ -109,7 +103,6 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
           setIsStreaming(false);
           setIsLoading(false);
           setStreamingMessage(null);
-          console.error("WebSocket error:", msg.code, msg.message);
           break;
 
         case "knowledge_update":
@@ -162,9 +155,8 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
           };
           addMessage(sessionId, tutorMsg);
           setSessionState(sessionId, result.session_state);
-        } catch (error) {
+        } catch {
           setIsLoading(false);
-          console.error("Failed to send message:", error);
         }
       }
     },
@@ -186,8 +178,8 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
           move_type: "hint",
         };
         addMessage(sessionId, hintMsg);
-      } catch (error) {
-        console.error("Failed to get hint:", error);
+      } catch {
+        /* hint unavailable */
       }
     }
   }, [sessionId, useStreaming, wsConnected, wsRequestHint, addMessage]);
@@ -217,8 +209,8 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ mode }),
           });
-        } catch (error) {
-          console.error("Failed to change mode:", error);
+        } catch {
+          /* mode change failed */
         }
       }
     },
