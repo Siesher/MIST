@@ -515,10 +515,17 @@ class OrchestratorService:
             }
         elif topic and self._task_generator:
             try:
+                import asyncio
+
                 from src.data.schemas import Difficulty as DiffEnum
 
                 diff = DiffEnum(difficulty) if difficulty else DiffEnum.MEDIUM
-                task = self._task_generator.generate_task(topic=topic, difficulty=diff)
+                # Offload the blocking LLM task generation so creating a session does
+                # not freeze the event loop for every other concurrent user.
+                loop = asyncio.get_running_loop()
+                task = await loop.run_in_executor(
+                    None, lambda: self._task_generator.generate_task(topic=topic, difficulty=diff)
+                )
                 task_data = {
                     "id": task.id,
                     "topic": task.topic,
@@ -1630,10 +1637,17 @@ class OrchestratorService:
         """Generate a new task."""
         if self._task_generator:
             try:
+                import asyncio
+
                 from src.data.schemas import Difficulty as DiffEnum
 
                 diff = DiffEnum(difficulty)
-                task = self._task_generator.generate_task(topic=topic, difficulty=diff)
+                # generate_task is a blocking, LLM-bound sync call. Run it off the event
+                # loop (thread pool) so one generation can't freeze every concurrent user.
+                loop = asyncio.get_running_loop()
+                task = await loop.run_in_executor(
+                    None, lambda: self._task_generator.generate_task(topic=topic, difficulty=diff)
+                )
                 return {
                     "id": task.id,
                     "topic": task.topic,

@@ -1,5 +1,6 @@
 """SQLAlchemy async engine and session factory."""
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -9,6 +10,22 @@ engine = create_async_engine(
     backend_settings.DATABASE_URL,
     echo=backend_settings.DEBUG,
 )
+
+if backend_settings.DATABASE_URL.startswith("sqlite"):
+    # SQLite is single-writer; with the stock config (rollback journal,
+    # busy_timeout=0) concurrent users collide instantly ("database is locked")
+    # and pile up under async fan-out. WAL lets readers run alongside one writer,
+    # busy_timeout makes a writer WAIT for the lock instead of failing, and
+    # synchronous=NORMAL is the safe+fast pairing with WAL. PRAGMAs are
+    # connection-scoped, so set them on every new connection.
+    @event.listens_for(engine.sync_engine, "connect")
+    def _sqlite_concurrency_pragmas(dbapi_conn, _rec):  # noqa: ANN001
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.close()
+
 
 async_session_factory = async_sessionmaker(
     engine,
