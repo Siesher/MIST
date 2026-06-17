@@ -306,9 +306,7 @@ class OrchestratorService:
                         "model": cfg.hf_model_path,
                         "turbo_quant": cfg.turbo_quant_enabled,
                         "key_bits": cfg.turbo_quant_key_bits if cfg.turbo_quant_enabled else None,
-                        "value_bits": cfg.turbo_quant_value_bits
-                        if cfg.turbo_quant_enabled
-                        else None,
+                        "value_bits": cfg.turbo_quant_value_bits if cfg.turbo_quant_enabled else None,
                         "context_length": cfg.context_length,
                         "display_name": cfg.display_name,
                     }
@@ -347,9 +345,7 @@ class OrchestratorService:
                         selection = select_model(hw)
                         if selection["available"]:
                             model_name = selection["name"]
-                            logger.info(
-                                f"Auto-selected model: {model_name} ({selection['reason']})"
-                            )
+                            logger.info(f"Auto-selected model: {model_name} ({selection['reason']})")
                         else:
                             logger.info(
                                 f"Auto-selected model {selection['name']} not available, falling back to config"
@@ -357,11 +353,7 @@ class OrchestratorService:
                     except Exception as e:
                         logger.warning(f"Hardware auto-detection failed: {e}")
 
-                if (
-                    model_name is None
-                    and backend_settings.USE_FINETUNED
-                    and backend_settings.MODEL_FINETUNED
-                ):
+                if model_name is None and backend_settings.USE_FINETUNED and backend_settings.MODEL_FINETUNED:
                     model_name = backend_settings.MODEL_FINETUNED
                     logger.info(f"Using fine-tuned model: {model_name}")
                 elif model_name is None and backend_settings.MODEL_NAME:
@@ -434,9 +426,7 @@ class OrchestratorService:
         except Exception:
             return ""
 
-    async def change_mode(
-        self, db: AsyncSession, session_id: str, new_mode: str
-    ) -> Optional[Dict[str, Any]]:
+    async def change_mode(self, db: AsyncSession, session_id: str, new_mode: str) -> Optional[Dict[str, Any]]:
         """Change the mode of an existing session."""
         row = await db.get(SessionTable, session_id)
         if not row:
@@ -507,8 +497,7 @@ class OrchestratorService:
                 if group_info:
                     session_mode = group_info["forced_mode"]
                     logger.info(
-                        f"Experiment override: user={user_id}, "
-                        f"group={group_info['group']}, mode={session_mode}"
+                        f"Experiment override: user={user_id}, group={group_info['group']}, mode={session_mode}"
                     )
             except Exception as e:
                 logger.debug(f"Experiment group check skipped: {e}")
@@ -533,9 +522,7 @@ class OrchestratorService:
                 task_data = {
                     "id": task.id,
                     "topic": task.topic,
-                    "difficulty": task.difficulty.value
-                    if hasattr(task.difficulty, "value")
-                    else str(task.difficulty),
+                    "difficulty": task.difficulty.value if hasattr(task.difficulty, "value") else str(task.difficulty),
                     "problem": task.problem,
                     "hints": task.hints[:3],
                     "skills": task.skills,
@@ -553,22 +540,6 @@ class OrchestratorService:
                 problem=task_data["problem"] if task_data else None,
                 topic=topic,
             )
-
-        # Trigger background hint prefetch for the new task
-        if task_data and topic:
-            try:
-                from src.inference.hint_prefetcher import get_hint_prefetcher
-
-                prefetcher = get_hint_prefetcher()
-                if not prefetcher._running:
-                    prefetcher.start()
-                prefetcher.prefetch_for_problem(
-                    problem=task_data.get("problem", ""),
-                    topic=topic,
-                    hints=task_data.get("hints", []),
-                )
-            except Exception as e:
-                logger.debug(f"Hint prefetch skipped: {e}")
 
         # Persist to DB
         row = SessionTable(
@@ -637,9 +608,7 @@ class OrchestratorService:
         )
         return session
 
-    def _generate_welcome(
-        self, topic: Optional[str], task: Optional[Dict], mode: str = "guided_learning"
-    ) -> str:
+    def _generate_welcome(self, topic: Optional[str], task: Optional[Dict], mode: str = "guided_learning") -> str:
         """Generate a mode-specific welcome message."""
         if mode == "chat":
             return "Привет! Я твой ассистент. Спрашивай о чём угодно — математика, программирование, наука или любая другая тема."
@@ -668,14 +637,22 @@ class OrchestratorService:
         limit: int = 20,
         status: Optional[str] = None,
         user_id: Optional[str] = None,
+        anonymous_only: bool = False,
     ) -> Dict[str, Any]:
-        """List sessions with pagination."""
+        """List sessions with pagination.
+
+        anonymous_only=True ограничивает выдачу сессиями без владельца
+        (user_id IS NULL) — чтобы аноним не видел чужие пользовательские сессии.
+        """
         query = select(SessionTable)
         count_query = select(sa_func.count(SessionTable.id))
 
         if user_id:
             query = query.where(SessionTable.user_id == user_id)
             count_query = count_query.where(SessionTable.user_id == user_id)
+        elif anonymous_only:
+            query = query.where(SessionTable.user_id.is_(None))
+            count_query = count_query.where(SessionTable.user_id.is_(None))
         if status:
             query = query.where(SessionTable.status == status)
             count_query = count_query.where(SessionTable.status == status)
@@ -701,11 +678,7 @@ class OrchestratorService:
 
     async def get_session(self, db: AsyncSession, session_id: str) -> Optional[StoredSession]:
         """Get session by ID with messages."""
-        query = (
-            select(SessionTable)
-            .options(selectinload(SessionTable.messages))
-            .where(SessionTable.id == session_id)
-        )
+        query = select(SessionTable).options(selectinload(SessionTable.messages)).where(SessionTable.id == session_id)
         result = await db.execute(query)
         row = result.scalar_one_or_none()
         if not row:
@@ -740,9 +713,7 @@ class OrchestratorService:
                 is_correct=msg.is_correct,
                 thinking=msg.thinking,
                 timestamp=msg.timestamp,
-                citations_json=(
-                    json.dumps(msg.citations, ensure_ascii=False) if msg.citations else None
-                ),
+                citations_json=(json.dumps(msg.citations, ensure_ascii=False) if msg.citations else None),
             )
         )
 
@@ -764,111 +735,61 @@ class OrchestratorService:
             values["is_solved"] = is_solved
         await db.execute(update(SessionTable).where(SessionTable.id == session_id).values(**values))
 
-    async def process_message(
-        self, db: AsyncSession, session_id: str, content: str
-    ) -> Optional[Dict[str, Any]]:
-        """Process a student message and return tutor response."""
+    async def process_message(self, db: AsyncSession, session_id: str, content: str) -> Optional[Dict[str, Any]]:
+        """Process a student message and return the tutor response (non-streaming).
+
+        Delegates to ``process_message_stream`` and drains its frames, so the REST
+        path runs the SAME agentic pipeline (source tools / navigator / web) as the
+        WebSocket path. Before this, REST used the classic non-agentic orchestrator
+        and could not see uploaded sources — a message sent over REST got a generic
+        "I can't access files" refusal even when a source was loaded. The stream
+        already appends/saves the student message and persists the tutor reply, so
+        here we only assemble the final response object (do NOT re-append).
+        """
         session = await self.get_session(db, session_id)
         if not session:
             return None
 
-        now = datetime.utcnow()
+        visible_parts: list[str] = []
+        thinking_parts: list[str] = []
+        final: Optional[Dict[str, Any]] = None
 
-        # Add student message
-        student_msg = StoredMessage(
-            id=str(uuid.uuid4()),
-            role="user",
-            content=content,
-            timestamp=now,
-        )
-        session.messages.append(student_msg)
-        session.attempts += 1
-
-        await self._save_message(db, session_id, student_msg)
-        await self._update_session_state(db, session_id, attempts=session.attempts)
-
-        # Process through orchestrator
-        tutor_content = ""
-        move_type = "scaffolding"
-        is_correct = None
-        thinking = None
-
-        if self._orchestrator:
-            try:
-                from src.agents.orchestrator import TurnContext
-
-                history = [
-                    {"role": m.role if m.role != "tutor" else "assistant", "content": m.content}
-                    for m in session.messages[-24:]
-                ]
-
-                context = TurnContext(
-                    problem=session.task["problem"] if session.task else "",
-                    student_input=content,
-                    correct_answer=session.task.get("answer") if session.task else None,
-                    history=history,
-                    student_id="student_default",
-                    topic=session.topic,
+        async for frame in self.process_message_stream(db, session_id, content):
+            ftype = frame.get("type")
+            if ftype == "token":
+                # The stream separates the reasoning channel via is_thinking.
+                if frame.get("is_thinking"):
+                    thinking_parts.append(frame.get("content", ""))
+                else:
+                    visible_parts.append(frame.get("content", ""))
+            elif ftype == "response_complete":
+                # Terminal frame: carries message_id + response + session_state.
+                final = frame
+            elif ftype == "error":
+                # Generation failed mid-stream. Log the cause (no PII) and stop;
+                # `final` stays None → we return None → the endpoint surfaces a 500
+                # rather than handing the client a truncated half-reply.
+                logger.warning(
+                    "process_message stream error [%s]: %s",
+                    frame.get("code"),
+                    frame.get("message"),
                 )
+                break
 
-                result = self._orchestrator.process_turn(context, session_id=session_id)
-                tutor_content = result.response
-                move_type = result.move_type
+        if final is None:
+            return None
 
-                verified = _verify_student_answer(content, session.task)
-                if verified is True:
-                    is_correct = True
-                    session.is_solved = True
-                elif verified is False:
-                    is_correct = False
-
-                if result.pipeline_trace:
-                    thinking = result.pipeline_trace.summary()
-
-            except Exception as e:
-                logger.error(f"Orchestrator error: {e}")
-                tutor_content = (
-                    "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
-                )
-                move_type = "scaffolding"
-        else:
-            tutor_content = (
-                "Хороший вопрос! Давай подумаем вместе. Какие формулы ты знаешь по этой теме?"
-            )
-            move_type = "scaffolding"
-
-        # Parse thinking tags from response (Qwen3 / GLM)
-        from backend.app.config import backend_settings
-
-        visible_content, parsed_thinking = parse_thinking_tags(tutor_content)
-        if parsed_thinking and not thinking:
-            thinking = parsed_thinking
-        display_content = visible_content if not backend_settings.SHOW_THINKING else tutor_content
-
-        # Add tutor response
-        tutor_msg = StoredMessage(
-            id=str(uuid.uuid4()),
-            role="tutor",
-            content=display_content,
-            timestamp=datetime.utcnow(),
-            move_type=move_type,
-            is_correct=is_correct,
-            thinking=thinking,
-        )
-        await self._save_message(db, session_id, tutor_msg)
-        if session.is_solved:
-            await self._update_session_state(db, session_id, is_solved=True)
-        await db.commit()
-
+        resp = final.get("response") or {}
         return {
-            "message_id": tutor_msg.id,
+            "message_id": final.get("message_id"),
             "tutor_response": {
-                "content": display_content,
-                "move_type": move_type,
-                "is_correct": is_correct,
-                "thinking": thinking,
+                "content": resp.get("content") or "".join(visible_parts),
+                "move_type": resp.get("move_type", "scaffolding"),
+                "is_correct": resp.get("is_correct"),
+                "thinking": "".join(thinking_parts) or None,
             },
-            "session_state": {
+            "session_state": final.get("session_state")
+            or {
                 "is_solved": session.is_solved,
                 "hints_used": session.hints_used,
                 "attempts": session.attempts,
@@ -905,10 +826,7 @@ class OrchestratorService:
             )
             if cached:
                 hint_text = cached
-                logger.info(
-                    f"Hint cache hit (topic={session.topic}, level={level}, "
-                    f"idx={session.hints_used})"
-                )
+                logger.info(f"Hint cache hit (topic={session.topic}, level={level}, idx={session.hints_used})")
         except Exception as e:
             logger.debug(f"Hint prefetch lookup skipped: {e}")
 
@@ -1051,9 +969,7 @@ class OrchestratorService:
                 from backend.app.services.cache_service import get_cache_service
 
                 cache = get_cache_service()
-                cached_response = cache.get(
-                    content, session.mode, context_key=_dialog_cache_key(session)
-                )
+                cached_response = cache.get(content, session.mode, context_key=_dialog_cache_key(session))
                 _cache_span.set_attr("cache.hit", cached_response is not None)
             except Exception:
                 cache = None
@@ -1131,9 +1047,7 @@ class OrchestratorService:
                             }
                             for m in session.messages
                         ]
-                        compressed_msgs, compression_info = compress_if_needed(
-                            session_id, full_history
-                        )
+                        compressed_msgs, compression_info = compress_if_needed(session_id, full_history)
                         if compression_info:
                             history = compressed_msgs
                             logger.info(
@@ -1303,9 +1217,7 @@ class OrchestratorService:
                     _sid = session.user_id or "student_default"
                     _prof = StudentMemoryFiles(_sid).read_profile()
                     if _prof:
-                        sys_parts.append(
-                            "Что ты уже знаешь об ученике (из прошлых «снов»):\n" + _prof[:800]
-                        )
+                        sys_parts.append("Что ты уже знаешь об ученике (из прошлых «снов»):\n" + _prof[:800])
                 except Exception as e:
                     # Log only the exception type — the message may embed the
                     # student_id (no-PII-in-logs rule).
@@ -1325,9 +1237,7 @@ class OrchestratorService:
                 if profile is not None and getattr(profile, "knowledge_gaps", None):
                     _diag.append("пробелы: " + ", ".join(profile.knowledge_gaps[:3]))
                 if _diag:
-                    sys_parts.append(
-                        "Диагностика (для тебя, не озвучивай дословно): " + "; ".join(_diag)
-                    )
+                    sys_parts.append("Диагностика (для тебя, не озвучивай дословно): " + "; ".join(_diag))
                 if sys_parts:
                     chat_messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
                 _dialogue = list(session.messages[-24:])
@@ -1432,7 +1342,7 @@ class OrchestratorService:
                 import concurrent.futures
 
                 queue: asyncio.Queue = asyncio.Queue()
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
 
                 # Decide iterator: chat-mode with tools → agentic loop; else → plain stream.
                 use_tools = (
@@ -1481,18 +1391,14 @@ class OrchestratorService:
                                     content_count += 1
                                     if content_count == 1:
                                         logger.info("First content token from LLM")
-                                loop.call_soon_threadsafe(
-                                    queue.put_nowait, (token_type, token_content)
-                                )
+                                loop.call_soon_threadsafe(queue.put_nowait, (token_type, token_content))
                             else:
                                 # Legacy string format
                                 content_count += 1
                                 if content_count == 1:
                                     logger.info("First token received from LLM")
                                 loop.call_soon_threadsafe(queue.put_nowait, ("content", item))
-                        logger.info(
-                            f"LLM complete: {thinking_count} thinking + {content_count} content tokens"
-                        )
+                        logger.info(f"LLM complete: {thinking_count} thinking + {content_count} content tokens")
                     except Exception as e:
                         logger.error(f"LLM producer error: {e}")
                         loop.call_soon_threadsafe(queue.put_nowait, Exception(f"LLM error: {e}"))
@@ -1500,43 +1406,44 @@ class OrchestratorService:
                         loop.call_soon_threadsafe(queue.put_nowait, None)
 
                 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                executor.submit(producer)
+                try:
+                    executor.submit(producer)
 
-                # Real streaming: yield each token as it arrives
-                while True:
-                    item = await queue.get()
-                    if item is None:
-                        break
-                    if isinstance(item, Exception):
-                        raise item
+                    # Real streaming: yield each token as it arrives
+                    while True:
+                        item = await queue.get()
+                        if item is None:
+                            break
+                        if isinstance(item, Exception):
+                            raise item
 
-                    # Handle tuple format: (type, content)
-                    if isinstance(item, tuple) and len(item) == 2:
-                        token_type, token_content = item
-                        is_thinking = token_type == "thinking"
-                        if not is_thinking:
-                            full_response += token_content
-                        yield {
-                            "type": "token",
-                            "content": token_content,
-                            "is_thinking": is_thinking,
-                        }
-                    else:
-                        # Legacy format
-                        full_response += item
-                        yield {
-                            "type": "token",
-                            "content": item,
-                            "is_thinking": False,
-                        }
-
-                executor.shutdown(wait=False)
+                        # Handle tuple format: (type, content)
+                        if isinstance(item, tuple) and len(item) == 2:
+                            token_type, token_content = item
+                            is_thinking = token_type == "thinking"
+                            if not is_thinking:
+                                full_response += token_content
+                            yield {
+                                "type": "token",
+                                "content": token_content,
+                                "is_thinking": is_thinking,
+                            }
+                        else:
+                            # Legacy format
+                            full_response += item
+                            yield {
+                                "type": "token",
+                                "content": item,
+                                "is_thinking": False,
+                            }
+                finally:
+                    # wait=False: producer мог зависнуть на LLM — не блокируем event loop;
+                    # без finally упавший стрим утекал по одному потоку на запрос
+                    executor.shutdown(wait=False)
 
             except Exception as e:
                 logger.error(f"LLM streaming error: {e}")
-                full_response = (
-                    "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
-                )
+                full_response = "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно?"
                 yield {
                     "type": "token",
                     "content": full_response,
@@ -1710,8 +1617,7 @@ class OrchestratorService:
                 # well-formed static list below — avoids a 500 in /tasks/topics
                 # when the bank returns a different shape (e.g. plain strings).
                 if bank_topics and all(
-                    isinstance(t, dict)
-                    and {"id", "name", "name_ru", "difficulties"} <= set(t.keys())
+                    isinstance(t, dict) and {"id", "name", "name_ru", "difficulties"} <= set(t.keys())
                     for t in bank_topics
                 ):
                     return bank_topics
@@ -1720,9 +1626,7 @@ class OrchestratorService:
 
         return topics
 
-    async def generate_task(
-        self, topic: str, difficulty: str, avoid_recent: bool = True
-    ) -> Optional[Dict[str, Any]]:
+    async def generate_task(self, topic: str, difficulty: str, avoid_recent: bool = True) -> Optional[Dict[str, Any]]:
         """Generate a new task."""
         if self._task_generator:
             try:
@@ -1742,18 +1646,81 @@ class OrchestratorService:
                 logger.error(f"Task generation failed: {e}")
         return None
 
-    def get_recommended_tasks(self, count: int = 5) -> Dict[str, Any]:
-        """Get recommended tasks based on student profile."""
-        return {
-            "tasks": [],
-            "reasoning": "Рекомендации основаны на вашем текущем уровне знаний.",
-        }
+    async def get_recommended_tasks(
+        self, db: AsyncSession, user_id: Optional[str] = None, count: int = 5
+    ) -> Dict[str, Any]:
+        """Recommend tasks personalized by mastery (BKT-style session history).
+
+        Ranks the available task topics by the student's latest mastery — weakest
+        first (the learning zone) — scales difficulty to that mastery, then
+        generates a real task per top topic. New/anonymous students (no history)
+        fall back to a foundational topic order. Generation is bounded (≤3) to keep
+        endpoint latency sane.
+        """
+        topics = self.get_available_topics()  # [{id, name, name_ru, difficulties}]
+
+        # Latest mastery per topic from session history (None = not yet attempted).
+        mastery: Dict[str, float] = {}
+        if user_id:
+            try:
+                from backend.app.services.analytics_service import get_analytics_service
+
+                analytics = await get_analytics_service()
+                for row in await analytics.get_mastery_by_topic(db, user_id):
+                    history = row.get("history") or []
+                    if history:
+                        mastery[str(row["topic"]).strip().lower()] = history[-1]["mastery"]
+            except Exception as e:
+                logger.warning(f"recommended_tasks: mastery load failed: {e}")
+
+        def topic_mastery(t: Dict[str, Any]) -> Optional[float]:
+            # Session topics are free-text — match against id / English / Russian name.
+            for key in (t["id"], t.get("name"), t.get("name_ru")):
+                if key and str(key).strip().lower() in mastery:
+                    return mastery[str(key).strip().lower()]
+            return None
+
+        foundational = ["equations", "limits", "derivatives", "integrals", "series", "linear_algebra"]
+
+        def order_key(t: Dict[str, Any]):
+            m = topic_mastery(t)
+            attempted = m is not None
+            found_rank = foundational.index(t["id"]) if t["id"] in foundational else len(foundational)
+            # attempted-and-weak first (by ascending mastery), then never-attempted
+            # in foundational order.
+            return (0 if attempted else 1, m if attempted else 1.0, found_rank)
+
+        def difficulty_for(m: Optional[float]) -> str:
+            if m is None or m < 0.4:
+                return "easy"
+            return "medium" if m < 0.75 else "hard"
+
+        tasks: List[Dict[str, Any]] = []
+        reasons: List[str] = []
+        for t in sorted(topics, key=order_key)[: min(count, 3)]:
+            m = topic_mastery(t)
+            diff = difficulty_for(m)
+            task = await self.generate_task(topic=t["id"], difficulty=diff)
+            if task:
+                tasks.append(task)
+                reasons.append(
+                    f"{t['name_ru']} (новая тема → {diff})"
+                    if m is None
+                    else f"{t['name_ru']} (освоено {round(m * 100)}% → {diff})"
+                )
+
+        if not reasons:
+            reasoning = "Не удалось подобрать рекомендации — сгенерируйте задачу по теме вручную."
+        elif mastery:
+            reasoning = "Рекомендованы темы с наибольшим потенциалом роста: " + "; ".join(reasons) + "."
+        else:
+            reasoning = "Истории решений пока нет — начнём с базовых тем: " + "; ".join(reasons) + "."
+
+        return {"tasks": tasks, "reasoning": reasoning}
 
     # --- Student Profile ---
 
-    async def get_student_profile(
-        self, db: AsyncSession, user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def get_student_profile(self, db: AsyncSession, user_id: Optional[str] = None) -> Dict[str, Any]:
         """Get student profile data from DB."""
         query = select(SessionTable)
         if user_id:
@@ -1820,9 +1787,7 @@ class OrchestratorService:
         backend_info = getattr(self, "_backend_info", {}) or {}
         backend_kind = backend_info.get("kind", "ollama")
         model_name = backend_info.get("model") or (
-            backend_settings.MODEL_FINETUNED
-            if backend_settings.USE_FINETUNED
-            else backend_settings.MODEL_NAME
+            backend_settings.MODEL_FINETUNED if backend_settings.USE_FINETUNED else backend_settings.MODEL_NAME
         )
 
         components = {

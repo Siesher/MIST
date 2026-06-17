@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Mathematics Intelligent Tutoring System with Socratic Method"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     {name = "MITS Team"}
 ]
@@ -27,9 +27,6 @@ dependencies = [
     "transformers>=4.40.0",
     "accelerate>=0.27.0",
     "ollama>=0.3.0",
-    "langchain>=0.2.0",
-    "langgraph>=0.2.0",
-    "gradio>=4.0.0",
     "fastapi>=0.110.0",
     "uvicorn>=0.27.0",
     "sympy>=1.12",
@@ -42,10 +39,11 @@ dependencies = [
     "structlog>=24.1.0",
     "rich>=13.0.0",
     "python-dotenv>=1.0.0",
-    "duckduckgo-search>=8.1.1",
     "ddgs>=9.14.4",
     "pypdf>=6.12.2",
     "pymupdf>=1.27.2.3",
+    "pdfplumber>=0.11",
+    "json5>=0.9",
 ]
 
 [project.optional-dependencies]
@@ -63,25 +61,24 @@ training = [
     "bitsandbytes>=0.42.0",
     "unsloth>=2024.1",
 ]
-
-[project.scripts]
-mits = "src.main:main"
-mits-ui = "interface.gradio_app:launch"
+# PDF report rendering. Needs native GTK libs (libgobject/pango/cairo): works
+# out-of-the-box on the Linux Docker image, but on Windows requires the GTK3
+# runtime — without it the export service degrades to HTML (handled gracefully).
+export = [
+    "weasyprint>=66",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
 
-[tool.black]
-line-length = 100
-target-version = ['py310', 'py311']
-
 [tool.ruff]
-line-length = 100
+line-length = 120
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
 markers = [
     "live: test requires a running LLM stack (Ollama/llama-server); deselect with -m 'not live'",
 ]

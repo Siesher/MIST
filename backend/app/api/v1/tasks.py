@@ -1,14 +1,18 @@
 """Task endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.api.v1.auth import get_optional_user
+from backend.app.models.database import get_db
+from backend.app.models.tables import UserTable
 from backend.app.schemas.chat import (
-    GenerateTaskRequest,
-    TaskResponse,
-    TopicsListResponse,
-    TopicInfo,
-    RecommendedTasksResponse,
     Difficulty,
+    GenerateTaskRequest,
+    RecommendedTasksResponse,
+    TaskResponse,
+    TopicInfo,
+    TopicsListResponse,
 )
 from backend.app.services.orchestrator_service import get_orchestrator_service
 
@@ -23,12 +27,14 @@ async def list_topics():
 
     topics = []
     for t in topics_data:
-        topics.append(TopicInfo(
-            id=t["id"],
-            name=t["name"],
-            name_ru=t["name_ru"],
-            difficulties=[Difficulty(d) for d in t["difficulties"]],
-        ))
+        topics.append(
+            TopicInfo(
+                id=t["id"],
+                name=t["name"],
+                name_ru=t["name_ru"],
+                difficulties=[Difficulty(d) for d in t["difficulties"]],
+            )
+        )
 
     return TopicsListResponse(topics=topics)
 
@@ -57,21 +63,27 @@ async def generate_task(request: GenerateTaskRequest):
 
 
 @router.get("/recommended", response_model=RecommendedTasksResponse)
-async def get_recommended_tasks(count: int = Query(5, ge=1, le=10)):
-    """Get personalized task recommendations."""
+async def get_recommended_tasks(
+    count: int = Query(5, ge=1, le=10),
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(get_optional_user),
+):
+    """Get personalized task recommendations (by mastery; anonymous → foundational)."""
     service = await get_orchestrator_service()
-    result = service.get_recommended_tasks(count=count)
+    result = await service.get_recommended_tasks(db=db, user_id=user.id if user else None, count=count)
 
     tasks = []
     for t in result.get("tasks", []):
-        tasks.append(TaskResponse(
-            id=t["id"],
-            topic=t["topic"],
-            difficulty=Difficulty(t["difficulty"]),
-            problem=t["problem"],
-            hints=t.get("hints", []),
-            skills=t.get("skills", []),
-        ))
+        tasks.append(
+            TaskResponse(
+                id=t["id"],
+                topic=t["topic"],
+                difficulty=Difficulty(t["difficulty"]),
+                problem=t["problem"],
+                hints=t.get("hints", []),
+                skills=t.get("skills", []),
+            )
+        )
 
     return RecommendedTasksResponse(
         tasks=tasks,

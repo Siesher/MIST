@@ -21,6 +21,71 @@ from src.data.schemas import Difficulty, Subject, Task
 from src.models.llm_client import LLMClient
 from src.models.prompts import TASK_GENERATOR_PROMPT, TASK_GENERATOR_SYSTEM
 
+_CTRL_ESCAPES = {"\n": "\\n", "\r": "\\r", "\t": "\\t", "\b": "\\b", "\f": "\\f"}
+
+
+def _repair_latex_json(text: str) -> str:
+    r"""Make LLM task replies valid JSON by repairing the two faults seen in practice.
+
+    A single left-to-right pass that tracks whether we're inside a string literal and,
+    while inside one, fixes:
+
+    1. **Invalid backslash escapes** — raw LaTeX (\int, \frac, \,) has single backslashes
+       that aren't legal JSON escapes. We double any backslash that does NOT begin a valid
+       escape (\" \\ \/ \uXXXX, or \b\f\n\r\t when NOT followed by a letter — a following
+       letter means a LaTeX command like \frac/\beta, not a control escape). Genuine
+       escapes are kept; literal LaTeX backslashes become \\ and survive (unlike json5,
+       which mangles \int -> int).
+    2. **Literal control characters** — multi-line problem/solution values contain raw
+       newlines/tabs, illegal inside a JSON string; we escape them (\n, \t, ...).
+
+    Structural characters outside strings are passed through untouched. Truncated replies
+    (hit max_tokens) can't be repaired here — they need a larger budget upstream.
+    """
+    out: list[str] = []
+    in_str = False
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        if not in_str:
+            out.append(ch)
+            if ch == '"':
+                in_str = True
+            i += 1
+            continue
+        # --- inside a string literal ---
+        if ch == "\\":
+            nxt = text[i + 1] if i + 1 < n else ""
+            if nxt in '"\\/bfnrtu':
+                # \b\f\n\r\t followed by a letter is really LaTeX (\frac, \beta) → escape it
+                if nxt in "bfnrt" and i + 2 < n and text[i + 2].isalpha():
+                    out.append("\\\\")
+                    i += 1
+                else:
+                    out.append(ch)
+                    out.append(nxt)
+                    i += 2
+            else:
+                out.append("\\\\")  # invalid escape (\, \int \sqrt) → literal backslash
+                i += 1
+            continue
+        if ch == '"':
+            in_str = False
+            out.append(ch)
+            i += 1
+            continue
+        if ch in _CTRL_ESCAPES:
+            out.append(_CTRL_ESCAPES[ch])
+            i += 1
+            continue
+        if ord(ch) < 0x20:
+            out.append("\\u%04x" % ord(ch))
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
 
 def _parse_task_json(response: str, agent_logger=None) -> Optional[Dict[str, Any]]:
     """Robust JSON parser for LLM task generation output.
@@ -64,7 +129,14 @@ def _parse_task_json(response: str, agent_logger=None) -> Optional[Dict[str, Any
         except json.JSONDecodeError:
             text = candidate
 
-    # 4. json5 fallback — handles trailing commas, unquoted keys, single quotes
+    # 4. Repair LaTeX backslashes (\frac, \int, \,) that are invalid JSON escapes — the
+    #    dominant failure mode — then re-parse with the strict (lossless) json module.
+    try:
+        return json.loads(_repair_latex_json(text))
+    except json.JSONDecodeError:
+        pass
+
+    # 5. json5 fallback — handles trailing commas, unquoted keys, single quotes
     try:
         import json5
 
@@ -126,12 +198,8 @@ class TaskGeneratorAgent(BaseAgent):
         (0.7, 1.0): Difficulty.OLYMPIAD,
     }
 
-    def __init__(
-        self, llm_client: LLMClient, knowledge_tracker: Optional["KnowledgeTracker"] = None
-    ):
-        super().__init__(
-            name="TaskGenerator", llm_client=llm_client, system_prompt=TASK_GENERATOR_SYSTEM
-        )
+    def __init__(self, llm_client: LLMClient, knowledge_tracker: Optional["KnowledgeTracker"] = None):
+        super().__init__(name="TaskGenerator", llm_client=llm_client, system_prompt=TASK_GENERATOR_SYSTEM)
 
         self.knowledge_tracker = knowledge_tracker
 
@@ -286,9 +354,7 @@ class TaskGeneratorAgent(BaseAgent):
         if task_data is None:
             preview = (response or "")[:300].replace("\n", " ")
             self.logger.error("task_generation_failed_all_attempts", preview=preview)
-            raise ValueError(
-                f"Failed to generate valid task after 2 attempts. Response preview: {preview}"
-            )
+            raise ValueError(f"Failed to generate valid task after 2 attempts. Response preview: {preview}")
 
         try:
             # Normalize fields - LLM may return lists instead of strings
@@ -325,9 +391,7 @@ class TaskGeneratorAgent(BaseAgent):
             self.logger.error("task_generation_failed", error=str(e))
             raise ValueError(f"Failed to generate valid task: {e}")
 
-    def generate_batch(
-        self, topic: str, difficulty: Difficulty, count: int = 5, **kwargs
-    ) -> List[Task]:
+    def generate_batch(self, topic: str, difficulty: Difficulty, count: int = 5, **kwargs) -> List[Task]:
         """Generate multiple tasks for a topic."""
         tasks = []
 
@@ -397,9 +461,7 @@ class TaskGeneratorAgent(BaseAgent):
             logger.debug(f"Template generation failed: {e}")
             return None
 
-    def _sample_template_params(
-        self, template: Dict[str, Any], max_retries: int = 20
-    ) -> Optional[Dict[str, Any]]:
+    def _sample_template_params(self, template: Dict[str, Any], max_retries: int = 20) -> Optional[Dict[str, Any]]:
         """
         Sample random parameters from template ranges, respecting constraints.
         Returns None if no valid sample found after max_retries.
@@ -442,9 +504,7 @@ class TaskGeneratorAgent(BaseAgent):
 
         return None
 
-    def _compute_derived_params(
-        self, template: Dict[str, Any], params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _compute_derived_params(self, template: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate derived_params expressions (e.g. 'D': 'b*b - 4*a*c')."""
         derived = template.get("derived_params", {})
         safe_ns = {"__builtins__": {}, "abs": abs, "round": round}
@@ -532,9 +592,7 @@ class TaskGeneratorAgent(BaseAgent):
                         recommended = difficulty
                         break
 
-                logger.debug(
-                    f"Adaptive difficulty for {topic}: mastery={mastery:.2f} -> {recommended.value}"
-                )
+                logger.debug(f"Adaptive difficulty for {topic}: mastery={mastery:.2f} -> {recommended.value}")
 
             except Exception as e:
                 logger.warning(f"Error getting student mastery: {e}")
@@ -568,15 +626,12 @@ class TaskGeneratorAgent(BaseAgent):
 
         if adjusted != difficulty:
             logger.debug(
-                f"Difficulty adjusted for cognitive load {cognitive_load}: "
-                f"{difficulty.value} -> {adjusted.value}"
+                f"Difficulty adjusted for cognitive load {cognitive_load}: {difficulty.value} -> {adjusted.value}"
             )
 
         return adjusted
 
-    def select_adaptive_topic(
-        self, student_id: str, subject: Subject = Subject.MATH, prefer_weak: bool = True
-    ) -> str:
+    def select_adaptive_topic(self, student_id: str, subject: Subject = Subject.MATH, prefer_weak: bool = True) -> str:
         """
         Select topic based on student's knowledge state.
 
@@ -628,9 +683,7 @@ class TaskGeneratorAgent(BaseAgent):
             top_candidates = zpd_topics[:3]
             selected = random.choice(top_candidates)[0]
 
-            logger.debug(
-                f"Adaptive topic selected: {selected} from {len(zpd_topics)} ZPD candidates"
-            )
+            logger.debug(f"Adaptive topic selected: {selected} from {len(zpd_topics)} ZPD candidates")
 
             return selected
 
@@ -671,22 +724,14 @@ class TaskGeneratorAgent(BaseAgent):
         if self.knowledge_tracker:
             try:
                 summary = self.knowledge_tracker.get_knowledge_state_summary(student_id)
-                student_level = {
-                    skill: data["mastery"]
-                    for skill, data in summary.get("mastery_by_skill", {}).items()
-                }
+                student_level = {skill: data["mastery"] for skill, data in summary.get("mastery_by_skill", {}).items()}
             except Exception as e:
                 logger.warning(f"Could not get student level: {e}")
 
         # Generate task
-        task = self.generate_task(
-            topic=topic, difficulty=difficulty, subject=subject, student_level=student_level
-        )
+        task = self.generate_task(topic=topic, difficulty=difficulty, subject=subject, student_level=student_level)
 
-        logger.info(
-            f"Adaptive task generated: topic={topic}, difficulty={difficulty.value}, "
-            f"student={student_id}"
-        )
+        logger.info(f"Adaptive task generated: topic={topic}, difficulty={difficulty.value}, student={student_id}")
 
         return task
 

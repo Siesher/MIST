@@ -105,7 +105,7 @@ class OpenAICompatLLMClient:
         except requests.RequestException:
             return False
 
-    def _body(self, messages: list, thinking, stream: bool, temperature, max_tokens) -> dict:
+    def _body(self, messages: list, thinking, stream: bool, temperature, max_tokens, json_mode: bool = False) -> dict:
         body = {
             "model": self.model,
             "messages": messages,
@@ -113,10 +113,21 @@ class OpenAICompatLLMClient:
             "chat_template_kwargs": {"enable_thinking": bool(thinking)},
             **DEFAULT_SAMPLING,
         }
+        if json_mode:
+            # Grammar-constrain llama-server to a valid JSON object, so strict-JSON
+            # callers (e.g. TaskGenerator) don't have to salvage prose/fences from
+            # the reply. enable_thinking is already off above for these calls.
+            body["response_format"] = {"type": "json_object"}
         if temperature is not None:
             body["temperature"] = temperature
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
+        elif json_mode:
+            # Task JSON (problem + solution + hints + answer + common_mistakes) in
+            # Cyrillic + LaTeX is token-heavy; 4096 truncated verbose tasks mid-object
+            # (→ unterminated string → parse retry). 8192 is a ceiling, not a target —
+            # short replies still stop early, so this only costs latency when needed.
+            body["max_tokens"] = 8192
         return body
 
     @staticmethod
@@ -134,12 +145,20 @@ class OpenAICompatLLMClient:
         thinking: bool = None,
         temperature: float = None,
         max_tokens: int = None,
+        json_mode: bool = False,
         **_,
     ) -> str:
-        body = self._body(self._messages(prompt, system), thinking, False, temperature, max_tokens)
+        body = self._body(self._messages(prompt, system), thinking, False, temperature, max_tokens, json_mode=json_mode)
         r = requests.post(self.chat_url, json=body, timeout=(30, 600))
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        try:
+            content = r.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError, ValueError) as e:
+            # llama-server может вернуть error-body без choices или message без
+            # content (tool_calls-only) — иначе наружу летит голый KeyError
+            logger.error("generate_response_parse_failed", error=str(e), body=r.text[:200])
+            raise RuntimeError(f"Неожиданный формат ответа LLM-сервера: {e}") from e
+        return content or ""
 
     def generate_stream(
         self,
