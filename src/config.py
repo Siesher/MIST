@@ -17,6 +17,34 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     # LLM Settings
     # ─────────────────────────────────────────────────────────────
+    # Единая развилка LLM-бэкенда (фабрика src.models.create_llm_client).
+    # Поля сознательно дублируют backend/app/config.py: оба Settings читают одни
+    # и те же переменные окружения/.env, но src/ не импортирует backend/ (слои).
+    LLM_BACKEND: str = Field(
+        default="llamacpp",
+        description="'llamacpp' — llama-server/llama-swap/внешние OpenAI-совместимые API; 'ollama' — legacy",
+    )
+    LLM_BASE_URL: str = Field(
+        default="http://127.0.0.1:8090/v1",
+        description="OpenAI-совместимый /v1 endpoint (llama-swap или внешний провайдер)",
+    )
+    LLM_MODEL: str = Field(default="mits-tutor", description="Id модели на OpenAI-совместимом endpoint")
+    LLM_API_KEY: str = Field(
+        default="", description="Bearer-ключ внешнего провайдера; пусто = локальный llama-server без авторизации"
+    )
+    LLM_SEND_TEMPLATE_KWARGS: bool = Field(
+        default=True,
+        description="Слать llama.cpp-специфичный chat_template_kwargs (False для облачных API — отвергают 400-й)",
+    )
+
+    # Speculative decoding (Ollama options; перенесено из backend-конфига, чтобы
+    # src/models/llm_client.py не импортировал backend.app.config — слои)
+    SPECULATIVE_DECODING: bool = Field(
+        default=False, description="Draft-модель предлагает токены, основная верифицирует батчем"
+    )
+    SPECULATIVE_DRAFT_MODEL: str = Field(default="qwen2.5:0.5b", description="Draft-модель для speculative decoding")
+    SPECULATIVE_NUM_DRAFT: int = Field(default=5, description="Сколько токенов предлагает draft за шаг")
+
     OLLAMA_HOST: str = Field(default="http://localhost:11434", description="Ollama server URL")
     MODEL_NAME: str = Field(
         default="mits-tutor-9b-think",
@@ -26,9 +54,7 @@ class Settings(BaseSettings):
         default="mits-tutor-9b-think",
         description="Primary model - GSPO fine-tuned with triple reward",
     )
-    MODEL_FALLBACK: str = Field(
-        default="qwen3.5:9b", description="Fallback model - base Qwen3.5-9B Instruct"
-    )
+    MODEL_FALLBACK: str = Field(default="qwen3.5:9b", description="Fallback model - base Qwen3.5-9B Instruct")
 
     # ─────────────────────────────────────────────────────────────
     # Sampling Parameters (optimized for GLM)
@@ -39,12 +65,8 @@ class Settings(BaseSettings):
         le=2.0,
         description="LLM temperature (0.7 for REAP model; <0.5 causes repetition loops)",
     )
-    TOP_P: float = Field(
-        default=0.95, ge=0.0, le=1.0, description="Top-p sampling (0.95 recommended for REAP)"
-    )
-    TOP_K: int = Field(
-        default=0, ge=0, description="Top-k sampling (0=disabled, use min_p instead for REAP)"
-    )
+    TOP_P: float = Field(default=0.95, ge=0.0, le=1.0, description="Top-p sampling (0.95 recommended for REAP)")
+    TOP_K: int = Field(default=0, ge=0, description="Top-k sampling (0=disabled, use min_p instead for REAP)")
     MIN_P: float = Field(
         default=0.01,
         ge=0.0,
@@ -70,14 +92,10 @@ class Settings(BaseSettings):
             "full offload на RTX 2080 8GB работает; partial (28) был legacy для REAP 23B MoE."
         ),
     )
-    CONTEXT_LENGTH: int = Field(
-        default=8192, ge=512, description="Maximum context length in tokens"
-    )
+    CONTEXT_LENGTH: int = Field(default=8192, ge=512, description="Maximum context length in tokens")
     KV_CACHE_K_TYPE: str = Field(default="q8_0", description="KV cache key quantization type")
     KV_CACHE_V_TYPE: str = Field(default="q4_0", description="KV cache value quantization type")
-    FLASH_ATTENTION: bool = Field(
-        default=True, description="Enable Flash Attention (RTX 2080+ Turing architecture)"
-    )
+    FLASH_ATTENTION: bool = Field(default=True, description="Enable Flash Attention (RTX 2080+ Turing architecture)")
     NUM_THREAD: int = Field(
         default=0,
         ge=0,
@@ -92,43 +110,29 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     # Backend Selection
     # ─────────────────────────────────────────────────────────────
-    MODEL_BACKEND: str = Field(
-        default="ollama", description="Inference backend: ollama, exllamav2, llama.cpp"
-    )
+    MODEL_BACKEND: str = Field(default="ollama", description="Inference backend: ollama, exllamav2, llama.cpp")
 
     # ─────────────────────────────────────────────────────────────
     # ExLlamaV2 Settings (for MoE optimization)
     # ─────────────────────────────────────────────────────────────
-    EXLLAMA_MODEL_PATH: Optional[str] = Field(
-        default=None, description="Path to model directory for ExLlamaV2"
-    )
+    EXLLAMA_MODEL_PATH: Optional[str] = Field(default=None, description="Path to model directory for ExLlamaV2")
     EXLLAMA_GPU_SPLIT: Optional[str] = Field(
         default=None, description="GPU VRAM split in GB, comma-separated (e.g., '8.0' or '8.0,8.0')"
     )
-    EXLLAMA_EXPERT_CACHE: int = Field(
-        default=8, ge=1, description="Number of MoE experts to keep cached on GPU"
-    )
-    EXLLAMA_FLASH_ATTENTION: bool = Field(
-        default=True, description="Enable Flash Attention 2 for faster inference"
-    )
+    EXLLAMA_EXPERT_CACHE: int = Field(default=8, ge=1, description="Number of MoE experts to keep cached on GPU")
+    EXLLAMA_FLASH_ATTENTION: bool = Field(default=True, description="Enable Flash Attention 2 for faster inference")
 
     # ─────────────────────────────────────────────────────────────
     # Performance Monitoring
     # ─────────────────────────────────────────────────────────────
-    LOG_INFERENCE_METRICS: bool = Field(
-        default=True, description="Log inference performance metrics"
-    )
-    METRICS_DB_PATH: Path = Field(
-        default=Path("./data/metrics.db"), description="SQLite database for metrics"
-    )
+    LOG_INFERENCE_METRICS: bool = Field(default=True, description="Log inference performance metrics")
+    METRICS_DB_PATH: Path = Field(default=Path("./data/metrics.db"), description="SQLite database for metrics")
 
     # ─────────────────────────────────────────────────────────────
     # Tutoring Settings
     # ─────────────────────────────────────────────────────────────
     MAX_HINTS: int = Field(default=3, description="Maximum hints before revealing answer")
-    MAX_ATTEMPTS_BEFORE_TELLING: int = Field(
-        default=5, description="Max wrong attempts before telling answer"
-    )
+    MAX_ATTEMPTS_BEFORE_TELLING: int = Field(default=5, description="Max wrong attempts before telling answer")
     THINKING_MODE: bool = Field(
         default=True, description="Enable thinking mode (<think> tags) for Nemotron/Qwen models"
     )
@@ -136,18 +140,12 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     # Model Backend (Ollama vs HuggingFace)
     # ─────────────────────────────────────────────────────────────
-    MODEL_BACKEND: str = Field(
-        default="ollama", description="Model backend: 'ollama' or 'huggingface'"
-    )
+    MODEL_BACKEND: str = Field(default="ollama", description="Model backend: 'ollama' or 'huggingface'")
     HF_MODEL_PATH: Optional[str] = Field(
         default=None, description="Path to HuggingFace model (for 'huggingface' backend)"
     )
-    HF_ADAPTER_PATH: Optional[str] = Field(
-        default=None, description="Path to LoRA adapter (optional)"
-    )
-    HF_QUANTIZE: bool = Field(
-        default=True, description="Use 4-bit quantization for HuggingFace models"
-    )
+    HF_ADAPTER_PATH: Optional[str] = Field(default=None, description="Path to LoRA adapter (optional)")
+    HF_QUANTIZE: bool = Field(default=True, description="Use 4-bit quantization for HuggingFace models")
 
     # ─────────────────────────────────────────────────────────────
     # Knowledge Tracing (BKT + DKT)
@@ -156,42 +154,26 @@ class Settings(BaseSettings):
     LEARN_RATE: float = Field(default=0.1, description="Learning rate for knowledge update")
     FORGET_RATE: float = Field(default=0.02, description="Forgetting rate for unused skills")
     SLIP_RATE: float = Field(default=0.05, description="Probability of slip (know but fail)")
-    GUESS_RATE: float = Field(
-        default=0.1, description="Probability of guess (don't know but succeed)"
-    )
+    GUESS_RATE: float = Field(default=0.1, description="Probability of guess (don't know but succeed)")
 
     # DKT (Deep Knowledge Tracing) Settings
-    DKT_ENABLED: bool = Field(
-        default=True, description="Enable DKT model after threshold interactions"
-    )
-    DKT_THRESHOLD: int = Field(
-        default=10, description="Number of interactions before switching from BKT to DKT"
-    )
-    DKT_HIDDEN_SIZE: int = Field(
-        default=64, description="LSTM hidden layer size for DKT (keep small for 8GB VRAM)"
-    )
+    DKT_ENABLED: bool = Field(default=True, description="Enable DKT model after threshold interactions")
+    DKT_THRESHOLD: int = Field(default=10, description="Number of interactions before switching from BKT to DKT")
+    DKT_HIDDEN_SIZE: int = Field(default=64, description="LSTM hidden layer size for DKT (keep small for 8GB VRAM)")
     DKT_NUM_LAYERS: int = Field(default=1, description="Number of LSTM layers")
 
     # Knowledge Decay (Ebbinghaus)
-    KNOWLEDGE_DECAY_RATE: float = Field(
-        default=0.05, description="Daily decay rate for unpracticed topics"
-    )
+    KNOWLEDGE_DECAY_RATE: float = Field(default=0.05, description="Daily decay rate for unpracticed topics")
 
     # ─────────────────────────────────────────────────────────────
     # Cognitive Load Estimation
     # ─────────────────────────────────────────────────────────────
-    COGNITIVE_LOAD_ENABLED: bool = Field(
-        default=True, description="Enable cognitive load estimation"
-    )
-    RESPONSE_TIME_WEIGHT: float = Field(
-        default=0.4, description="Weight of response time in cognitive load estimation"
-    )
+    COGNITIVE_LOAD_ENABLED: bool = Field(default=True, description="Enable cognitive load estimation")
+    RESPONSE_TIME_WEIGHT: float = Field(default=0.4, description="Weight of response time in cognitive load estimation")
     ERROR_PATTERN_WEIGHT: float = Field(
         default=0.3, description="Weight of error patterns in cognitive load estimation"
     )
-    HINT_REQUEST_WEIGHT: float = Field(
-        default=0.2, description="Weight of hint requests in cognitive load estimation"
-    )
+    HINT_REQUEST_WEIGHT: float = Field(default=0.2, description="Weight of hint requests in cognitive load estimation")
     TASK_COMPLEXITY_WEIGHT: float = Field(
         default=0.1, description="Weight of task complexity in cognitive load estimation"
     )
@@ -208,17 +190,13 @@ class Settings(BaseSettings):
     STUDENT_MEMORY_DB_PATH: Path = Field(
         default=Path("./data/students.db"), description="SQLite database for student memory"
     )
-    MEMORY_SYNC_INTERVAL: int = Field(
-        default=5, description="Sync memory to disk every N interactions"
-    )
+    MEMORY_SYNC_INTERVAL: int = Field(default=5, description="Sync memory to disk every N interactions")
 
     # ─────────────────────────────────────────────────────────────
     # Database
     # ─────────────────────────────────────────────────────────────
     DB_PATH: Path = Field(default=Path("./data/mits.db"), description="SQLite database path")
-    VECTOR_DB_PATH: Path = Field(
-        default=Path("./data/chromadb"), description="ChromaDB path for embeddings"
-    )
+    VECTOR_DB_PATH: Path = Field(default=Path("./data/chromadb"), description="ChromaDB path for embeddings")
 
     # ─────────────────────────────────────────────────────────────
     # Logging
@@ -251,9 +229,7 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────────────────────
     # Extended Features: Spaced Repetition
     # ─────────────────────────────────────────────────────────────
-    SPACED_REPETITION_ENABLED: bool = Field(
-        default=True, description="Enable spaced repetition system"
-    )
+    SPACED_REPETITION_ENABLED: bool = Field(default=True, description="Enable spaced repetition system")
     SM2_INITIAL_EASINESS: float = Field(default=2.5, description="SM-2 initial easiness factor")
     SM2_MIN_EASINESS: float = Field(default=1.3, description="SM-2 minimum easiness factor")
 
@@ -263,21 +239,15 @@ class Settings(BaseSettings):
     UI_DEFAULT_THEME: str = Field(default="dark", description="Default UI theme: 'dark' or 'light'")
     UI_ANIMATION_ENABLED: bool = Field(default=True, description="Enable UI animations")
     UI_SIDEBAR_COLLAPSED: bool = Field(default=False, description="Default sidebar collapsed state")
-    UI_SHOW_THINKING: bool = Field(
-        default=True, description="Show model thinking process by default"
-    )
-    UI_CHAT_MAX_WIDTH: int = Field(
-        default=800, description="Maximum chat container width in pixels"
-    )
+    UI_SHOW_THINKING: bool = Field(default=True, description="Show model thinking process by default")
+    UI_CHAT_MAX_WIDTH: int = Field(default=800, description="Maximum chat container width in pixels")
 
     # ─────────────────────────────────────────────────────────────
     # Groundbreaking Innovations (009)
     # ─────────────────────────────────────────────────────────────
 
     # Affective State Detection
-    AFFECTIVE_DETECTION_ENABLED: bool = Field(
-        default=True, description="Enable affective state detection from text"
-    )
+    AFFECTIVE_DETECTION_ENABLED: bool = Field(default=True, description="Enable affective state detection from text")
     AFFECTIVE_CONFIDENCE_THRESHOLD: float = Field(
         default=0.6,
         ge=0.0,
@@ -295,33 +265,23 @@ class Settings(BaseSettings):
     )
 
     # Generative Task Synthesis
-    TASK_SYNTHESIS_ENABLED: bool = Field(
-        default=True, description="Enable LLM + SymPy task generation"
-    )
+    TASK_SYNTHESIS_ENABLED: bool = Field(default=True, description="Enable LLM + SymPy task generation")
     TASK_SYNTHESIS_MAX_RETRIES: int = Field(
         default=3, ge=1, description="Maximum retries for task generation if verification fails"
     )
-    TASK_SYNTHESIS_VERIFY_WITH_SYMPY: bool = Field(
-        default=True, description="Verify generated tasks with SymPy"
-    )
+    TASK_SYNTHESIS_VERIFY_WITH_SYMPY: bool = Field(default=True, description="Verify generated tasks with SymPy")
 
     # Counterfactual Explanations
-    COUNTERFACTUAL_ENABLED: bool = Field(
-        default=True, description="Enable counterfactual explanations for errors"
-    )
+    COUNTERFACTUAL_ENABLED: bool = Field(default=True, description="Enable counterfactual explanations for errors")
 
     # Metacognitive Scaffolding
-    METACOGNITIVE_ENABLED: bool = Field(
-        default=True, description="Enable metacognitive scaffolding"
-    )
+    METACOGNITIVE_ENABLED: bool = Field(default=True, description="Enable metacognitive scaffolding")
     METACOGNITIVE_REFLECTION_THRESHOLD_MINUTES: int = Field(
         default=30, ge=5, description="Session duration before offering reflection"
     )
 
     # Learning Path Optimization
-    LEARNING_PATH_ENABLED: bool = Field(
-        default=True, description="Enable personalized learning path optimization"
-    )
+    LEARNING_PATH_ENABLED: bool = Field(default=True, description="Enable personalized learning path optimization")
     LEARNING_PATH_MASTERY_THRESHOLD: float = Field(
         default=0.7, ge=0.0, le=1.0, description="Mastery level to consider skill 'learned'"
     )
@@ -335,9 +295,7 @@ class Settings(BaseSettings):
     VISION_CONFIDENCE_THRESHOLD: float = Field(
         default=0.7, ge=0.0, le=1.0, description="Minimum confidence for OCR results"
     )
-    VISION_VRAM_LIMIT_GB: float = Field(
-        default=3.0, ge=1.0, description="VRAM limit for vision model"
-    )
+    VISION_VRAM_LIMIT_GB: float = Field(default=3.0, ge=1.0, description="VRAM limit for vision model")
 
     # ─────────────────────────────────────────────────────────────
     # Performance Optimization (010)
@@ -347,47 +305,31 @@ class Settings(BaseSettings):
     CACHE_SIMILARITY_THRESHOLD: float = Field(
         default=0.90, ge=0.5, le=1.0, description="Minimum cosine similarity for cache hit"
     )
-    CACHE_MAX_SIZE: int = Field(
-        default=1000, ge=100, description="Maximum cache entries before LRU eviction"
-    )
+    CACHE_MAX_SIZE: int = Field(default=1000, ge=100, description="Maximum cache entries before LRU eviction")
     CACHE_TTL_HOURS: int = Field(default=24, ge=1, description="Cache entry TTL in hours")
 
     # Context Compression Settings
     COMPRESSION_TOKEN_THRESHOLD: int = Field(
         default=4000, ge=1000, description="Token count threshold to trigger context compression"
     )
-    COMPRESSION_RECENT_MESSAGES: int = Field(
-        default=10, ge=3, description="Number of recent messages to keep in full"
-    )
+    COMPRESSION_RECENT_MESSAGES: int = Field(default=10, ge=3, description="Number of recent messages to keep in full")
     COMPRESSION_MAX_KEY_EVENTS: int = Field(
         default=10, ge=3, description="Maximum key events to extract from older messages"
     )
 
     # Resource Monitoring Settings
-    RESOURCE_MONITOR_ENABLED: bool = Field(
-        default=True, description="Enable background resource monitoring"
-    )
-    RESOURCE_SAMPLE_INTERVAL_SEC: int = Field(
-        default=30, ge=5, description="Resource sampling interval in seconds"
-    )
-    VRAM_ALERT_THRESHOLD_MB: int = Field(
-        default=7000, ge=1000, description="VRAM usage threshold for alerts (MB)"
-    )
-    RAM_ALERT_THRESHOLD_MB: int = Field(
-        default=14000, ge=1000, description="RAM usage threshold for alerts (MB)"
-    )
+    RESOURCE_MONITOR_ENABLED: bool = Field(default=True, description="Enable background resource monitoring")
+    RESOURCE_SAMPLE_INTERVAL_SEC: int = Field(default=30, ge=5, description="Resource sampling interval in seconds")
+    VRAM_ALERT_THRESHOLD_MB: int = Field(default=7000, ge=1000, description="VRAM usage threshold for alerts (MB)")
+    RAM_ALERT_THRESHOLD_MB: int = Field(default=14000, ge=1000, description="RAM usage threshold for alerts (MB)")
 
     # Few-Shot Settings
     FEW_SHOT_ENABLED: bool = Field(default=True, description="Enable few-shot prompting")
-    FEW_SHOT_COUNT: int = Field(
-        default=2, ge=1, le=5, description="Number of few-shot examples to include"
-    )
+    FEW_SHOT_COUNT: int = Field(default=2, ge=1, le=5, description="Number of few-shot examples to include")
     FEW_SHOT_MIN_SIMILARITY: float = Field(
         default=0.5, ge=0.0, le=1.0, description="Minimum similarity for few-shot example selection"
     )
-    FEW_SHOT_PATH: Path = Field(
-        default=Path("./data/few_shot"), description="Path to few-shot examples directory"
-    )
+    FEW_SHOT_PATH: Path = Field(default=Path("./data/few_shot"), description="Path to few-shot examples directory")
 
     # Chain-of-Thought Settings
     COT_ENABLED: bool = Field(default=True, description="Enable Chain-of-Thought prompting")
@@ -399,47 +341,31 @@ class Settings(BaseSettings):
     AB_TESTING_ENABLED: bool = Field(default=True, description="Enable A/B testing framework")
 
     # Batch Embedding Settings
-    BATCH_EMBEDDING_SIZE: int = Field(
-        default=16, ge=1, le=64, description="Batch size for embedding processing"
-    )
-    BATCH_EMBEDDING_TIMEOUT_MS: int = Field(
-        default=50, ge=10, description="Timeout window for batch collection (ms)"
-    )
+    BATCH_EMBEDDING_SIZE: int = Field(default=16, ge=1, le=64, description="Batch size for embedding processing")
+    BATCH_EMBEDDING_TIMEOUT_MS: int = Field(default=50, ge=10, description="Timeout window for batch collection (ms)")
 
     # Ollama Optimization Settings
     OLLAMA_NUM_CTX: int = Field(default=4096, ge=512, description="Ollama context window size")
-    OLLAMA_NUM_BATCH: int = Field(
-        default=512, ge=64, description="Ollama batch size for prompt processing"
-    )
+    OLLAMA_NUM_BATCH: int = Field(default=512, ge=64, description="Ollama batch size for prompt processing")
 
     # Report Generation Settings
-    REPORTS_PATH: Path = Field(
-        default=Path("./data/reports"), description="Path for generated reports"
-    )
+    REPORTS_PATH: Path = Field(default=Path("./data/reports"), description="Path for generated reports")
 
     # Performance Targets
-    TARGET_RESPONSE_TIME_MS: int = Field(
-        default=2000, ge=500, description="Target response time in milliseconds"
-    )
-    TARGET_CACHE_HIT_RATE: float = Field(
-        default=0.20, ge=0.0, le=1.0, description="Target cache hit rate"
-    )
+    TARGET_RESPONSE_TIME_MS: int = Field(default=2000, ge=500, description="Target response time in milliseconds")
+    TARGET_CACHE_HIT_RATE: float = Field(default=0.20, ge=0.0, le=1.0, description="Target cache hit rate")
     TARGET_VRAM_MB: int = Field(default=7000, ge=1000, description="Target maximum VRAM usage (MB)")
 
     # ─────────────────────────────────────────────────────────────
     # Extended Features: Caching
     # ─────────────────────────────────────────────────────────────
-    EMBEDDING_CACHE_ENABLED: bool = Field(
-        default=True, description="Enable persistent embedding cache"
-    )
+    EMBEDDING_CACHE_ENABLED: bool = Field(default=True, description="Enable persistent embedding cache")
     EMBEDDING_CACHE_MAX_SIZE: int = Field(default=100000, description="Maximum embeddings to cache")
     EMBEDDING_CACHE_PATH: Path = Field(
         default=Path("./data/embeddings_cache"), description="Path for embedding cache storage"
     )
     RESPONSE_CACHE_ENABLED: bool = Field(default=True, description="Enable response caching")
-    RESPONSE_CACHE_TTL_SECONDS: int = Field(
-        default=3600, description="Response cache TTL in seconds"
-    )
+    RESPONSE_CACHE_TTL_SECONDS: int = Field(default=3600, description="Response cache TTL in seconds")
 
     class Config:
         env_file = ".env"

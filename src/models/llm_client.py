@@ -7,7 +7,7 @@ Supports streaming, thinking mode, and JSON mode.
 
 import json
 import re
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import ollama
 import structlog
@@ -43,7 +43,9 @@ class LLMClient:
         max_tokens: int = None,
     ):
         self.host = host or settings.OLLAMA_HOST
-        self.client = ollama.Client(host=self.host)
+        # timeout: повисший Ollama-сервер без него блокировал поток навсегда
+        # (10 мин — потолок на длинную генерацию с thinking)
+        self.client = ollama.Client(host=self.host, timeout=600)
 
         # Resolve model with fallback support
         requested_model = model or settings.MODEL_NAME
@@ -247,17 +249,11 @@ class LLMClient:
         # Speculative decoding (arXiv 2302.01318): draft model proposes N tokens,
         # main model verifies in one batched forward. 1.5-3x speedup on predictable
         # sequences (math/code). No quality loss - final tokens match greedy main model.
-        try:
-            from backend.app.config import backend_settings as _bs
-
-            if getattr(_bs, "SPECULATIVE_DECODING", False):
-                draft = getattr(_bs, "SPECULATIVE_DRAFT_MODEL", None)
-                num_draft = getattr(_bs, "SPECULATIVE_NUM_DRAFT", 5)
-                if draft:
-                    options["draft_model"] = draft
-                    options["num_draft"] = int(num_draft)
-        except Exception:
-            pass  # backend settings not available — fine, skip
+        # Настройки — из src.config (та же .env, что у backend/): src/ не
+        # импортирует backend/ (направление слоёв).
+        if settings.SPECULATIVE_DECODING and settings.SPECULATIVE_DRAFT_MODEL:
+            options["draft_model"] = settings.SPECULATIVE_DRAFT_MODEL
+            options["num_draft"] = int(settings.SPECULATIVE_NUM_DRAFT)
 
         return options
 
@@ -361,7 +357,7 @@ class LLMClient:
         on_token: Optional[Callable[[str], None]] = None,
         on_thinking: Optional[Callable[[str], None]] = None,
         **kwargs,
-    ) -> Generator[str, None, None]:
+    ) -> Generator[Tuple[str, str], None, None]:
         """
         Stream generation for real-time UI.
 
@@ -374,7 +370,9 @@ class LLMClient:
             on_thinking: Callback for thinking content
 
         Yields:
-            Generated tokens
+            ("thinking" | "content", token) — тот же контракт, что у
+            OpenAICompatLLMClient.generate_stream (аннотация Generator[str]
+            была стейл: тело всегда yield'ило кортежи).
         """
         thinking = thinking if thinking is not None else settings.THINKING_MODE
 
@@ -498,9 +496,7 @@ class LLMClient:
             logger.error("stream_generation_failed", error=str(e))
             raise
 
-    def generate_stream_simple(
-        self, prompt: str, system: Optional[str] = None, **kwargs
-    ) -> Generator[str, None, None]:
+    def generate_stream_simple(self, prompt: str, system: Optional[str] = None, **kwargs) -> Generator[str, None, None]:
         """
         Простой streaming без обработки thinking.
         Для случаев когда нужен сырой вывод.
@@ -521,9 +517,7 @@ class LLMClient:
             # Handle both dict and Pydantic model responses
             if hasattr(chunk, "message"):
                 message = chunk.message
-                token = (
-                    message.content if hasattr(message, "content") else message.get("content", "")
-                )
+                token = message.content if hasattr(message, "content") else message.get("content", "")
             else:
                 token = chunk.get("message", {}).get("content", "")
             if token:
@@ -582,9 +576,7 @@ class LLMClient:
         # Disable thinking mode for tool calling (conflicts with structured output)
         if self._is_qwen_model():
             messages = [
-                {**m, "content": m["content"].replace("/think\n", "")}
-                if m.get("role") == "user"
-                else m
+                {**m, "content": m["content"].replace("/think\n", "")} if m.get("role") == "user" else m
                 for m in messages
             ]
 
@@ -633,15 +625,9 @@ class LLMClient:
             for tc in msg_tool_calls:
                 # Parse tool call (dict or object)
                 if hasattr(tc, "function"):
-                    fn_name = (
-                        tc.function.name
-                        if hasattr(tc.function, "name")
-                        else tc.function.get("name", "")
-                    )
+                    fn_name = tc.function.name if hasattr(tc.function, "name") else tc.function.get("name", "")
                     fn_args = (
-                        tc.function.arguments
-                        if hasattr(tc.function, "arguments")
-                        else tc.function.get("arguments", {})
+                        tc.function.arguments if hasattr(tc.function, "arguments") else tc.function.get("arguments", {})
                     )
                 else:
                     fn_name = tc.get("function", {}).get("name", "")
@@ -658,11 +644,7 @@ class LLMClient:
                         if isinstance(fn_args, str):
                             fn_args = json.loads(fn_args)
                         result = fn(**fn_args)
-                        result_str = (
-                            result
-                            if isinstance(result, str)
-                            else json.dumps(result, ensure_ascii=False)
-                        )
+                        result_str = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
                     except Exception as e:
                         logger.warning("tool_execution_failed", function=fn_name, error=str(e))
                         result_str = json.dumps({"error": str(e)})
@@ -778,11 +760,7 @@ class LLMClient:
                 # Handle both dict and Pydantic model responses
                 if hasattr(chunk, "message"):
                     message = chunk.message
-                    token = (
-                        message.content
-                        if hasattr(message, "content")
-                        else message.get("content", "")
-                    )
+                    token = message.content if hasattr(message, "content") else message.get("content", "")
                 else:
                     token = chunk.get("message", {}).get("content", "")
                 if token:
@@ -844,9 +822,7 @@ class LLMClient:
             response = self.client.list()
             # Handle both old dict format and new ListResponse object
             if hasattr(response, "models"):
-                return [
-                    m.model if hasattr(m, "model") else m.get("name", "") for m in response.models
-                ]
+                return [m.model if hasattr(m, "model") else m.get("name", "") for m in response.models]
             elif isinstance(response, dict):
                 return [m["name"] for m in response.get("models", [])]
             return []

@@ -225,6 +225,9 @@ async def ingest_image(
     # Fallback: describe via main LLM (base64) only if vision gave nothing.
     if not description:
         try:
+            # Сознательно НЕ create_llm_client: этот fallback шлёт картинку в
+            # Ollama-формате (images прямо в message) — OpenAI-совместимый путь
+            # его не понимает (там image_url content-parts, см. src/tools/vision_ocr).
             from src.models.llm_client import LLMClient
 
             b64 = base64.b64encode(content).decode("ascii")

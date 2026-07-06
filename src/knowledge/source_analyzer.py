@@ -137,19 +137,10 @@ def _safe_json(raw: str) -> Optional[dict]:
 
 
 def _make_llm():
-    """Фабрика LLM-клиента: предпочитаем живой llama-swap, иначе Ollama."""
-    try:
-        from backend.app.config import backend_settings
+    """LLM-клиент по LLM_BACKEND — делегирует единой фабрике src.models."""
+    from src.models import create_llm_client
 
-        if getattr(backend_settings, "LLM_BACKEND", "ollama") == "llamacpp":
-            from src.models.openai_llm_client import OpenAICompatLLMClient
-
-            return OpenAICompatLLMClient()
-    except Exception as e:  # backend config недоступен вне сервера — это нормально
-        logger.debug(f"llama-swap client unavailable, falling back: {e}")
-    from src.models.llm_client import LLMClient
-
-    return LLMClient()
+    return create_llm_client()
 
 
 class SourceAnalyzer:
@@ -193,9 +184,7 @@ class SourceAnalyzer:
             return []
         results: List[dict] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as pool:
-            futures = {
-                pool.submit(self._generate_json, prompt_fmt(c)): i for i, c in enumerate(chunks)
-            }
+            futures = {pool.submit(self._generate_json, prompt_fmt(c)): i for i, c in enumerate(chunks)}
             for fut in concurrent.futures.as_completed(futures):
                 data = fut.result()
                 if data and isinstance(data.get(key), list):
@@ -217,14 +206,11 @@ class SourceAnalyzer:
         chunks = chunk_text(text, self._chunk_chars, self._overlap)
         if len(chunks) > MAX_CHUNKS:
             logger.warning(
-                f"Источник {len(text)} симв. → {len(chunks)} чанков, "
-                f"обрабатываю первые {MAX_CHUNKS} (предохранитель)."
+                f"Источник {len(text)} симв. → {len(chunks)} чанков, обрабатываю первые {MAX_CHUNKS} (предохранитель)."
             )
             chunks = chunks[:MAX_CHUNKS]
 
-        raw = self._map_chunks(
-            chunks, lambda c: _ENTITY_PROMPT.format(domain=domain, text=c), "entities"
-        )
+        raw = self._map_chunks(chunks, lambda c: _ENTITY_PROMPT.format(domain=domain, text=c), "entities")
 
         # Дедуп по нормализованному title (сущность на стыке чанков встречается дважды).
         seen: Dict[str, Dict] = {}
@@ -235,9 +221,7 @@ class SourceAnalyzer:
             if title not in seen:
                 seen[title] = ent
         merged = list(seen.values())
-        logger.info(
-            f"SourceAnalyzer: {len(chunks)} чанков → {len(raw)} сырых → {len(merged)} уникальных сущностей"
-        )
+        logger.info(f"SourceAnalyzer: {len(chunks)} чанков → {len(raw)} сырых → {len(merged)} уникальных сущностей")
         _CACHE[ck] = merged
         return merged
 
@@ -261,9 +245,7 @@ class SourceAnalyzer:
         formulas: List[str] = []
         topics: List[str] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as pool:
-            futures = [
-                pool.submit(self._generate_json, _SUMMARY_PROMPT.format(text=c)) for c in chunks
-            ]
+            futures = [pool.submit(self._generate_json, _SUMMARY_PROMPT.format(text=c)) for c in chunks]
             for fut in concurrent.futures.as_completed(futures):
                 data = fut.result()
                 if not data:
@@ -283,9 +265,7 @@ class SourceAnalyzer:
             return out
 
         key_points, formulas, topics = _dedup(key_points), _dedup(formulas), _dedup(topics)
-        summary = (
-            "; ".join(key_points[:6]) if key_points else "(не удалось извлечь ключевые тезисы)"
-        )
+        summary = "; ".join(key_points[:6]) if key_points else "(не удалось извлечь ключевые тезисы)"
         result = {
             "source_name": source_name,
             "summary": summary,

@@ -20,16 +20,17 @@ _OCR_PROMPT = (
 
 
 def _vision_chat_url() -> str:
-    """URL chat/completions того же llama-swap, что использует основной клиент."""
-    from backend.app.config import backend_settings
+    """URL chat/completions того же llama-swap, что использует основной клиент.
 
-    base = getattr(backend_settings, "LLM_BASE_URL", "http://127.0.0.1:8090/v1").rstrip("/")
-    return f"{base}/chat/completions"
+    LLM_BASE_URL — из src.config (та же .env, что у backend/): src/ не
+    импортирует backend/ (направление слоёв).
+    """
+    from src.config import settings
+
+    return f"{settings.LLM_BASE_URL.rstrip('/')}/chat/completions"
 
 
-def ocr_image(
-    image_bytes: bytes, mime: str = "image/png", prompt: str | None = None, timeout: int = 300
-) -> str:
+def ocr_image(image_bytes: bytes, mime: str = "image/png", prompt: str | None = None, timeout: int = 300) -> str:
     """OCR одного изображения через mits-vision. Возвращает распознанный текст."""
     import requests
 

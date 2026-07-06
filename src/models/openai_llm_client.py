@@ -82,18 +82,30 @@ def parse_sse_chunk(raw_line: bytes) -> Optional[dict]:
 class OpenAICompatLLMClient:
     """LLM-клиент к OpenAI-совместимому endpoint (llama-swap/llama-server)."""
 
-    def __init__(self, model: str = None, base_url: str = None, api_key: str = None, **_):
-        # Ленивый импорт: модуль (и parse_sse_line) импортируется в unit-тестах без backend.
-        from backend.app.config import backend_settings
+    def __init__(
+        self,
+        model: str = None,
+        base_url: str = None,
+        api_key: str = None,
+        send_template_kwargs: bool = None,
+        **_,
+    ):
+        # Ленивый импорт настроек: parse_sse_line/parse_sse_chunk импортируются
+        # в unit-тестах без конфига. Дефолты — из src.config (та же .env, что и
+        # у backend/app/config.py): src/ не импортирует backend/ (слои).
+        from src.config import get_settings
 
-        self.model = model or backend_settings.LLM_MODEL
-        self.base_url = (base_url or backend_settings.LLM_BASE_URL).rstrip("/")
+        settings = get_settings()
+        self.model = model or settings.LLM_MODEL
+        self.base_url = (base_url or settings.LLM_BASE_URL).rstrip("/")
         self.chat_url = f"{self.base_url}/chat/completions"
         # Авторизация для внешних OpenAI-совместимых провайдеров; пусто = локальный llama-server.
-        self.api_key = api_key if api_key is not None else backend_settings.LLM_API_KEY
+        self.api_key = api_key if api_key is not None else settings.LLM_API_KEY
         # Слать ли llama.cpp/vLLM-специфичный chat_template_kwargs (см. config: часть
         # облачных провайдеров отвергает его как неизвестный параметр).
-        self.send_template_kwargs = backend_settings.LLM_SEND_TEMPLATE_KWARGS
+        self.send_template_kwargs = (
+            send_template_kwargs if send_template_kwargs is not None else settings.LLM_SEND_TEMPLATE_KWARGS
+        )
         logger.info(
             "openai_llm_client_initialized",
             model=self.model,
@@ -170,6 +182,10 @@ class OpenAICompatLLMClient:
         **_,
     ) -> str:
         body = self._body(self._messages(prompt, system), thinking, False, temperature, max_tokens, json_mode=json_mode)
+        return self._complete(body)
+
+    def _complete(self, body: dict) -> str:
+        """POST non-streaming chat/completions → content (общий путь generate/chat)."""
         r = requests.post(self.chat_url, json=body, headers=self._headers(), timeout=(30, 600))
         r.raise_for_status()
         try:
@@ -180,6 +196,21 @@ class OpenAICompatLLMClient:
             logger.error("generate_response_parse_failed", error=str(e), body=r.text[:200])
             raise RuntimeError(f"Неожиданный формат ответа LLM-сервера: {e}") from e
         return content or ""
+
+    def chat(self, messages: List[dict], **kwargs) -> str:
+        """Диалог с историей — контракт BaseLLMClient.chat (парный к LLMClient.chat).
+
+        thinking по умолчанию выключен: one-shot диалоговый вызов ждёт готовый
+        текст, а не reasoning-канал.
+        """
+        body = self._body(
+            list(messages),
+            kwargs.get("thinking", False),
+            False,
+            kwargs.get("temperature"),
+            kwargs.get("max_tokens"),
+        )
+        return self._complete(body)
 
     def generate_stream(
         self,

@@ -127,9 +127,7 @@ class StageTrace:
     error: Optional[str] = None
     output_summary: Optional[str] = None
 
-    def complete(
-        self, success: bool, error: Optional[str] = None, output_summary: Optional[str] = None
-    ):
+    def complete(self, success: bool, error: Optional[str] = None, output_summary: Optional[str] = None):
         """Mark stage as complete."""
         self.completed_at = datetime.now()
         self.duration_ms = (self.completed_at - self.started_at).total_seconds() * 1000
@@ -197,9 +195,7 @@ class PipelineTrace:
     def summary(self) -> str:
         """Human-readable summary."""
         status = "✓" if self.final_success else "✗"
-        stages_str = " → ".join(
-            [f"{s.stage.value}({'✓' if s.success else '✗'})" for s in self.stages]
-        )
+        stages_str = " → ".join([f"{s.stage.value}({'✓' if s.success else '✗'})" for s in self.stages])
         return f"[{status}] {self.total_duration_ms:.0f}ms | {stages_str}"
 
 
@@ -435,9 +431,16 @@ class AgentOrchestrator:
 
             if feature_enabled("enable_tom_agent"):
                 from src.agents.mental_model_agent import MentalModelAgent
-                from src.models.llm_client import LLMClient as _LLMClient
+                from src.config import settings as _settings
+                from src.models import create_llm_client
 
-                tom_llm = _LLMClient(model="qwen3.5:9b")
+                # Ollama-путь: thinking-модель конфликтует с JSON mode → base
+                # (MODEL_FALLBACK, qwen3.5:9b). llamacpp-путь: JSON гарантирован
+                # грамматикой (response_format=json_object), модель дефолтная.
+                if _settings.LLM_BACKEND == "ollama":
+                    tom_llm = create_llm_client(backend="ollama", model=_settings.MODEL_FALLBACK)
+                else:
+                    tom_llm = create_llm_client()
                 forge_graph = None
                 try:
                     from pathlib import Path
@@ -449,9 +452,7 @@ class AgentOrchestrator:
                         forge_graph = KnowledgeGraph(forge_path)
                 except Exception:
                     pass
-                self.mental_model_agent = MentalModelAgent(
-                    llm_client=tom_llm, knowledge_graph=forge_graph
-                )
+                self.mental_model_agent = MentalModelAgent(llm_client=tom_llm, knowledge_graph=forge_graph)
                 logger.info("MentalModelAgent инициализирован (ToM-Tutor 017)")
         except Exception as e:
             logger.warning(f"MentalModelAgent не доступен (graceful): {e}")
@@ -610,9 +611,7 @@ class AgentOrchestrator:
         for query_type, patterns in self._query_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, input_lower, re.IGNORECASE):
-                    logger.debug(
-                        f"Query classified as {query_type.value}", extra={"pattern": pattern}
-                    )
+                    logger.debug(f"Query classified as {query_type.value}", extra={"pattern": pattern})
                     return query_type
 
         # Check if it looks like a math expression/answer
@@ -714,9 +713,7 @@ class AgentOrchestrator:
     def _create_trace(self, session_id: Optional[str] = None) -> PipelineTrace:
         """Создать новый трейс пайплайна."""
         self._trace_counter += 1
-        trace = PipelineTrace(
-            trace_id=f"trace-{self._trace_counter}", session_id=session_id, mode=self.mode
-        )
+        trace = PipelineTrace(trace_id=f"trace-{self._trace_counter}", session_id=session_id, mode=self.mode)
 
         # Maintain history limit
         self._pipeline_traces.append(trace)
@@ -768,9 +765,7 @@ class AgentOrchestrator:
             try:
                 return fallback_fn(context, error)
             except Exception as fallback_error:
-                logger.error(
-                    f"Fallback for {agent_name} also failed", extra={"error": str(fallback_error)}
-                )
+                logger.error(f"Fallback for {agent_name} also failed", extra={"error": str(fallback_error)})
 
         return None
 
@@ -874,9 +869,7 @@ class AgentOrchestrator:
 
         # Overall status
         unhealthy_count = sum(
-            1
-            for s in health_status.values()
-            if isinstance(s, dict) and s.get("status") == "unhealthy"
+            1 for s in health_status.values() if isinstance(s, dict) and s.get("status") == "unhealthy"
         )
 
         health_status["overall"] = {
@@ -997,18 +990,10 @@ class AgentOrchestrator:
                 set_mastery_source(self.memory_manager)
             nav = get_navigator()
             if nav and context.topic:
-                student_id = (
-                    session.student_id
-                    if session and hasattr(session, "student_id")
-                    else "anonymous"
-                )
-                graph_context = nav.get_concept_context(
-                    student_id, f"math:{context.topic}:definition"
-                )
+                student_id = session.student_id if session and hasattr(session, "student_id") else "anonymous"
+                graph_context = nav.get_concept_context(student_id, f"math:{context.topic}:definition")
                 if graph_context:
-                    logger.debug(
-                        "Knowledge Forge: graph context loaded", extra={"topic": context.topic}
-                    )
+                    logger.debug("Knowledge Forge: graph context loaded", extra={"topic": context.topic})
         except Exception as e:
             logger.debug(f"Knowledge Forge unavailable (graceful skip): {e}")
 
@@ -1031,11 +1016,7 @@ class AgentOrchestrator:
                     belief_state = self.mental_model_agent.infer(
                         student_message=context.student_input,
                         student_profile=profile,
-                        history=(
-                            session.recent_turns(3)
-                            if session and hasattr(session, "recent_turns")
-                            else []
-                        ),
+                        history=(session.recent_turns(3) if session and hasattr(session, "recent_turns") else []),
                         graph_context=graph_context,
                         topic=context.topic or "",
                     )
@@ -1188,9 +1169,7 @@ class AgentOrchestrator:
                             )
                             logger.warning(
                                 f"Верификация не пройдена (попытка {attempt + 1})",
-                                extra={
-                                    "issues": [c.issue.value for c in verification.critical_issues]
-                                },
+                                extra={"issues": [c.issue.value for c in verification.critical_issues]},
                             )
                             trace.retries += 1
                             if attempt < self.max_retries:
@@ -1316,9 +1295,7 @@ class AgentOrchestrator:
         user_prompt = self._build_user_prompt(context, profile, rag_context)
 
         # Генерируем ответ
-        response = self.llm.generate(
-            prompt=user_prompt, system=system_prompt, temperature=0.7, max_tokens=500
-        )
+        response = self.llm.generate(prompt=user_prompt, system=system_prompt, temperature=0.7, max_tokens=500)
 
         return response
 
@@ -1421,9 +1398,7 @@ flowchart TD
                 prompt_parts.append(f"- {error.error_type.value}: {error.description}")
 
             if profile.misconceptions:
-                prompt_parts.append(
-                    f"Возможные заблуждения: {', '.join(profile.misconceptions[:2])}"
-                )
+                prompt_parts.append(f"Возможные заблуждения: {', '.join(profile.misconceptions[:2])}")
 
         prompt_parts.append(f"\nУченик: {context.student_input}")
 
@@ -1463,9 +1438,7 @@ flowchart TD
             pass
         return response
 
-    def _build_knowledge_state_data(
-        self, student_id: str, profile: Optional[StudentProfile]
-    ) -> KnowledgeStateData:
+    def _build_knowledge_state_data(self, student_id: str, profile: Optional[StudentProfile]) -> KnowledgeStateData:
         """
         Построение данных о состоянии знаний для UI.
 
@@ -1488,9 +1461,7 @@ flowchart TD
                 knowledge_state.weakest_skills = kt_summary.get("weakest_skills", [])
                 knowledge_state.strongest_skills = kt_summary.get("strongest_skills", [])
                 knowledge_state.recommended_skill = kt_summary.get("recommended_skill")
-                knowledge_state.recommended_difficulty = kt_summary.get(
-                    "recommended_difficulty", "medium"
-                )
+                knowledge_state.recommended_difficulty = kt_summary.get("recommended_difficulty", "medium")
 
                 # Построение визуализации навыков
                 mastery_by_skill = kt_summary.get("mastery_by_skill", {})
@@ -1552,9 +1523,7 @@ flowchart TD
         return {
             "session_id": session.session_id,
             "turn_count": session.turn_count,
-            "avg_latency_ms": session.total_latency_ms / session.turn_count
-            if session.turn_count > 0
-            else 0,
+            "avg_latency_ms": session.total_latency_ms / session.turn_count if session.turn_count > 0 else 0,
             "total_latency_ms": session.total_latency_ms,
             "student_id": session.student_id,
             "current_topic": session.current_topic,

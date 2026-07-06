@@ -280,7 +280,6 @@ class OrchestratorService:
 
         try:
             from backend.app.config import backend_settings
-            from src.models.llm_client import LLMClient
 
             self._backend_kind = "ollama"
             self._backend_info: Dict[str, Any] = {}
@@ -318,9 +317,9 @@ class OrchestratorService:
 
             # ─── llama-server (OpenAI-compatible, llama-swap :8090) backend ───
             if self._llm_client is None and backend_settings.LLM_BACKEND == "llamacpp":
-                from src.models.openai_llm_client import OpenAICompatLLMClient
+                from src.models import create_llm_client
 
-                self._llm_client = OpenAICompatLLMClient(model=backend_settings.LLM_MODEL)
+                self._llm_client = create_llm_client(backend="llamacpp", model=backend_settings.LLM_MODEL)
                 self._backend_kind = "llamacpp"
                 self._backend_info = {
                     "kind": "llamacpp",
@@ -360,7 +359,10 @@ class OrchestratorService:
                     model_name = backend_settings.MODEL_NAME
                     logger.info(f"Using base model: {model_name}")
 
-                self._llm_client = LLMClient(model=model_name) if model_name else LLMClient()
+                from src.models import create_llm_client
+
+                # model_name=None → LLMClient сам резолвит дефолт из настроек
+                self._llm_client = create_llm_client(backend="ollama", model=model_name)
                 self._backend_info = {
                     "kind": "ollama",
                     "model": model_name,
