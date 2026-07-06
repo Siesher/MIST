@@ -2,10 +2,13 @@
 
 import json
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 
-from backend.app.models.database import async_session_factory
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+
+from backend.app.api.v1.auth import check_anon_llm_quota
+from backend.app.config import backend_settings
 from backend.app.models.auth import verify_token
+from backend.app.models.database import async_session_factory
 from backend.app.services.orchestrator_service import get_orchestrator_service
 
 logger = logging.getLogger(__name__)
@@ -15,7 +18,12 @@ router = APIRouter(tags=["websocket"])
 
 @router.websocket("/ws/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: str, token: str = Query(default="")):
-    """WebSocket endpoint for streaming chat responses."""
+    """WebSocket endpoint for streaming chat responses.
+
+    DB-сессии открываются НА КАЖДОЕ сообщение, а не на всё время соединения:
+    WS живёт минутами/часами, а одна долгоживущая AsyncSession держит соединение
+    SQLite и копит грязный identity map между commit'ами.
+    """
     logger.info(f"WebSocket connection request for session: {session_id}")
 
     # Optional JWT auth via query param
@@ -26,22 +34,36 @@ async def websocket_chat(websocket: WebSocket, session_id: str, token: str = Que
             user_id = payload.get("sub")
             logger.info(f"WebSocket authenticated user: {user_id}")
 
+    # Публичный инстанс: анонимные WS-подключения запрещены целиком
+    if backend_settings.REQUIRE_AUTH and user_id is None:
+        logger.warning(f"WS rejected: anonymous access disabled (session {session_id})")
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+
     service = await get_orchestrator_service()
 
-    # WebSocket can't use Depends(get_db), so we create a session manually
+    # Короткая сессия только на проверку существования и владельца
     async with async_session_factory() as db:
         session = await service.get_session(db, session_id)
 
-        if not session:
-            logger.warning(f"Session not found: {session_id}")
-            await websocket.close(code=1008, reason="Session not found")
-            return
+    if not session:
+        logger.warning(f"Session not found: {session_id}")
+        await websocket.close(code=1008, reason="Session not found")
+        return
 
-        await websocket.accept()
-        logger.info(f"WebSocket accepted for session: {session_id}")
+    # Ownership: пользовательская сессия доступна только её владельцу;
+    # анонимная (user_id=NULL) — по знанию UUID (capability, как в REST API)
+    if session.user_id is not None and session.user_id != user_id:
+        logger.warning(f"WS ownership check failed for session: {session_id}")
+        await websocket.close(code=1008, reason="Session not found")
+        return
 
-        # Send connection ready
-        await websocket.send_json({
+    await websocket.accept()
+    logger.info(f"WebSocket accepted for session: {session_id}")
+
+    # Send connection ready
+    await websocket.send_json(
+        {
             "type": "connection_ready",
             "session_id": session_id,
             "session_state": {
@@ -49,39 +71,64 @@ async def websocket_chat(websocket: WebSocket, session_id: str, token: str = Que
                 "hints_used": session.hints_used,
                 "attempts": session.attempts,
             },
-        })
-        logger.info(f"Sent connection_ready to session: {session_id}")
+        }
+    )
+    logger.info(f"Sent connection_ready to session: {session_id}")
 
-        try:
-            while True:
-                data = await websocket.receive_text()
+    ws_ip = websocket.client.host if websocket.client else "unknown"
 
-                try:
-                    msg = json.loads(data)
-                except json.JSONDecodeError:
-                    await websocket.send_json({
+    async def _anon_quota_ok() -> bool:
+        """Аноним — под той же per-IP квотой LLM-вызовов, что и REST-эндпоинты."""
+        if user_id is not None or check_anon_llm_quota(ws_ip):
+            return True
+        await websocket.send_json(
+            {
+                "type": "error",
+                "code": "RATE_LIMITED",
+                "message": "Анонимная квота LLM-запросов исчерпана — войдите в аккаунт или повторите позже",
+                "recoverable": False,
+            }
+        )
+        return False
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+
+            try:
+                msg = json.loads(data)
+            except json.JSONDecodeError:
+                await websocket.send_json(
+                    {
                         "type": "error",
                         "code": "INVALID_MESSAGE",
                         "message": "Неверный формат сообщения",
                         "recoverable": True,
-                    })
-                    continue
+                    }
+                )
+                continue
 
-                msg_type = msg.get("type")
+            msg_type = msg.get("type")
 
-                if msg_type == "message":
-                    content = msg.get("content", "").strip()
-                    if not content:
-                        await websocket.send_json({
+            if msg_type == "message":
+                content = msg.get("content", "").strip()
+                if not content:
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "INVALID_MESSAGE",
                             "message": "Пустое сообщение",
                             "recoverable": True,
-                        })
-                        continue
+                        }
+                    )
+                    continue
 
-                    try:
-                        token_count = 0
+                if not await _anon_quota_ok():
+                    continue
+
+                try:
+                    token_count = 0
+                    async with async_session_factory() as db:
                         async for token_data in service.process_message_stream(db, session_id, content):
                             await websocket.send_json(token_data)
                             token_count += 1
@@ -89,136 +136,173 @@ async def websocket_chat(websocket: WebSocket, session_id: str, token: str = Que
                                 logger.info(f"First token sent via WebSocket for session: {session_id}")
                             if token_count % 100 == 0:
                                 logger.debug(f"Sent {token_count} tokens via WebSocket")
-                        logger.info(f"Streaming complete: {token_count} tokens sent for session: {session_id}")
-                    except Exception as e:
-                        logger.error(f"Streaming error: {e}")
-                        await websocket.send_json({
+                    logger.info(f"Streaming complete: {token_count} tokens sent for session: {session_id}")
+                except Exception as e:
+                    logger.error(f"Streaming error: {e}")
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "INTERNAL_ERROR",
                             "message": "Ошибка генерации ответа",
                             "recoverable": True,
                             "retry_after": 5,
-                        })
+                        }
+                    )
 
-                elif msg_type == "mode_change":
-                    new_mode = msg.get("mode", "").strip()
-                    if new_mode not in ("chat", "guided_learning", "task_generator"):
-                        await websocket.send_json({
+            elif msg_type == "mode_change":
+                new_mode = msg.get("mode", "").strip()
+                if new_mode not in ("chat", "guided_learning", "task_generator"):
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "INVALID_MODE",
                             "message": f"Неизвестный режим: {new_mode}",
                             "recoverable": True,
-                        })
-                        continue
+                        }
+                    )
+                    continue
 
+                async with async_session_factory() as db:
                     result = await service.change_mode(db, session_id, new_mode)
-                    if result:
-                        from backend.app.services.orchestrator_service import MODE_CONFIGS
-                        config = MODE_CONFIGS.get(new_mode)
-                        await websocket.send_json({
+                if result:
+                    from backend.app.services.orchestrator_service import MODE_CONFIGS
+
+                    config = MODE_CONFIGS.get(new_mode)
+                    await websocket.send_json(
+                        {
                             "type": "mode_changed",
                             "previous_mode": result["previous_mode"],
                             "current_mode": result["current_mode"],
                             "placeholder": config.placeholder_text if config else "",
                             "message": result.get("message", ""),
-                        })
-                    else:
-                        await websocket.send_json({
+                        }
+                    )
+                else:
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "SESSION_NOT_FOUND",
                             "message": "Сессия не найдена",
                             "recoverable": False,
-                        })
+                        }
+                    )
 
-                elif msg_type == "hint_request":
+            elif msg_type == "hint_request":
+                if not await _anon_quota_ok():
+                    continue
+                async with async_session_factory() as db:
                     result = await service.get_hint(db, session_id)
-                    if result:
-                        await websocket.send_json({
+                if result:
+                    await websocket.send_json(
+                        {
                             "type": "hint_response",
                             **result,
-                        })
-                    else:
-                        await websocket.send_json({
+                        }
+                    )
+                else:
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "NO_HINTS_REMAINING",
                             "message": "Все подсказки использованы",
                             "recoverable": False,
-                        })
+                        }
+                    )
 
-                elif msg_type == "image_upload":
-                    image_b64 = msg.get("image", "")
-                    problem = msg.get("problem", "")
-                    if not image_b64:
-                        await websocket.send_json({
+            elif msg_type == "image_upload":
+                image_b64 = msg.get("image", "")
+                problem = msg.get("problem", "")
+                if not image_b64:
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "INVALID_MESSAGE",
                             "message": "Изображение не предоставлено",
                             "recoverable": True,
-                        })
-                        continue
+                        }
+                    )
+                    continue
 
-                    try:
-                        import base64
-                        import tempfile
-                        from pathlib import Path as FSPath
-                        from src.models.vision_analyzer import VisionAnalyzer
-                        from src.config import get_settings
+                if not await _anon_quota_ok():
+                    continue
 
-                        settings = get_settings()
-                        image_bytes = base64.b64decode(image_b64)
+                tmp_path = None
+                try:
+                    import base64
+                    import tempfile
+                    from pathlib import Path as FSPath
 
-                        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-                            tmp.write(image_bytes)
-                            tmp_path = tmp.name
+                    from src.config import get_settings
+                    from src.models.vision_analyzer import VisionAnalyzer
 
-                        analyzer = VisionAnalyzer(vision_model=settings.VISION_MODEL)
-                        result = await analyzer.analyze_image(
-                            image_path=tmp_path,
-                            problem=problem,
-                        )
-                        FSPath(tmp_path).unlink(missing_ok=True)
+                    settings = get_settings()
+                    image_bytes = base64.b64decode(image_b64)
 
-                        steps_data = []
-                        for step in result.steps:
-                            steps_data.append({
+                    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                        tmp.write(image_bytes)
+                        tmp_path = tmp.name
+
+                    analyzer = VisionAnalyzer(vision_model=settings.VISION_MODEL)
+                    result = await analyzer.analyze_image(
+                        image_path=tmp_path,
+                        problem=problem,
+                    )
+
+                    steps_data = []
+                    for step in result.steps:
+                        steps_data.append(
+                            {
                                 "step_number": step.step_number,
                                 "latex": step.recognized_latex,
                                 "confidence": step.confidence.value,
                                 "is_correct": step.is_correct,
-                            })
+                            }
+                        )
 
-                        await websocket.send_json({
+                    await websocket.send_json(
+                        {
                             "type": "ocr_result",
                             "steps": steps_data,
                             "feedback": result.feedback,
                             "confidence": result.overall_confidence.value,
                             "is_correct": result.is_correct,
-                        })
-                    except Exception as e:
-                        logger.error(f"Image recognition error: {e}")
-                        await websocket.send_json({
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Image recognition error: {e}")
+                    await websocket.send_json(
+                        {
                             "type": "error",
                             "code": "OCR_FAILED",
                             "message": f"Ошибка распознавания: {str(e)}",
                             "recoverable": True,
-                        })
+                        }
+                    )
+                finally:
+                    # temp-файл не должен утекать и при падении распознавания
+                    if tmp_path:
+                        from pathlib import Path as FSPath
 
-                elif msg_type in ("typing_start", "typing_stop"):
-                    pass  # Analytics only, no response needed
+                        FSPath(tmp_path).unlink(missing_ok=True)
 
-                else:
-                    await websocket.send_json({
+            elif msg_type in ("typing_start", "typing_stop"):
+                pass  # Analytics only, no response needed
+
+            else:
+                await websocket.send_json(
+                    {
                         "type": "error",
                         "code": "INVALID_MESSAGE",
                         "message": f"Неизвестный тип сообщения: {msg_type}",
                         "recoverable": True,
-                    })
+                    }
+                )
 
-        except WebSocketDisconnect:
-            logger.info(f"WebSocket disconnected: {session_id}")
-        except Exception as e:
-            logger.error(f"WebSocket error: {e}")
-            try:
-                await websocket.close(code=1011)
-            except Exception:
-                pass
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected: {session_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass

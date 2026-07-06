@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.api.v1.auth import get_optional_user
+from backend.app.api.v1.auth import get_current_user, get_optional_user
 from backend.app.models.database import get_db
 from backend.app.models.tables import SourceTable, UserTable
 
@@ -119,8 +119,12 @@ class SourceList(BaseModel):
 
 
 @router.post("/nodes", response_model=NodeSummary, status_code=status.HTTP_201_CREATED)
-async def create_node(req: CreateNodeRequest):
-    """Manually add a node to the Knowledge Forge graph (the «+ тема» button)."""
+async def create_node(req: CreateNodeRequest, user: UserTable = Depends(get_current_user)):
+    """Manually add a node to the Knowledge Forge graph (the «+ тема» button).
+
+    Граф общий для всех студентов — мутация только для авторизованных
+    (ролей в системе нет, это минимальный барьер от анонимного отравления графа).
+    """
     import re
     import uuid
 
@@ -276,7 +280,7 @@ async def _run_extraction(source_id: str) -> None:
                     source_name=src_row.title,
                 )
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             nodes, edges = await loop.run_in_executor(None, _sync_extract)
 
             # Actually add extracted nodes/edges to the graph
@@ -434,7 +438,9 @@ async def list_proposals() -> list[ProposalInfo]:
 
 
 @router.post("/proposals/{proposal_key}/accept")
-async def accept_proposal(proposal_key: str) -> dict[str, bool]:
+async def accept_proposal(
+    proposal_key: str, user: UserTable = Depends(get_current_user)
+) -> dict[str, bool]:
     from backend.app.services.kg_evolution_service import get_kg_evolution
 
     ok = get_kg_evolution().manual_decision(proposal_key, accept=True)
@@ -444,7 +450,9 @@ async def accept_proposal(proposal_key: str) -> dict[str, bool]:
 
 
 @router.post("/proposals/{proposal_key}/reject")
-async def reject_proposal(proposal_key: str) -> dict[str, bool]:
+async def reject_proposal(
+    proposal_key: str, user: UserTable = Depends(get_current_user)
+) -> dict[str, bool]:
     from backend.app.services.kg_evolution_service import get_kg_evolution
 
     ok = get_kg_evolution().manual_decision(proposal_key, accept=False)
@@ -454,7 +462,9 @@ async def reject_proposal(proposal_key: str) -> dict[str, bool]:
 
 
 @router.post("/evolution/promote")
-async def promote_proposals(threshold: float = 0.75) -> dict[str, int]:
+async def promote_proposals(
+    threshold: float = 0.75, user: UserTable = Depends(get_current_user)
+) -> dict[str, int]:
     """Trigger auto-promote sweep (admin). Normally runs automatically every N sessions."""
     from backend.app.services.kg_evolution_service import get_kg_evolution
 

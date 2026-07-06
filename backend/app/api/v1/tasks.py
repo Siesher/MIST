@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.api.v1.auth import get_optional_user
+from backend.app.api.v1.auth import get_optional_user, require_llm_budget
 from backend.app.models.database import get_db
 from backend.app.models.tables import UserTable
 from backend.app.schemas.chat import (
@@ -40,7 +40,10 @@ async def list_topics():
 
 
 @router.post("/generate", response_model=TaskResponse)
-async def generate_task(request: GenerateTaskRequest):
+async def generate_task(
+    request: GenerateTaskRequest,
+    _user: UserTable | None = Depends(require_llm_budget),
+):
     """Generate a new math task."""
     service = await get_orchestrator_service()
     task = await service.generate_task(

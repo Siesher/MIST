@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,9 +23,15 @@ async def export_report_pdf(
     db: AsyncSession = Depends(get_db),
     user: UserTable | None = Depends(get_optional_user),
 ):
-    """Generate and download a PDF progress report."""
-    if user:
-        user_id = user.id
+    """Generate and download a PDF progress report.
+
+    Anti-IDOR: user_id берётся только из токена; анонимный запрос с
+    произвольным user_id не должен отдавать чужой отчёт.
+    """
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user_id = user.id
+    user_name = user.display_name or user_name
     service = await get_export_service()
     pdf_bytes = await service.generate_report_pdf(db, user_id, user_name)
 

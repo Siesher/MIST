@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.api.v1.auth import ensure_session_access, get_optional_user
+from backend.app.api.v1.auth import ensure_session_access, get_optional_user, require_llm_budget
 from backend.app.models.database import get_db
 from backend.app.models.tables import UserTable
 from backend.app.schemas.chat import (
@@ -33,7 +33,8 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 async def create_session(
     request: CreateSessionRequest,
     db: AsyncSession = Depends(get_db),
-    user: UserTable | None = Depends(get_optional_user),
+    # create_session с topic генерирует задачу через LLM — путь квотируемый
+    user: UserTable | None = Depends(require_llm_budget),
 ):
     """Create a new tutoring session."""
     service = await get_orchestrator_service()

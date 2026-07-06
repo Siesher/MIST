@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.auth import get_optional_user
@@ -16,8 +16,14 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 def _own_id(user: UserTable | None, requested: str) -> str:
-    """Anti-IDOR: аутентифицированный пользователь видит только свои данные."""
-    return user.id if user else requested
+    """Anti-IDOR: user_id берётся только из проверенного токена.
+
+    Аноним не может запросить чужие данные по произвольному user_id
+    (анонимный дашборд на фронте не зовёт эти эндпоинты — у него статический fallback).
+    """
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user.id
 
 
 @router.get("/metrics")
@@ -59,10 +65,11 @@ async def get_performance_metrics():
 
     # Inference metrics (latency tracking)
     try:
+        from backend.app.config import backend_settings
         from src.inference.metrics import get_metrics_collector
 
         collector = get_metrics_collector()
-        metrics["inference"] = collector.get_model_stats("glm-4.7-flash", hours=24)
+        metrics["inference"] = collector.get_model_stats(backend_settings.LLM_MODEL, hours=24)
     except Exception:
         metrics["inference"] = None
 

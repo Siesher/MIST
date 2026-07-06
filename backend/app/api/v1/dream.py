@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from backend.app.api.v1.auth import get_optional_user
+from backend.app.api.v1.auth import get_current_user
 from backend.app.models.database import get_db
 from backend.app.models.tables import SessionTable, UserTable
 from backend.app.services.orchestrator_service import get_orchestrator_service
@@ -48,7 +48,7 @@ class DreamReport(BaseModel):
 @router.post("", response_model=DreamReport)
 async def run_dream(
     db: AsyncSession = Depends(get_db),
-    user: UserTable | None = Depends(get_optional_user),
+    user: UserTable = Depends(get_current_user),
 ) -> DreamReport:
     """Run a dreaming pass over the caller's recent sessions.
 
@@ -84,17 +84,18 @@ async def run_dream(
     def _sync_dream() -> dict:
         return dreamer.dream_from_rows(sid, rows)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     report = await loop.run_in_executor(None, _sync_dream)
     return DreamReport(**report)
 
 
 @router.get("/memory")
-async def get_memory(user: UserTable | None = Depends(get_optional_user)) -> dict:
+async def get_memory(user: UserTable = Depends(get_current_user)) -> dict:
     """Read the caller's stored dreaming memory (profile + reflections).
 
     Args:
-        user: Authenticated user, or ``None`` for anonymous callers (injected).
+        user: Authenticated caller; anonymous requests get 401 from the
+            ``get_current_user`` dependency before this handler runs.
 
     Returns:
         A dict with the student's ``profile`` text and up to 20 recent

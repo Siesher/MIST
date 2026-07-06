@@ -4,7 +4,7 @@ Aggregates:
   * LLMCacheService (backend/app/services/cache_service.py) — hit rate, size
   * src/inference/metrics.py MetricsCollector — recent tok/s, latencies
 
-Read-only; no mutations via this router.
+Read-only, кроме POST /cache/clear (admin/debug, требует авторизации).
 """
 
 from __future__ import annotations
@@ -14,8 +14,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+
+from backend.app.api.v1.auth import get_current_user
+from backend.app.models.tables import UserTable
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +129,8 @@ async def get_cache_stats() -> CacheStats:
 
 
 @router.post("/cache/clear")
-async def clear_cache() -> dict[str, Any]:
-    """Clear LLM response cache (admin/debug)."""
+async def clear_cache(user: UserTable = Depends(get_current_user)) -> dict[str, Any]:
+    """Clear LLM response cache (admin/debug) — только для авторизованных."""
     from backend.app.services.cache_service import get_cache_service
 
     before = get_cache_service().stats["size"]
@@ -141,7 +144,7 @@ async def clear_cache() -> dict[str, Any]:
 
 
 @router.get("/traces")
-async def list_traces(limit: int = 20) -> dict[str, Any]:
+async def list_traces(limit: int = 20, user: UserTable = Depends(get_current_user)) -> dict[str, Any]:
     """Recent session IDs with trace summary stats."""
     from backend.app.services.tracing import get_tracer
 
@@ -167,7 +170,7 @@ async def list_traces(limit: int = 20) -> dict[str, Any]:
 
 
 @router.get("/traces/{session_id}")
-async def get_session_traces(session_id: str) -> dict[str, Any]:
+async def get_session_traces(session_id: str, user: UserTable = Depends(get_current_user)) -> dict[str, Any]:
     """Full trace for a session: tree of spans with timings + attributes."""
     from backend.app.services.tracing import get_tracer
 

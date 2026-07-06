@@ -20,12 +20,16 @@ import json as _json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+
+from backend.app.api.v1.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ingest", tags=["ingest"])
+# Загрузка файлов/URL пишет в базу знаний и дёргает vision-LLM —
+# весь роутер только для авторизованных.
+router = APIRouter(prefix="/ingest", tags=["ingest"], dependencies=[Depends(get_current_user)])
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -212,9 +216,7 @@ async def ingest_image(
     try:
         from src.tools.vision_ocr import ocr_image
 
-        description = ocr_image(
-            content, mime=file.content_type or "image/png", prompt=context or None
-        )
+        description = ocr_image(content, mime=file.content_type or "image/png", prompt=context or None)
         if description:
             metadata["vision_model"] = "mits-vision"
     except Exception as e:
@@ -227,10 +229,7 @@ async def ingest_image(
 
             b64 = base64.b64encode(content).decode("ascii")
             llm = LLMClient()
-            prompt = (
-                f"Опиши изображение кратко (5-10 предложений). "
-                f"Контекст: {context or 'общее описание'}"
-            )
+            prompt = f"Опиши изображение кратко (5-10 предложений). Контекст: {context or 'общее описание'}"
             response = llm.chat(
                 messages=[{"role": "user", "content": prompt, "images": [b64]}],
                 temperature=0.3,

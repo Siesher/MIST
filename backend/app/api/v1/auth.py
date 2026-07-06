@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.config import backend_settings
 from backend.app.models.auth import (
     create_access_token,
     create_refresh_token,
@@ -34,6 +35,10 @@ _AUTH_RATE_LIMIT = 10  # попыток в окно
 _AUTH_RATE_WINDOW = 60.0  # секунд
 _auth_attempts: dict[str, deque] = defaultdict(deque)
 
+# Анонимная квота LLM-путей (per-IP, in-memory): публичный инстанс нельзя
+# бесплатно выжигать GPU-временем. Авторизованные пользователи — без квоты.
+_anon_llm_calls: dict[str, deque] = defaultdict(deque)
+
 
 def _check_auth_rate(request: Request) -> None:
     """Троттлинг /auth: не более N попыток в окно с одного IP.
@@ -46,9 +51,7 @@ def _check_auth_rate(request: Request) -> None:
     while attempts and now - attempts[0] > _AUTH_RATE_WINDOW:
         attempts.popleft()
     if len(attempts) >= _AUTH_RATE_LIMIT:
-        raise HTTPException(
-            status_code=429, detail="Слишком много попыток — повторите через минуту"
-        )
+        raise HTTPException(status_code=429, detail="Слишком много попыток — повторите через минуту")
     attempts.append(now)
 
 
@@ -146,13 +149,54 @@ async def get_optional_user(
     return await db.get(UserTable, payload["sub"])
 
 
+def check_anon_llm_quota(ip: str) -> bool:
+    """Скользящее окно анонимных LLM-вызовов на IP.
+
+    True — вызов учтён и разрешён; False — квота исчерпана.
+    Отдельная функция (а не Depends), чтобы WebSocket мог вызывать её вручную.
+    """
+    now = time.monotonic()
+    calls = _anon_llm_calls[ip]
+    while calls and now - calls[0] > backend_settings.ANON_LLM_WINDOW:
+        calls.popleft()
+    if len(calls) >= backend_settings.ANON_LLM_LIMIT:
+        return False
+    calls.append(now)
+    return True
+
+
+async def require_llm_budget(
+    request: Request,
+    user: UserTable | None = Depends(get_optional_user),
+) -> UserTable | None:
+    """Гейт дорогих LLM-эндпоинтов; возвращает пользователя (или None).
+
+    Авторизованный проходит всегда. Аноним: при REQUIRE_AUTH — 401 (публичный
+    инстанс), иначе per-IP квота ANON_LLM_LIMIT/ANON_LLM_WINDOW, при
+    исчерпании — 429. Возвращает то же, что get_optional_user, поэтому
+    подменяет его в сигнатурах без изменения session-scoping логики.
+    """
+    if user is not None:
+        return user
+    if backend_settings.REQUIRE_AUTH:
+        raise HTTPException(
+            status_code=401,
+            detail="Требуется вход: анонимный доступ отключён на этом инстансе",
+        )
+    ip = request.client.host if request.client else "unknown"
+    if not check_anon_llm_quota(ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Анонимная квота LLM-запросов исчерпана — войдите в аккаунт или повторите позже",
+        )
+    return None
+
+
 # ── Endpoints ───────────────────────────────────────────────
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(
-    request: RegisterRequest, http_request: Request, db: AsyncSession = Depends(get_db)
-):
+async def register(request: RegisterRequest, http_request: Request, db: AsyncSession = Depends(get_db)):
     """Register a new user."""
     _check_auth_rate(http_request)
     existing = await db.execute(select(UserTable).where(UserTable.email == request.email))
@@ -260,9 +304,7 @@ async def refresh_tokens(request: RefreshRequest, db: AsyncSession = Depends(get
 async def logout(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
     """Logout — revoke refresh token."""
     token_h = hash_token(request.refresh_token)
-    result = await db.execute(
-        select(RefreshTokenTable).where(RefreshTokenTable.token_hash == token_h)
-    )
+    result = await db.execute(select(RefreshTokenTable).where(RefreshTokenTable.token_hash == token_h))
     stored = result.scalar_one_or_none()
     if stored:
         stored.revoked = True
