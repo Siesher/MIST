@@ -1,10 +1,17 @@
+import shutil
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 import assemble_vkr as av
 
 
+@pytest.mark.skipif(
+    shutil.which("pandoc") is None,
+    reason="pandoc не установлен в системе; тест проверяет корректность локатора при наличии бинаря",
+)
 def test_find_pandoc_returns_existing_exe():
     p = av.find_pandoc()
     assert p, "pandoc не найден"
