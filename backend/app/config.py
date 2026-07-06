@@ -14,6 +14,13 @@ class BackendSettings(BaseSettings):
     LLM_BACKEND: str = "llamacpp"
     LLM_BASE_URL: str = "http://127.0.0.1:8090/v1"  # llama-swap direct (mits-eval-* models)
     LLM_MODEL: str = "mits-tutor"  # llama-swap config: 64K ctx + TurboQuant turbo3
+    # Внешние OpenAI-совместимые провайдеры (OpenRouter/DeepSeek/OpenAI/vLLM-хосты):
+    # выставьте LLM_BASE_URL на их /v1, LLM_MODEL на их id, LLM_API_KEY на ключ.
+    # Пусто (по умолчанию) = локальный llama-server без авторизации (open-source self-host).
+    LLM_API_KEY: str = ""
+    # `chat_template_kwargs` (enable_thinking) — расширение llama.cpp/vLLM, НЕ стандарт
+    # OpenAI: часть облачных провайдеров отвергает его 400-й. False для таких провайдеров.
+    LLM_SEND_TEMPLATE_KWARGS: bool = True
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./backend/data/mits.db"

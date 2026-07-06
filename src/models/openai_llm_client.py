@@ -82,18 +82,38 @@ def parse_sse_chunk(raw_line: bytes) -> Optional[dict]:
 class OpenAICompatLLMClient:
     """LLM-клиент к OpenAI-совместимому endpoint (llama-swap/llama-server)."""
 
-    def __init__(self, model: str = None, base_url: str = None, **_):
+    def __init__(self, model: str = None, base_url: str = None, api_key: str = None, **_):
         # Ленивый импорт: модуль (и parse_sse_line) импортируется в unit-тестах без backend.
         from backend.app.config import backend_settings
 
         self.model = model or backend_settings.LLM_MODEL
         self.base_url = (base_url or backend_settings.LLM_BASE_URL).rstrip("/")
         self.chat_url = f"{self.base_url}/chat/completions"
-        logger.info("openai_llm_client_initialized", model=self.model, base_url=self.base_url)
+        # Авторизация для внешних OpenAI-совместимых провайдеров; пусто = локальный llama-server.
+        self.api_key = api_key if api_key is not None else backend_settings.LLM_API_KEY
+        # Слать ли llama.cpp/vLLM-специфичный chat_template_kwargs (см. config: часть
+        # облачных провайдеров отвергает его как неизвестный параметр).
+        self.send_template_kwargs = backend_settings.LLM_SEND_TEMPLATE_KWARGS
+        logger.info(
+            "openai_llm_client_initialized",
+            model=self.model,
+            base_url=self.base_url,
+            auth=bool(self.api_key),
+        )
+
+    def _headers(self) -> dict:
+        """HTTP-заголовки запроса: Bearer для внешних провайдеров, пусто для локального.
+
+        Content-Type для json=-тела requests проставляет сам, поэтому здесь только
+        авторизация. Пустой api_key (локальный llama-server) → без заголовков.
+        """
+        if self.api_key:
+            return {"Authorization": f"Bearer {self.api_key}"}
+        return {}
 
     def list_models(self) -> List[str]:
         try:
-            r = requests.get(f"{self.base_url}/models", timeout=5)
+            r = requests.get(f"{self.base_url}/models", headers=self._headers(), timeout=5)
             r.raise_for_status()
             return [m.get("id", "") for m in r.json().get("data", [])]
         except requests.RequestException:
@@ -101,7 +121,7 @@ class OpenAICompatLLMClient:
 
     def check_connection(self) -> bool:
         try:
-            return requests.get(f"{self.base_url}/models", timeout=5).ok
+            return requests.get(f"{self.base_url}/models", headers=self._headers(), timeout=5).ok
         except requests.RequestException:
             return False
 
@@ -110,9 +130,10 @@ class OpenAICompatLLMClient:
             "model": self.model,
             "messages": messages,
             "stream": stream,
-            "chat_template_kwargs": {"enable_thinking": bool(thinking)},
             **DEFAULT_SAMPLING,
         }
+        if self.send_template_kwargs:
+            body["chat_template_kwargs"] = {"enable_thinking": bool(thinking)}
         if json_mode:
             # Grammar-constrain llama-server to a valid JSON object, so strict-JSON
             # callers (e.g. TaskGenerator) don't have to salvage prose/fences from
@@ -149,7 +170,7 @@ class OpenAICompatLLMClient:
         **_,
     ) -> str:
         body = self._body(self._messages(prompt, system), thinking, False, temperature, max_tokens, json_mode=json_mode)
-        r = requests.post(self.chat_url, json=body, timeout=(30, 600))
+        r = requests.post(self.chat_url, json=body, headers=self._headers(), timeout=(30, 600))
         r.raise_for_status()
         try:
             content = r.json()["choices"][0]["message"]["content"]
@@ -176,7 +197,7 @@ class OpenAICompatLLMClient:
             kwargs.get("temperature"),
             kwargs.get("max_tokens"),
         )
-        with requests.post(self.chat_url, json=body, stream=True, timeout=(30, 120)) as r:
+        with requests.post(self.chat_url, json=body, headers=self._headers(), stream=True, timeout=(30, 120)) as r:
             r.raise_for_status()
             for raw_line in r.iter_lines(decode_unicode=False):
                 for kind, tok in parse_sse_line(raw_line):
@@ -227,10 +248,11 @@ class OpenAICompatLLMClient:
                 "messages": msgs,
                 "stream": True,
                 "tools": tools,
-                "chat_template_kwargs": {"enable_thinking": bool(thinking)},
                 **DEFAULT_SAMPLING,
                 "temperature": effective_temp,
             }
+            if self.send_template_kwargs:
+                body["chat_template_kwargs"] = {"enable_thinking": bool(thinking)}
             if max_tokens is not None:
                 body["max_tokens"] = max_tokens
 
@@ -241,7 +263,7 @@ class OpenAICompatLLMClient:
             content_streamed = False
             tc_acc: dict = {}  # index -> {"id","name","args"}
 
-            with requests.post(self.chat_url, json=body, stream=True, timeout=(30, 600)) as r:
+            with requests.post(self.chat_url, json=body, headers=self._headers(), stream=True, timeout=(30, 600)) as r:
                 r.raise_for_status()
                 for raw_line in r.iter_lines(decode_unicode=False):
                     choice = parse_sse_chunk(raw_line)
