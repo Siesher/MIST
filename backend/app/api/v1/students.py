@@ -55,7 +55,7 @@ async def get_profile(db: AsyncSession = Depends(get_db)):
 
 @router.get("/me/analytics", response_model=AnalyticsResponse)
 async def get_analytics(
-    period: str = Query("week", regex="^(day|week|month|all)$"), db: AsyncSession = Depends(get_db)
+    period: str = Query("week", pattern="^(day|week|month|all)$"), db: AsyncSession = Depends(get_db)
 ):
     """Get analytics data for a time period."""
     service = await get_orchestrator_service()
