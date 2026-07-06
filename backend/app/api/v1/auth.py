@@ -1,27 +1,83 @@
 """Authentication endpoints and dependencies."""
 
 import logging
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.database import get_db
-from backend.app.models.tables import UserTable, RefreshTokenTable
 from backend.app.models.auth import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token,
-    verify_token, hash_token,
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    hash_token,
+    verify_password,
+    verify_token,
 )
+from backend.app.models.database import get_db
+from backend.app.models.tables import RefreshTokenTable, UserTable
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+# ── Login throttling (in-memory, per-IP) ────────────────────
+
+_AUTH_RATE_LIMIT = 10  # попыток в окно
+_AUTH_RATE_WINDOW = 60.0  # секунд
+_auth_attempts: dict[str, deque] = defaultdict(deque)
+
+
+def _check_auth_rate(request: Request) -> None:
+    """Троттлинг /auth: не более N попыток в окно с одного IP.
+
+    In-memory, сбрасывается при рестарте — для single-instance деплоя достаточно.
+    """
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    attempts = _auth_attempts[ip]
+    while attempts and now - attempts[0] > _AUTH_RATE_WINDOW:
+        attempts.popleft()
+    if len(attempts) >= _AUTH_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429, detail="Слишком много попыток — повторите через минуту"
+        )
+    attempts.append(now)
+
+
+def ensure_session_access(session_user_id: str | None, user: "UserTable | None") -> None:
+    """Capability-based ownership: сессия пользователя доступна только ему.
+
+    Анонимные сессии (user_id=NULL) доступны по знанию UUID — это сохраняет
+    демо-режим без логина. 404 вместо 403, чтобы не подтверждать существование
+    чужой сессии (анти-enumeration).
+    """
+    if session_user_id is not None and (user is None or user.id != session_user_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+
+async def _purge_stale_refresh_tokens(db: AsyncSession, user_id: str) -> None:
+    """Удаляет протухшие/отозванные refresh-токены пользователя.
+
+    Иначе refresh_tokens растёт неограниченно: каждый login/refresh добавляет
+    строку, а revoke только ставит флаг.
+    """
+    await db.execute(
+        delete(RefreshTokenTable).where(
+            RefreshTokenTable.user_id == user_id,
+            or_(
+                RefreshTokenTable.expires_at < datetime.now(timezone.utc),
+                RefreshTokenTable.revoked.is_(True),
+            ),
+        )
+    )
 
 
 # ── Schemas ─────────────────────────────────────────────────
@@ -94,8 +150,11 @@ async def get_optional_user(
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(
+    request: RegisterRequest, http_request: Request, db: AsyncSession = Depends(get_db)
+):
     """Register a new user."""
+    _check_auth_rate(http_request)
     existing = await db.execute(select(UserTable).where(UserTable.email == request.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -112,19 +171,22 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
     refresh = create_refresh_token(user.id)
 
     refresh_payload = verify_token(refresh)
-    db.add(RefreshTokenTable(
-        user_id=user.id,
-        token_hash=hash_token(refresh),
-        expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
-    ))
+    db.add(
+        RefreshTokenTable(
+            user_id=user.id,
+            token_hash=hash_token(refresh),
+            expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
+        )
+    )
 
     await db.commit()
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(request: LoginRequest, http_request: Request, db: AsyncSession = Depends(get_db)):
     """Login with email and password."""
+    _check_auth_rate(http_request)
     result = await db.execute(select(UserTable).where(UserTable.email == request.email))
     user = result.scalar_one_or_none()
 
@@ -132,16 +194,19 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     user.last_login_at = datetime.now(timezone.utc)
+    await _purge_stale_refresh_tokens(db, user.id)
 
     access = create_access_token(user.id, user.email)
     refresh = create_refresh_token(user.id)
 
     refresh_payload = verify_token(refresh)
-    db.add(RefreshTokenTable(
-        user_id=user.id,
-        token_hash=hash_token(refresh),
-        expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
-    ))
+    db.add(
+        RefreshTokenTable(
+            user_id=user.id,
+            token_hash=hash_token(refresh),
+            expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
+        )
+    )
 
     await db.commit()
     return TokenResponse(access_token=access, refresh_token=refresh)
@@ -171,15 +236,21 @@ async def refresh_tokens(request: RefreshRequest, db: AsyncSession = Depends(get
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
+    # flush до bulk-delete: иначе pending UPDATE целится в строку, которую purge уже удалил
+    await db.flush()
+    await _purge_stale_refresh_tokens(db, user.id)
+
     access = create_access_token(user.id, user.email)
     refresh = create_refresh_token(user.id)
 
     refresh_payload = verify_token(refresh)
-    db.add(RefreshTokenTable(
-        user_id=user.id,
-        token_hash=hash_token(refresh),
-        expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
-    ))
+    db.add(
+        RefreshTokenTable(
+            user_id=user.id,
+            token_hash=hash_token(refresh),
+            expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
+        )
+    )
 
     await db.commit()
     return TokenResponse(access_token=access, refresh_token=refresh)
@@ -202,7 +273,8 @@ async def logout(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
 async def get_me(user: UserTable = Depends(get_current_user)):
     """Get current user info."""
     return UserResponse(
-        id=user.id, email=user.email,
+        id=user.id,
+        email=user.email,
         display_name=user.display_name,
         preferred_mode=user.preferred_mode,
         created_at=user.created_at,
