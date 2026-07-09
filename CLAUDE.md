@@ -1,6 +1,6 @@
 ﻿# MITS Development Guidelines
 
-Last updated: 2026-03-27
+Last updated: 2026-06-10
 
 ## Active Technologies
 - Python 3.11+ + Ollama (tool calling API), existing StudentMemory (BKT), existing LLMClient (016-knowledge-forge)
@@ -17,9 +17,10 @@ Last updated: 2026-03-27
 - Python 3.11+, FastAPI, SQLAlchemy, SQLite, Alembic, JWT (PyJWT + Argon2)
 
 ### Core Logic
-- Python 3.11+, Ollama, ChromaDB, sentence-transformers, SymPy, pydantic, structlog
+- Python 3.11+, llama-server / llama-swap (:8090, OpenAI-compatible API, GGUF Q4_K_M) via `OpenAICompatLLMClient`; Ollama — legacy fallback (`LLM_BACKEND=ollama`)
+- ChromaDB, sentence-transformers, SymPy, pydantic, structlog
 
-### ML Training (Google Colab A100 80GB)
+### ML Training (RTX PRO 6000 Blackwell 96GB)
 - Unsloth, TRL (GRPOTrainer, KTOTrainer, DPOTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy
 - Google Drive (checkpoints), HuggingFace Hub (datasets, adapters)
 
@@ -45,15 +46,18 @@ data/              # Knowledge bases (RAG, skill graph, tasks)
 docs/              # Documentation + research articles
 research/          # Research findings (findings_*.md)
 scripts/           # Utility scripts (DB init, Ollama, PDF ingestion)
-specs/             # Feature specifications (001-014)
+specs/             # Feature specifications (001-019)
 figures/           # Training visualizations (PDF + PNG + TeX)
 tests/             # Unit & integration tests
 ```
 
 ## Commands
 
+Запускать из КОРНЯ репозитория (`cd src` ломает pytest: пакет `src/logging/` затеняет stdlib `logging`):
+
 ```bash
-cd src; pytest; ruff check .
+pytest                          # testpaths=tests (pyproject.toml)
+uv run ruff check src backend scripts tests
 ```
 
 ## Code Style

@@ -1,6 +1,6 @@
 # MITS — Статус проекта
 
-> Последнее обновление: Март 2026
+> Обновлено: 2026-06-10
 
 ## О проекте
 
@@ -14,8 +14,8 @@
 - Информатика (Python, алгоритмы, структуры данных)
 
 ### Оборудование
-- **Inference:** CPU (Ryzen 5 9500f), 16GB RAM, Windows — Ollama + Q8_0 (~5.5GB)
-- **Training:** Google Colab A100 80GB (bf16, без QLoRA)
+- **Inference:** CPU (Ryzen 5 9500f), 16GB RAM, Windows — llama-swap + GGUF Q4_K_M (:8090)
+- **Training:** RTX PRO 6000 Blackwell 96GB (bf16, без QLoRA)
 
 ---
 
@@ -37,15 +37,16 @@
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
 │  │   RAG    │  │Knowledge │  │ Emotion  │  │   OCR    │         │
-│  │ChromaDB  │  │ Tracing  │  │ Detector │  │Qwen2.5-VL│         │
-│  │          │  │ BKT+DKT  │  │ RuBERT   │  │          │         │
+│  │ChromaDB  │  │ Tracing  │  │ Detector │  │Qwen3.5   │         │
+│  │          │  │ BKT+DKT  │  │ rules*   │  │ vision   │         │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
-│      Ollama + Qwen3.5-9B-Instruct (fine-tuned, Q8_0)             │
-│            CPU inference, streaming token-by-token                │
+│   llama-swap + Qwen3.5-9B (fine-tuned, GGUF Q4_K_M, :8090)      │
+│   OpenAICompatLLMClient — streaming token-by-token               │
 └─────────────────────────────────────────────────────────────────┘
+* Emotion: rule-based детектор по умолчанию; fine-tuned RuBERT (macro-F1 0.97) доступен через AFFECT_DETECTOR_TYPE=ml
 ```
 
 ---
@@ -59,21 +60,21 @@
 | Многоагентная система (Profiler, Planner, Tutor, Verifier) | ✅ |
 | RAG + ChromaDB (hints + misconceptions) | ✅ |
 | Knowledge Tracing (BKT + DKT на ASSISTments) | ✅ |
-| RuBERT эмоциональный детектор (5-class) | ✅ |
-| OCR рукописных решений (Qwen2.5-VL) | ✅ |
+| Эмоциональный детектор (rule-based, default; RuBERT macro-F1 0.97, opt-in) | ✅ |
+| OCR рукописных решений (Qwen3.5 native vision via llama-swap model "mits-vision") | ✅ |
 | FastAPI backend (REST + WebSocket + JWT) | ✅ |
 | Next.js 14 frontend (shadcn/ui + Zustand) | ✅ |
 | 3 режима чата (Chat, Guided Learning, Task Generator) | ✅ |
 | Analytics dashboard + PDF экспорт | ✅ |
-| Docker Compose deployment | ✅ |
+| Docker Compose deployment | ⚠️ экспериментально, не тестировалось |
 
 ---
 
 ### Фаза 7: Training Pipeline 🔄 В ПРОЦЕССЕ
 
 **Модель:** Qwen3.5-9B-Instruct (выпуск: 2 марта 2026)
-**Оборудование:** Google Colab A100 80GB, bf16, без QLoRA
-**Ветка:** `013-comprehensive-improvements`
+**Оборудование:** RTX PRO 6000 Blackwell 96GB, bf16, без QLoRA
+**Ветка:** `019-ns-vstar-dpo`
 
 #### 3-стадийный RL пайплайн
 
@@ -85,16 +86,16 @@ Qwen3.5-9B-Instruct → GSPO → KTO → DPO
 | Стадия | Метод | Цель | Ноутбук | HF Repo | Статус |
 |--------|-------|------|---------|---------|--------|
 | 1. GSPO | Group Sequence Policy Optimization | STEM reasoning + формат + Сократ | `grpo_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-gspo` | ✅ |
-| 2. KTO | Kahneman-Tversky Optimization | Сократическое выравнивание | `kto_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-kto` | 🔄 |
+| 2. KTO | Kahneman-Tversky Optimization | Сократическое выравнивание | `kto_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-kto` | ✅ |
 | 3. DPO | Direct Preference Optimization | Финальная полировка | `dpo_polish_qwen3.5_9b.ipynb` | `Siesher/mits-qwen3-9b-final` | 📋 |
 
 #### Ключевые техники GSPO (тройная награда)
 
 | Техника | Статья | Вес / Эффект |
 |---------|--------|-------------|
-| GDPO correctness reward | arXiv 2601.05242 | 0.70 — SymPy/точность |
+| GDPO correctness reward | arXiv 2601.05242 | 0.40 — SymPy/точность |
 | GDPO format reward | arXiv 2601.05242 | 0.15 — `\boxed{}` + шаги |
-| Socratic reward | MITS custom | 0.15 — no_leak + guide |
+| Socratic reward | MITS custom | 0.45 — no_leak + guide |
 | Dr. GRPO length norm | arXiv 2503.20783 | Без length bias |
 | Clip-Higher | arXiv 2504.05118 | ε=3e-4, ε_high=4e-4 |
 | Zero-variance masking | arXiv 2505.22257 | Фильтрация пустых групп |
@@ -111,7 +112,7 @@ Kahneman-Tversky Optimization — выравнивание на непарных
 | Компонент | Статус | Описание |
 |-----------|--------|----------|
 | Benchmark (3678 задач) | ✅ | MGSM + ruMMLU + custom |
-| `evaluate_stage.py` | ✅ | Per-stage eval с Ollama |
+| `evaluate_stage.py` | ✅ | Per-stage eval через llama-server stack |
 | Гибридная верификация | ✅ | SymPy → Cerebras LLM fallback |
 | Combined judge | ✅ | Accuracy + Socratic за 1 Cerebras вызов |
 | `--full-judge` режим | ✅ | Все ответы → Cerebras judge |
@@ -132,37 +133,31 @@ Kahneman-Tversky Optimization — выравнивание на непарных
 
 #### Baseline результаты (Qwen3.5-9B-Instruct, без дообучения)
 
-> Оценка через `compare-live --eval-150 --full-judge` (Cerebras combined judge)
+> Phase 0a честная оценка (n=209, llama-server stack, 2026-05-18). Подробнее: `docs/diploma/phase0a_results.md`.
 
-| Домен | Accuracy |
-|-------|----------|
-| Математика | TBD |
-| Физика | TBD |
-| Информатика | TBD |
-| Химия | TBD |
-| Биология | TBD |
-| **Overall** | **TBD** |
-
-*Базовые метрики будут заполнены после завершения первого compare-live прогона.*
+| Стадия | Overall Accuracy |
+|--------|-----------------|
+| Base (Qwen3.5-9B-Instruct) | 69.4% |
+| GSPO | 70.3% |
+| KTO | 69.9% |
 
 ---
 
-## Текущие модели (Ollama)
+## Текущие модели (llama-swap, :8090)
 
-| Модель | Размер | Описание | Стадия |
+| Модель | Формат | Описание | Стадия |
 |--------|--------|----------|--------|
-| `qwen3.5:9b` | 6.6GB | Базовая Qwen3.5-9B-Instruct | base |
-| `mits-tutor-9b-think:latest` | 5.5GB | GSPO fine-tuned (thinking) | gspo |
+| `qwen3.5:9b` (base) | GGUF Q4_K_M | Базовая Qwen3.5-9B-Instruct | base |
+| `mits-tutor-9b-think` | GGUF Q4_K_M | GSPO fine-tuned | gspo |
+| `mits-vision` | GGUF Q4_K_M + mmproj | Qwen3.5 native vision для OCR | vision |
 
 ---
 
 ## Следующие шаги
 
-1. **Завершить валидацию** GSPO vs base — `compare-live --eval-150 --full-judge`
-2. **KTO тренировка** на Colab A100 (загрузить GSPO адаптер с HF)
-3. **DPO полировка** после KTO
-4. **Финальная оценка** — сравнение всех 4 стадий (base / gspo / kto / dpo)
-5. **Интеграция** финальной модели в Ollama (`merge_and_create_ollama.py`)
+1. **DPO полировка** — активная стадия (spec 019-ns-vstar-dpo), вход = KTO чекпоинт
+2. **Финальная оценка** — сравнение всех 4 стадий (base 69.4% / gspo 70.3% / kto 69.9% / dpo TBD)
+3. **Интеграция** финальной модели как GGUF Q4_K_M в llama-swap
 
 ---
 
@@ -186,7 +181,7 @@ data/              # Knowledge bases (RAG, skill graph, tasks)
 docs/              # Documentation + research articles
 research/          # Research findings (findings_*.md + knowledge.md)
 scripts/           # Utility scripts (DB init, Ollama, PDF ingestion)
-specs/             # Feature specifications (001–014)
+specs/             # Feature specifications (001–019)
 figures/           # Training visualizations (PDF + PNG + TeX)
 tests/             # Unit & integration tests
 ```

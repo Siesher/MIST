@@ -46,7 +46,7 @@ MITS — система, которая учит решать, а не даёт 
 - Символьная верификация (SymPy / ChemPy)
 - Knowledge Tracing (BKT + DKT) — 40+ навыков
 - Fine-tuned Qwen3.5-9B через 3-стадийный RL
-- OCR рукописных решений (Qwen2.5-VL)
+- OCR рукописных решений (Qwen3.5 native vision через llama-swap)
 
 </td>
 </tr>
@@ -108,8 +108,8 @@ MITS — система, которая учит решать, а не даёт 
     └──────────────────────────────┬──────────────────────────────────────┘
                                    │
                     ┌──────────────▼──────────────────────────┐
-                    │     Ollama · Qwen3.5-9B (fine-tuned)    │
-                    │        Token-by-token streaming          │
+                    │  llama-server/llama-swap · Qwen3.5-9B   │
+                    │     (GGUF Q4_K_M) · token streaming     │
                     └─────────────────────────────────────────┘
 ```
 
@@ -127,7 +127,7 @@ MITS — система, которая учит решать, а не даёт 
 
 ## Training Pipeline
 
-Модель Qwen3.5-9B дообучается 3-стадийным RL-пайплайном на Google Colab A100 80GB (bf16, без квантизации при обучении):
+Модель Qwen3.5-9B дообучается 3-стадийным RL-пайплайном на RTX PRO 6000 Blackwell 96GB (bf16, без квантизации при обучении):
 
 ```
     Qwen3.5-9B-Instruct
@@ -135,8 +135,8 @@ MITS — система, которая учит решать, а не даёт 
             ▼
     ╔═══════════════════╗
     ║   Stage 1: GSPO   ║  Group Sequence Policy Optimization
-    ║                   ║  Triple GDPO reward: correctness (0.7)
-    ║   curriculum RL   ║  + format (0.15) + Socratic (0.15)
+    ║                   ║  Triple GDPO reward: correctness (0.40)
+    ║   curriculum RL   ║  + format (0.15) + Socratic (0.45)
     ╚════════╤══════════╝
              ▼
     ╔═══════════════════╗
@@ -152,12 +152,12 @@ MITS — система, которая учит решать, а не даёт 
     ╚════════╤══════════╝
              ▼
        Fine-tuned model
-       (Ollama / GGUF)
+       (GGUF Q4_K_M · llama-swap)
 ```
 
 | Stage | Notebook | HF Repo | Technique |
 |:------|:---------|:--------|:----------|
-| GSPO | `grpo_qwen3.5_9b.ipynb` | [mits-qwen3-9b-gspo](https://huggingface.co/Siesher/mits-qwen3-9b-gspo) | Triple GDPO reward (correctness + format + Socratic) |
+| GSPO | `grpo_qwen3.5_9b.ipynb` | [mits-qwen3-9b-gspo](https://huggingface.co/Siesher/mits-qwen3-9b-gspo) | Triple GDPO reward: correctness (0.40) + format (0.15) + Socratic (0.45) |
 | KTO | `kto_qwen3.5_9b.ipynb` | [mits-qwen3-9b-kto](https://huggingface.co/Siesher/mits-qwen3-9b-kto) | Kahneman-Tversky Optimization ([arXiv 2402.01306](https://arxiv.org/abs/2402.01306)) |
 | DPO | `dpo_polish_qwen3.5_9b.ipynb` | [mits-qwen3-9b-final](https://huggingface.co/Siesher/mits-qwen3-9b-final) | Direct Preference Optimization |
 
@@ -176,21 +176,34 @@ MITS — система, которая учит решать, а не даёт 
 
 </div>
 
-**Accuracy по доменам** (стратифицированный subset n=143, локальный бенчмарк):
+**Честная re-оценка (Phase 0a, 2026-05-18)** — production-aligned стек:
+llama-server Q4_K_M, self-consistency voting, n=209 задач.
 
-| Domain | Base | GSPO | KTO | DPO |
+| Stage | Overall | Δ vs base |
+|:------|:-------:|:---------:|
+| **base** | **69.4%** | — |
+| **GSPO** | **70.3%** | +0.9 pp |
+| **KTO** | **69.9%** | +0.5 pp |
+
+**Per-domain (n=209):**
+
+| Domain | Base | GSPO | KTO | Δ GSPO |
 |:---|:---:|:---:|:---:|:---:|
-| Math | 100.0% | 82.6% | — | — |
-| Physics | 96.7% | 90.0% | — | — |
-| Chemistry | 90.0% | 96.6% | — | — |
-| Biology | 80.0% | 80.0% | — | — |
-| CS | 86.2% | 89.7% | — | — |
-| **Overall** | **90.2%** | **87.9%** | — | — |
+| Math | 88.4% | 90.7% | 90.7% | +2.3 pp |
+| Physics | 56.8% | 65.9% | 65.9% | **+9.1 pp** |
+| Chemistry | 75.6% | 66.7% | 73.3% | -8.9 pp |
+| Biology | 68.4% | 68.4% | 63.2% | 0.0 pp |
+| CS | 56.4% | 59.0% | 53.8% | +2.6 pp |
+| **Overall** | **69.4%** | **70.3%** | **69.9%** | **+1.0 pp** |
 
-> ⚠️ **Small sample honesty.** 143-задачный subset, single run. GSPO показывает
-> mixed effects: снижение на math (100% → 82.6%), но прирост на chemistry
-> (+6.6%) и CS (+3.5%). Full-benchmark eval (n=3678) и стадии KTO/DPO —
-> в работе. Источник: `evaluation/reports/compare_base_vs_gspo_20260331_115146.json`.
+> **Ключевые выводы:** GSPO даёт значительный прирост на физике (+9.1 pp) и математике (+2.3 pp).
+> Chemistry alignment tax (-8.9 pp) — известный эффект несовпадения reward structure с символьной верификацией.
+> Сложные задачи регрессируют на всех стадиях — типичный RL mode collapse.
+> Источник: `docs/diploma/phase0a_results.md`.
+
+**Colab BF16 eval ladder** (одиночный прогон, без self-consistency):
+base 55.1% → GSPO 63.5% → KTO 64.8% → DPO 66.5% (+11.4 pp накопленный прирост).
+Gap объясняется inference-оптимизациями production-стека (+14.3 pp к baseline).
 
 ### 📈 ToM-Tutor A/B evaluation
 
@@ -227,10 +240,10 @@ confident_wrong). Latency p50 11.5 s, p95 147 s — узкое место.
 
 ```bash
 # Запуск оценки стадии
-python training/scripts/evaluate_stage.py run --stage gspo --model mits-tutor-9b-gspo --workers 4
+python training/scripts/evaluate_stage.py evaluate --mode local --stage gspo --model mits-tutor-9b-gspo --workers 4
 
 # Сравнение стадий
-python training/scripts/evaluate_stage.py compare --reports evaluation/reports/
+python training/scripts/evaluate_stage.py compare --reports-dir evaluation/reports
 ```
 
 Отчёты сохраняются в `evaluation/reports/` как JSON с разбивкой по домену и сложности.
@@ -240,7 +253,8 @@ python training/scripts/evaluate_stage.py compare --reports evaluation/reports/
 ## Быстрый старт
 
 ### Требования
-- Python 3.11+ · Node.js 18+ · [Ollama](https://ollama.ai)
+- Python 3.11+ · Node.js 18+ · [llama.cpp / llama-server](https://github.com/ggerganov/llama.cpp) (или [llama-swap](https://github.com/mostlygeek/llama-swap))
+- Ollama — опциональный fallback (установи `LLM_BACKEND=ollama` в `.env`)
 
 ### Установка
 
@@ -253,6 +267,7 @@ python -m venv venv
 source venv/bin/activate        # Linux / Mac
 # .\venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
 # Frontend
 cd frontend && npm install && cd ..
@@ -260,10 +275,16 @@ cd frontend && npm install && cd ..
 
 ### Модель
 
+По умолчанию используется llama-server / llama-swap на `http://127.0.0.1:8090/v1`
+(GGUF Q4_K_M, `LLM_BACKEND=llamacpp` в `backend/.env`).
+
 ```bash
-ollama serve
-ollama pull qwen3.5:9b                         # базовая модель
-# ollama create mits-tutor -f training/Modelfile  # fine-tuned версия
+# Запусти llama-swap или llama-server с нужной GGUF-моделью на порту 8090
+# Подробнее: docs/architecture/ и scripts/ollama/
+
+# Опциональный Ollama-fallback:
+# Установи LLM_BACKEND=ollama в backend/.env, затем:
+# ollama serve && ollama pull qwen3.5:9b
 ```
 
 ### Запуск
@@ -334,7 +355,7 @@ MITS/
 │   ├── diploma/                 #   Figures for НИР + Курсовой
 │   └── readme/                  #   feature_timeline, domain_heatmap
 │
-├── specs/                       # 001–018 feature specs
+├── specs/                       # 001–019 feature specs
 └── tests/                       # Unit & integration
 ```
 
@@ -346,7 +367,7 @@ MITS/
 |:------|:------|
 | **Frontend** | Next.js 14 · TypeScript · Tailwind CSS · shadcn/ui · Zustand |
 | **Backend** | FastAPI · SQLAlchemy · SQLite · Alembic · JWT (PyJWT + Argon2) |
-| **LLM** | Ollama · Qwen3.5-9B (fine-tuned) · WebSocket streaming |
+| **LLM** | llama-server/llama-swap · Qwen3.5-9B (GGUF Q4_K_M) · WebSocket streaming · Ollama (legacy fallback) |
 | **ML Training** | Unsloth · TRL (GRPOTrainer, KTOTrainer, DPOTrainer) · PEFT · Transformers |
 | **Evaluation** | SymPy · ChemPy · 3 678-problem benchmark |
 | **Knowledge** | ChromaDB · sentence-transformers · BKT · DKT |
@@ -370,8 +391,9 @@ MITS/
 <summary><b>/health endpoint таймаутит.</b></summary>
 
 В `backend/app/services/orchestrator_service.py` включён 30-секундный TTL-cache
-на `_check_llm_available()`. Если всё равно медленно — проверь, что Ollama
-запущена (`ollama ps`) и модель подтянута (`ollama list`).
+на `_check_llm_available()`. Если всё равно медленно — проверь, что llama-server/llama-swap
+запущен на `http://127.0.0.1:8090` (`LLM_BACKEND=llamacpp` в `.env`).
+При Ollama-fallback (`LLM_BACKEND=ollama`): `ollama ps` / `ollama list`.
 
 </details>
 
@@ -399,7 +421,8 @@ Remove-Item docs/diploma/~$*.docx -Force
 
 Проверь:
 1. Backend запущен на порту 8000 (`cd backend && uvicorn app.main:app --reload --port 8000`)
-2. В `.env` переменная `NEXT_PUBLIC_WS_URL=ws://localhost:8000/api/v1/ws`
+2. В `frontend/.env.local` переменная `NEXT_PUBLIC_WS_URL=ws://localhost:8000`
+   (только базовый URL — фронтенд сам добавляет `/api/v1/ws/<sessionId>`, не дублируй путь)
 3. JWT токен не истёк (в dev-режиме срок жизни = 24 часа)
 
 </details>
@@ -425,12 +448,12 @@ Remove-Item docs/diploma/~$*.docx -Force
 - [x] JWT аутентификация + session persistence
 - [x] Три режима чата (chat, guided learning, task generator)
 - [x] DKT knowledge tracing
-- [x] RuBERT эмоциональный детектор
-- [x] OCR рукописных решений (Qwen2.5-VL)
+- [x] Детектор аффекта/эмоций (rule-based в проде; RuBERT, test macro-F1 0.97, включается `AFFECT_DETECTOR_TYPE=ml`)
+- [x] OCR рукописных решений (Qwen3.5 native vision через llama-swap)
 - [x] A/B experiment framework
 - [x] Analytics dashboard + PDF экспорт
-- [x] Docker Compose deployment
-- [x] Миграция на Qwen3.5-9B (bf16, A100 80GB)
+- [ ] Docker Compose deployment (experimental, не тестировался)
+- [x] Миграция на Qwen3.5-9B (bf16, RTX PRO 6000 Blackwell 96GB)
 - [x] 3-стадийный RL pipeline (GSPO → KTO → DPO)
 - [x] Evaluation benchmark (3 678 задач)
 - [x] Structured Knowledge Index (SKI) + tool calling

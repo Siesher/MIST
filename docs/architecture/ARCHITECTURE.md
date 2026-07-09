@@ -19,7 +19,7 @@ codebase. Use it to orient yourself quickly when returning to the project.
 │    ROUTING → PROFILER → [MENTAL_MODEL] → PLANNER             │
 │                      → GRAPH_NAV → RAG → TUTOR → VERIFIER    │
 ├──────────────────────────────────────────────────────────────┤
-│  LLM: Qwen3.5-9B (GSPO + KTO + DPO fine-tuned) via Ollama    │
+│  LLM: Qwen3.5-9B (GSPO + KTO + DPO fine-tuned) via llama-swap │
 │  Student Memory: BKT + DKT in SQLite                         │
 │  Knowledge Forge: graph of 83 nodes, 88 edges (living)       │
 └──────────────────────────────────────────────────────────────┘
@@ -75,7 +75,7 @@ Full evaluation: [evaluation/reports/tom_ab_2026-04-18.md](../evaluation/reports
 | `rag_retriever.py` | Legacy RAG — kept for fallback | pre-016 |
 | `ski.py` | Structured Knowledge Index (cards) | pre-016 |
 
-### `src/tools/` — Ollama tool calling
+### `src/tools/` — LLM tool calling (OpenAI-compatible)
 
 | File | Tools |
 |------|-------|
@@ -108,8 +108,9 @@ Full evaluation: [evaluation/reports/tom_ab_2026-04-18.md](../evaluation/reports
 
 | File | Purpose |
 |------|---------|
-| `llm_client.py` | Ollama client — streaming, tool calling, JSON mode, multi-model |
-| `client_factory.py` | Factory for LLM clients |
+| `llm_client.py` | Legacy Ollama client — kept as fallback; production uses `OpenAICompatLLMClient` (llama-swap / llama-server, :8090) |
+| `openai_llm_client.py` | Production LLM client — OpenAI-compatible `/v1` (llama-swap / llama-server / external providers) |
+| `__init__.py` | `create_llm_client()` factory — selects backend via `LLM_BACKEND` (`llamacpp` → OpenAI-compatible, `ollama` → legacy) |
 
 ### `src/data/`
 

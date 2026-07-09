@@ -27,16 +27,16 @@ Qwen3.5-9B (базовая модель)
 └───────────────┬───────────────────────┘
                 ▼
 ┌───────────────────────────────────────┐
-│  Stage 2: RAFT++                      │
-│  Rejection Sampling Fine-Tuning       │
-│  + GVM Dynamic Allocation             │
-│  + Negative Saving для DPO            │
+│  Stage 2: KTO                         │
+│  Kahneman-Tversky Optimization        │
+│  + Сократическое выравнивание         │
+│  + Непарные предпочтения              │
 └───────────────┬───────────────────────┘
                 ▼
 ┌───────────────────────────────────────┐
 │  Stage 3: DPO                         │
 │  Direct Preference Optimization       │
-│  + RAFT++ Negative Reuse              │
+│  + KTO checkpoint → DPO input         │
 │  + Format Polishing                   │
 └───────────────┬───────────────────────┘
                 ▼
@@ -73,14 +73,14 @@ Qwen3.5-9B (базовая модель)
 | Контекст | 128K tokens |
 | Precision | bf16 (full precision, no quantization during training) |
 | VRAM | ~18 GB (inference), ~45-50 GB (training bf16 LoRA) |
-| GPU | NVIDIA A100 80GB (Google Colab) |
+| GPU | RTX PRO 6000 Blackwell 96GB |
 | Thinking mode | `enable_thinking=True/False` в `chat_template_kwargs` |
 
 **Адаптация (LoRA):**
 Все стадии используют Low-Rank Adaptation с параметрами:
 - `r=16`, `alpha=32`, `dropout=0.0`
 - Target modules: `q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj`
-- bf16 full precision (no QLoRA 4-bit — A100 80GB has sufficient VRAM)
+- bf16 full precision (no QLoRA 4-bit — RTX PRO 6000 Blackwell 96GB has sufficient VRAM)
 
 ---
 
@@ -99,7 +99,7 @@ sampling ratios, что обеспечивает более стабильную
 
 Алгоритм:
 1. Для каждого промпта генерируется G completions
-2. Каждый completion оценивается reward-функциями (correctness + format)
+2. Каждый completion оценивается reward-функциями (correctness + format + Socratic)
 3. Advantage нормализуется внутри группы (group-relative)
 4. Policy обновляется через clipped surrogate loss с importance sampling
 
@@ -110,7 +110,7 @@ sampling ratios, что обеспечивает более стабильную
 | 1 | **GSPO sequence-level IS** | arXiv:2507.18071 | Importance sampling на уровне всей последовательности, а не токенов. Требует ε на 2-3 порядка меньше (3e-4 vs 0.2). |
 | 2 | **Dr. GRPO** | arXiv:2503.20783 | Constant length normalization: делим loss на `max_completion` вместо длины конкретного completion. Устраняет bias к коротким ответам. |
 | 3 | **ReDit dithering** | arXiv:2506.18631 | Гауссовский шум (σ=0.05) на бинарных наградах (0/1). Создаёт градиент информации даже когда все completions правильные или неправильные. Ускоряет сходимость до 10×. |
-| 4 | **GDPO decoupled normalization** | arXiv:2601.05242 | Correctness и format rewards нормализуются независимо, затем комбинируются с весами [0.8, 0.2]. Предотвращает reward hacking. |
+| 4 | **GDPO decoupled normalization** | arXiv:2601.05242 | Correctness, format и Socratic rewards нормализуются независимо, затем комбинируются с весами [0.4, 0.15, 0.45]. Предотвращает reward hacking. |
 | 5 | **GRPO-LEAD curriculum** | arXiv:2504.09696 | Difficulty-aware веса: hard=2×, medium=1×, easy=0.5×. Stage 1 (200 steps) — only easy+medium; Stage 2 (400 steps) — all difficulties. |
 | 6 | **Zero-variance masking** | arXiv:2505.22257 | Если все G completions получили одинаковую награду (std < 1e-6), группа маскируется NaN → TRL пропускает. Экономит вычисления. |
 | 7 | **Clip-Higher** | arXiv:2504.05118 | Асимметричный клиппинг: ε=3e-4 (снизу), ε_high=4e-4 (сверху). Позволяет повышать вероятность хороших ответов чуть сильнее, чем снижать плохих. |
@@ -124,69 +124,72 @@ sampling ratios, что обеспечивает более стабильную
 | `epsilon` | 3e-4 | GSPO paper §5.1 (sequence-level scale) |
 | `epsilon_high` | 4e-4 | GSPO paper §5.1 |
 | `beta` | 0.0 | Без KL-регуляризации (GSPO/DAPO стандарт) |
-| `G` | 32 | Completions per prompt (A100 80GB) |
+| `G` | 32 | Completions per prompt (96GB) |
 | `max_completion` | 1024 | Tokens per completion (Qwen3.5 thinking longer) |
 | `learning_rate` | 5e-7 | Lower for 9B model |
 | `grad_accum` | 4 | Effective batch = 128 |
 | `steps_per_generation` | 8 | 4 optimizer updates per rollout |
 | `total_steps` | 600 | Stage 1: 200 + Stage 2: 400 |
 | `dithering_sigma` | 0.05 | ReDit noise scale |
-| `reward_weights` | [0.8, 0.2] | Correctness : Format |
+| `reward_weights` | [0.4, 0.15, 0.45] | Correctness : Format : Socratic |
 
 ### 3.4 Reward Functions
 
-**Correctness reward** (вес 0.8):
+**Correctness reward** (вес 0.4):
 - Для расчётных задач: извлечение `\boxed{}` → SymPy symbolic comparison
 - Для MC-задач: извлечение буквы ответа (A/B/C/D) → exact match
 - Доменные верификаторы: ChemPy (химия), физические единицы (физика)
 - Correct = 1.0, Wrong = 0.0 (без отрицательных штрафов, DRPO)
 
-**Format reward** (вес 0.2):
+**Format reward** (вес 0.15):
 - Наличие `\boxed{}` для расчётных / правильный формат для MC (+0.5)
 - Step markers (шаг, следовательно, потому что) (+0.3)
 - Длина 50-800 слов (+0.2)
 
+**Socratic reward** (вес 0.45):
+- Проверяет, что ответ не содержит прямого решения (no_leak)
+- Оценивает наличие направляющего вопроса к ученику (guide)
+- Реализован как MITS custom reward function
+
 ---
 
-## 4. Stage 2: RAFT++ (Rejection Sampling Fine-Tuning)
+## 4. Stage 2: KTO (Kahneman-Tversky Optimization)
 
-**Цель:** Self-distillation — модель генерирует множество решений, оставляет только
-правильные, и обучается на них через SFT.
+**Цель:** Сократическое выравнивание — модель обучается предпочитать стиль Сократа
+(вопросы, направление, без прямых ответов) над прямым объяснением.
 
-**Ноутбук:** `notebooks/raft_plus_qwen3.5_9b.ipynb`
+**Ноутбук:** `notebooks/kto_qwen3.5_9b.ipynb`
 
-### 4.1 GVM-RAFT Dynamic Allocation [arXiv:2504.11343]
+### 4.1 Метод [arXiv:2402.01306]
 
-Вместо фиксированного числа N completions на задачу, бюджет распределяется адаптивно:
+KTO — метод выравнивания предпочтений, основанный на теории перспектив Канемана-Тверски.
+В отличие от DPO и RLHF, KTO не требует парных примеров (chosen/rejected на один и тот же промпт):
+обучается на непарных предпочтениях — отдельных примерах с меткой "good" или "bad".
 
-1. **Pilot round:** 4 completions на каждую задачу
-2. **Оценка сложности:** по pass rate пилота (0% → hard, 75% → easy)
-3. **Аллокация бюджета:** оставшийся бюджет распределяется пропорционально сложности
-4. Лёгкие задачи получают минимум (2 доп.), сложные — максимум
+Функция потерь:
+- **Desirable (good):** максимизировать log p(y|x) − KL(π || π_ref)
+- **Undesirable (bad):** минимизировать log p(y|x) − KL(π || π_ref)
+- Асимметрия (λ_D vs λ_U) отражает психологическую нелинейность: потери ощущаются сильнее, чем приобретения
 
-**Эффект:** 2-4× ускорение по сравнению с фиксированным N=16.
+### 4.2 Данные
 
-### 4.2 Negative Saving [arXiv:2505.24850]
-
-Неправильные completions не удаляются, а сохраняются в JSONL-файл:
-```
-{prompt, completion, domain, ground_truth, round}
-```
-Используются на стадии DPO как "rejected" примеры → не нужна повторная генерация.
+| Источник | Количество | Описание |
+|----------|-----------|----------|
+| `data/training/dialogs.jsonl` | 3 875 | Сократические диалоги (good examples) |
+| `training/data/preference_pairs.jsonl` | 12 597 | Пары предпочтений (desirable + undesirable) |
 
 ### 4.3 Параметры
 
 | Параметр | Значение |
 |----------|---------|
-| Total budget per problem | 8 |
-| Pilot size | 4 |
-| Min additional | 1 |
-| RAFT rounds | 2 (с early stopping) |
-| Gen batch size | 8 (A100 80GB) |
-| SFT batch size | 4 |
-| SFT learning rate | 1e-5 (lower for 9B) |
-| SFT epochs per round | 1 |
-| Domain balancing | Oversample minority domains |
+| KTO beta | 0.1 |
+| λ_D (desirable weight) | 1.0 |
+| λ_U (undesirable weight) | 1.0 |
+| Learning rate | 5e-7 |
+| Max steps | 600 |
+| Batch size | 4 (96GB) |
+| Gradient accumulation | 4 |
+| Random seed | 42 |
 
 ---
 
@@ -194,7 +197,7 @@ sampling ratios, что обеспечивает более стабильную
 
 **Цель:** Полировка формата рассуждений через preference learning.
 Не должна ухудшать accuracy — только улучшить читаемость и структуру.
-DPO загружает RAFT++ чекпоинт напрямую (AdaSTaR убран из пайплайна).
+DPO загружает KTO чекпоинт напрямую.
 
 **Ноутбук:** `notebooks/dpo_polish_qwen3.5_9b.ipynb`
 
@@ -203,8 +206,8 @@ DPO загружает RAFT++ чекпоинт напрямую (AdaSTaR убр�
 DPO [arXiv:2305.18290] обучает модель на парах (chosen, rejected) без
 необходимости явной reward model:
 
-- **Chosen:** правильное решение с лучшим format score
-- **Rejected:** из RAFT++ негативов (arXiv:2505.24850) или worst format
+- **Chosen:** правильное решение с лучшим format score (из KTO данных)
+- **Rejected:** примеры с низким format score из preference_pairs.jsonl
 
 ### 5.2 Guard механизм
 
@@ -220,11 +223,11 @@ DPO пропускается если:
 | DPO beta | 0.1 |
 | Learning rate | 5e-7 |
 | Max steps | 200 |
-| Batch size | 2 (A100 80GB) |
+| Batch size | 2 (96GB) |
 | Gradient accumulation | 8 |
 | Min pairs | 50 |
 | Pairs per problem | 8 |
-| Input checkpoint | RAFT++ (not AdaSTaR) |
+| Input checkpoint | KTO output |
 
 ---
 
@@ -287,7 +290,7 @@ Model output → extract_answer() → verify()
 
 | Параметр | Значение |
 |----------|---------|
-| GPU | NVIDIA A100 80GB (Google Colab) |
+| GPU | RTX PRO 6000 Blackwell 96GB |
 | Framework | Unsloth + TRL + PEFT |
 | Квантизация | Нет (bf16 full precision) |
 | Precision | bfloat16 |
@@ -300,7 +303,7 @@ Model output → extract_answer() → verify()
 | GPU | NVIDIA RTX 2080 (8GB VRAM) |
 | CPU | AMD Ryzen 9 9950X |
 | RAM | 32 GB |
-| Runtime | Ollama (GGUF Q4_K_M) |
+| Runtime | llama-server / llama-swap (GGUF Q4_K_M, порт :8090) |
 
 ### Воспроизводимость
 
@@ -328,8 +331,7 @@ Model output → extract_answer() → verify()
 | GRPO-LEAD | [arXiv:2504.09696](https://arxiv.org/abs/2504.09696) | Stage 1: curriculum RL |
 | Revisiting GRPO | [arXiv:2505.22257](https://arxiv.org/abs/2505.22257) | Stage 1: zero-variance masking |
 | DRPO | [arXiv:2510.04474](https://arxiv.org/abs/2510.04474) | Stage 1: no negative penalties |
-| GVM-RAFT | [arXiv:2504.11343](https://arxiv.org/abs/2504.11343) | Stage 2: dynamic allocation |
-| Negative Saving | [arXiv:2505.24850](https://arxiv.org/abs/2505.24850) | Stages 2, 3: DPO reuse |
+| KTO | [arXiv:2402.01306](https://arxiv.org/abs/2402.01306) | Stage 2: Kahneman-Tversky alignment |
 | DPO | [arXiv:2305.18290](https://arxiv.org/abs/2305.18290) | Stage 3: preference optimization |
 
 ### Базовая модель
@@ -347,4 +349,5 @@ Model output → extract_answer() → verify()
 | Unsloth | [github.com/unslothai/unsloth](https://github.com/unslothai/unsloth) |
 | TRL | [github.com/huggingface/trl](https://github.com/huggingface/trl) |
 | PEFT | [github.com/huggingface/peft](https://github.com/huggingface/peft) |
-| Ollama | [ollama.ai](https://ollama.ai/) |
+| llama-server / llama-swap | Production inference stack (GGUF Q4_K_M, :8090) |
+| Ollama | [ollama.ai](https://ollama.ai/) — legacy fallback only |
