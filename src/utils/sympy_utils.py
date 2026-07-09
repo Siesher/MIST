@@ -7,28 +7,55 @@ Safe wrappers for SymPy operations used in:
 - Multi-modal input validation
 """
 
-from typing import Optional, Tuple, Union, Any
 import logging
+from typing import Any, Optional, Tuple
 
 try:
     from sympy import (
-        symbols, Symbol,
-        diff, integrate, limit, solve, simplify, expand, factor,
-        sin, cos, tan, cot, sec, csc,
-        asin, acos, atan,
-        exp, log, ln, sqrt,
-        pi, E, I, oo,
-        Eq, Ne, Lt, Le, Gt, Ge,
-        trigsimp, powsimp, radsimp,
+        E,
+        Eq,
+        Ge,
+        Gt,
+        I,
+        Le,
+        Lt,
+        Ne,
+        Symbol,
+        acos,
+        asin,
+        atan,
+        cos,
+        cot,
+        csc,
+        diff,
+        exp,
+        expand,
+        factor,
+        integrate,
         latex,
-    )
-    from sympy.parsing.sympy_parser import (
-        parse_expr,
-        standard_transformations,
-        implicit_multiplication_application,
-        convert_xor,
+        limit,
+        ln,
+        log,
+        oo,
+        pi,
+        powsimp,
+        radsimp,
+        sec,
+        simplify,
+        sin,
+        solve,
+        sqrt,
+        symbols,
+        tan,
+        trigsimp,
     )
     from sympy.core.sympify import SympifyError
+    from sympy.parsing.sympy_parser import (
+        convert_xor,
+        implicit_multiplication_application,
+        parse_expr,
+        standard_transformations,
+    )
     SYMPY_AVAILABLE = True
 except ImportError:
     SYMPY_AVAILABLE = False

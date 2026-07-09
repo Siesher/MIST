@@ -10,11 +10,12 @@ Based on research:
 - RL-DKT (2025)
 """
 
-import torch
-import torch.nn as nn
-from typing import List, Dict, Optional, Tuple
 import logging
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import torch
+import torch.nn as nn
 
 logger = logging.getLogger(__name__)
 

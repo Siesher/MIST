@@ -5,15 +5,18 @@ Tests each tool with real SKI data and verifies Ollama tool format.
 """
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 from src.tools.ski_tools import (
-    lookup_concept, get_worked_example, get_formula, get_prerequisites,
-    SKI_TOOL_DEFINITIONS, SKI_FUNCTIONS,
+    SKI_FUNCTIONS,
+    SKI_TOOL_DEFINITIONS,
+    get_formula,
+    get_prerequisites,
+    get_worked_example,
+    lookup_concept,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────
 

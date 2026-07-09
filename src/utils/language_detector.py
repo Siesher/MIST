@@ -13,11 +13,11 @@ Language Detector для MITS.
 T050: Language Detection Utility
 """
 
+import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -5,12 +5,8 @@ accelerate>=0.27.0
 
 # LLM & Agents
 ollama>=0.3.0
-langchain>=0.2.0
-langgraph>=0.2.0
-langchain-community>=0.2.0
 
 # Web Interface
-gradio>=4.0.0
 fastapi>=0.110.0
 uvicorn>=0.27.0
 
@@ -57,7 +53,7 @@ psutil>=5.9.0
 pynvml>=11.5.0
 
 # REST API
-python-jose[cryptography]>=3.3.0
+# (JWT — PyJWT в backend/requirements.txt; python-jose удалён как неиспользуемый дубль)
 slowapi>=0.1.9
 
 # Development (optional)

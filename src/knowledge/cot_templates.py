@@ -10,9 +10,9 @@ Russian language templates for:
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

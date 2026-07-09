@@ -10,9 +10,9 @@ Uses topological sorting and graph traversal to find optimal paths.
 """
 
 import logging
-from typing import Optional, List, Dict, Any, Set, Tuple
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Set
 
 try:
     import networkx as nx
@@ -20,15 +20,15 @@ try:
 except ImportError:
     NETWORKX_AVAILABLE = False
 
-from src.data.schemas import (
-    LearningPathStatus,
-    SkillNode,
-    LearningPath,
-)
 from src.data.knowledge_graph import (
     SKILL_GRAPH,
-    get_skill_name_ru,
     get_all_prerequisites,
+    get_skill_name_ru,
+)
+from src.data.schemas import (
+    LearningPath,
+    LearningPathStatus,
+    SkillNode,
 )
 
 logger = logging.getLogger(__name__)

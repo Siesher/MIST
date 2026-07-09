@@ -11,9 +11,9 @@ Indexing uses O(1) dictionaries by topic/skill/domain/tag.
 
 import json
 import logging
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

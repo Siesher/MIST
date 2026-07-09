@@ -556,8 +556,11 @@ body {
   font-size: 26px;
 }
 .task-formula {
-  font-family: 'Geist Mono', ui-monospace, monospace;
-  font-size: 13.5px;
+  /* Holds the task statement (prose + rendered KaTeX), not a raw code string,
+     so use the normal text font — monospace mangled the Cyrillic prose. */
+  font-family: inherit;
+  font-size: 14.5px;
+  line-height: 1.55;
   color: var(--ink);
   margin-top: 12px;
   padding: 10px 14px;
@@ -660,10 +663,15 @@ body {
 .theme-grimoire .msg.user .msg-body { border-radius: 4px; }
 .msg-body p { margin: 0 0 10px; }
 .msg-body p:last-child { margin: 0; }
-/* KaTeX inline math should follow the surrounding text colour. Beats the
-   global `.katex { color: var(--text) !important }` set in globals.css. */
+/* KaTeX math must follow the surrounding text colour. Beats the global
+   `.katex { color: var(--text) !important }` in globals.css, where --text is a
+   stale near-white legacy token that does NOT switch with the newdesign theme —
+   so without this, rendered math is invisible (light-on-light) on the daylight
+   theme. Applies to both chat messages and the task card. */
 .msg-body .katex,
-.msg-body .katex * { color: inherit !important; }
+.msg-body .katex *,
+.task-formula .katex,
+.task-formula .katex * { color: inherit !important; }
 .formula {
   display: block;
   font-family: 'Geist Mono', ui-monospace, monospace;

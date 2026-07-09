@@ -2,29 +2,28 @@
 __init__.py для модуля execution
 """
 
-from src.execution.code_executor import (
-    CodeExecutor,
-    ExecutionResult,
-    SubmissionResult,
-    TestCase,
-    ExecutionStatus,
-    ErrorAnalyzer,
-    CodeSecurityChecker
-)
-
 from src.execution.code_analyzer import (
     CodeAnalyzer,
     CodeIssue,
-    IssueLevel,
-    ComplexityAnalysis,
     CodeMetrics,
-    SolutionComparer
+    ComplexityAnalysis,
+    IssueLevel,
+    SolutionComparer,
+)
+from src.execution.code_executor import (
+    CodeExecutor,
+    CodeSecurityChecker,
+    ErrorAnalyzer,
+    ExecutionResult,
+    ExecutionStatus,
+    SubmissionResult,
+    TestCase,
 )
 
 __all__ = [
     # Executor
     'CodeExecutor',
-    'ExecutionResult', 
+    'ExecutionResult',
     'SubmissionResult',
     'TestCase',
     'ExecutionStatus',

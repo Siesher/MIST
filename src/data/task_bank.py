@@ -4,13 +4,13 @@ Task Bank — Банк предгенерированных задач
 Обеспечивает мгновенный выбор задач без ожидания генерации.
 """
 
-from typing import List, Optional, Dict, Any
-from dataclasses import dataclass
 import json
 import random
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from src.data.schemas import Task, Difficulty
+from src.data.schemas import Difficulty, Task
 
 
 @dataclass
@@ -20,7 +20,7 @@ class TaskStats:
     successes: int = 0
     avg_time_seconds: float = 0
     avg_hints_used: float = 0
-    
+
     @property
     def success_rate(self) -> float:
         return self.successes / self.attempts if self.attempts > 0 else 0
@@ -35,14 +35,14 @@ class TaskBank:
     - Статистика по каждой задаче
     - Адаптивный выбор на основе уровня студента
     """
-    
+
     def __init__(self, bank_path: str = "./data/task_bank.json"):
         self.bank_path = Path(bank_path)
         self.tasks: Dict[str, Task] = {}
         self.stats: Dict[str, TaskStats] = {}
-        
+
         self._load_bank()
-    
+
     def _load_bank(self):
         """Загрузить банк задач."""
         if self.bank_path.exists():
@@ -51,28 +51,28 @@ class TaskBank:
                 for task_data in data.get("tasks", []):
                     task = Task(**task_data)
                     self.tasks[task.id] = task
-                    
+
                     # Загружаем статистику
                     stats_data = data.get("stats", {}).get(task.id, {})
                     self.stats[task.id] = TaskStats(**stats_data)
         else:
             # Создаём банк с начальными задачами
             self._create_default_bank()
-    
+
     def _create_default_bank(self):
         """Создать банк с начальными задачами."""
         default_tasks = self._get_default_tasks()
-        
+
         for task in default_tasks:
             self.tasks[task.id] = task
             self.stats[task.id] = TaskStats()
-        
+
         self.save()
-    
+
     def save(self):
         """Сохранить банк на диск."""
         self.bank_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = {
             "tasks": [
                 {
@@ -98,10 +98,10 @@ class TaskBank:
                 for task_id, s in self.stats.items()
             }
         }
-        
+
         with open(self.bank_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
+
     def get_task(
         self,
         topic: Optional[str] = None,
@@ -120,29 +120,29 @@ class TaskBank:
         """
         exclude_ids = exclude_ids or []
         candidates = []
-        
+
         for task in self.tasks.values():
             if task.id in exclude_ids:
                 continue
-            
+
             if topic and task.topic != topic:
                 continue
-            
+
             task_diff = task.difficulty.value if isinstance(task.difficulty, Difficulty) else task.difficulty
             if difficulty and task_diff != difficulty:
                 continue
-            
+
             if skills:
                 if not any(s in task.skills for s in skills):
                     continue
-            
+
             candidates.append(task)
-        
+
         if not candidates:
             return None
-        
+
         return random.choice(candidates)
-    
+
     def get_adaptive_task(
         self,
         skill_masteries: Dict[str, float],
@@ -157,45 +157,45 @@ class TaskBank:
         - Предпочитаем задачи с success_rate близким к 70%
         """
         exclude_ids = exclude_ids or []
-        
+
         # Находим навыки в зоне развития
         target_skills = [
             skill for skill, mastery in skill_masteries.items()
             if 0.3 <= mastery <= 0.7
         ]
-        
+
         if not target_skills:
             # Если нет - берём самые слабые
             target_skills = sorted(
                 skill_masteries.keys(),
                 key=lambda s: skill_masteries[s]
             )[:3]
-        
+
         # Ищем задачи на эти навыки
         candidates = []
         for task in self.tasks.values():
             if task.id in exclude_ids:
                 continue
-            
+
             skill_match = any(s in target_skills for s in task.skills)
             if skill_match:
                 candidates.append(task)
-        
+
         if not candidates:
             # Fallback - любая задача
             return self.get_task(exclude_ids=exclude_ids)
-        
+
         # Сортируем по близости success_rate к 0.7
         def score(task):
             stats = self.stats.get(task.id, TaskStats())
             return abs(stats.success_rate - 0.7)
-        
+
         candidates.sort(key=score)
-        
+
         # Берём из топ-5 случайно (для разнообразия)
         top_candidates = candidates[:5]
         return random.choice(top_candidates)
-    
+
     def record_attempt(
         self,
         task_id: str,
@@ -206,52 +206,52 @@ class TaskBank:
         """Записать результат попытки решения."""
         if task_id not in self.stats:
             self.stats[task_id] = TaskStats()
-        
+
         stats = self.stats[task_id]
-        
+
         # Обновляем средние с экспоненциальным сглаживанием
         alpha = 0.1  # Вес новых данных
-        
+
         if stats.attempts > 0:
             stats.avg_time_seconds = (1 - alpha) * stats.avg_time_seconds + alpha * time_seconds
             stats.avg_hints_used = (1 - alpha) * stats.avg_hints_used + alpha * hints_used
         else:
             stats.avg_time_seconds = time_seconds
             stats.avg_hints_used = hints_used
-        
+
         stats.attempts += 1
         if success:
             stats.successes += 1
-        
+
         self.save()
-    
+
     def add_task(self, task: Task):
         """Добавить новую задачу в банк."""
         self.tasks[task.id] = task
         self.stats[task.id] = TaskStats()
         self.save()
-    
+
     def get_topics(self) -> List[str]:
         """Получить список всех тем."""
         return list(set(t.topic for t in self.tasks.values()))
-    
+
     def get_skills(self) -> List[str]:
         """Получить список всех навыков."""
         skills = set()
         for task in self.tasks.values():
             skills.update(task.skills)
         return list(skills)
-    
+
     def get_stats_summary(self) -> Dict[str, Any]:
         """Получить сводную статистику банка."""
         total_tasks = len(self.tasks)
         total_attempts = sum(s.attempts for s in self.stats.values())
-        
+
         by_difficulty = {}
         for task in self.tasks.values():
             diff = task.difficulty.value if isinstance(task.difficulty, Difficulty) else task.difficulty
             by_difficulty[diff] = by_difficulty.get(diff, 0) + 1
-        
+
         return {
             "total_tasks": total_tasks,
             "total_attempts": total_attempts,
@@ -259,7 +259,7 @@ class TaskBank:
             "topics": self.get_topics(),
             "skills_count": len(self.get_skills())
         }
-    
+
     def _get_default_tasks(self) -> List[Task]:
         """Начальный набор задач."""
         return [
@@ -308,11 +308,11 @@ $$(-7)' = 0$$
                     "Ошибки в коэффициентах"
                 ]
             ),
-            
+
             # === ПРОИЗВОДНЫЕ (medium) ===
             Task(
                 id="deriv_003",
-                topic="derivatives", 
+                topic="derivatives",
                 difficulty=Difficulty.MEDIUM,
                 problem="Найдите производную: $f(x) = x^2 \\cdot \\sin(x)$",
                 solution="""Используем правило произведения: $(uv)' = u'v + uv'$
@@ -357,7 +357,7 @@ $$f'(x) = \\frac{2x(x+1) - x^2 \\cdot 1}{(x+1)^2} = \\frac{2x^2 + 2x - x^2}{(x+1
                     "Забывают возвести знаменатель в квадрат"
                 ]
             ),
-            
+
             # === ПРОИЗВОДНЫЕ (hard) ===
             Task(
                 id="deriv_005",
@@ -381,7 +381,7 @@ $$f'(x) = \\frac{1}{\\sin(x^2)} \\cdot \\cos(x^2) \\cdot 2x = \\frac{2x \\cos(x^
                     "Не доводят цепочку до конца"
                 ]
             ),
-            
+
             # === ИНТЕГРАЛЫ (easy) ===
             Task(
                 id="integ_001",
@@ -403,7 +403,7 @@ $$\\int x^4 \\, dx = \\frac{x^{4+1}}{4+1} + C = \\frac{x^5}{5} + C$$""",
                     "Ошибки в степени"
                 ]
             ),
-            
+
             # === ПРЕДЕЛЫ (easy) ===
             Task(
                 id="limit_001",
@@ -447,7 +447,7 @@ $$\\lim_{x \\to 0} \\frac{\\sin(x)}{x} = 1$$
                     "Не знают замечательные пределы"
                 ]
             ),
-            
+
             # === ПРОГРАММИРОВАНИЕ (easy) ===
             Task(
                 id="prog_001",
@@ -542,7 +542,7 @@ def fibonacci(n):
                     "Забывают базовый случай"
                 ]
             ),
-            
+
             # === УРАВНЕНИЯ (easy) ===
             Task(
                 id="eq_001",

@@ -73,7 +73,7 @@ base_correct_n = sum(1 for r in kto_items if r["base_correct"])
 gspo_correct_n = sum(1 for r in kto_items if r["gspo_correct"])
 kto_correct_n = sum(1 for r in kto_items if r["kto_correct"])
 
-print(f"Accuracy on the same 29 problems:")
+print("Accuracy on the same 29 problems:")
 print(f"  Base : {base_correct_n}/{n} = {100*base_correct_n/n:.1f}%")
 print(f"  GSPO : {gspo_correct_n}/{n} = {100*gspo_correct_n/n:.1f}%")
 print(f"  KTO  : {kto_correct_n}/{n} = {100*kto_correct_n/n:.1f}%")

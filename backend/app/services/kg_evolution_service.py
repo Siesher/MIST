@@ -265,7 +265,7 @@ async def analyze_session_async(
     resolved: bool,
 ):
     """Non-blocking analyzer — schedule on thread pool so orchestrator doesn't wait."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     svc = get_kg_evolution()
 
     def _work():

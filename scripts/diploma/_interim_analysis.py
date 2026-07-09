@@ -49,8 +49,8 @@ if n == 0:
 
 correct = sum(1 for r in results if r["acc"])
 print(f"KTO accuracy:    {correct}/{n} = {100*correct/n:.1f}%")
-print(f"Base    (143):   90.2%")
-print(f"GSPO    (143):   87.9%")
+print("Base    (143):   90.2%")
+print("GSPO    (143):   87.9%")
 print()
 
 print("Behavior distribution:")
@@ -87,7 +87,7 @@ if len(ts) >= 2:
     elapsed_min = (tlast - t0).total_seconds() / 60
     per_task = elapsed_min / n
     eta_min = (143 - n) * per_task
-    print(f"Время:")
+    print("Время:")
     print(f"  Прошло:        {elapsed_min:.0f} мин")
     print(f"  Среднее/зад:   {per_task:.1f} мин")
     print(f"  ETA до конца:  {eta_min:.0f} мин ({eta_min/60:.1f} ч)")

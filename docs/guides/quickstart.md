@@ -12,8 +12,8 @@
 ## 1. Клонирование и зависимости
 
 ```bash
-git clone https://github.com/Siesher/MIST.git
-cd MIST
+git clone https://github.com/Siesher/MITS.git
+cd MITS
 
 # Python-зависимости (корень + бэкенд)
 pip install -r requirements.txt -r backend/requirements.txt

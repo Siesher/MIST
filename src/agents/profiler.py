@@ -16,16 +16,18 @@
 """
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
-from enum import Enum
 from datetime import datetime
-import logging
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from src.models.knowledge_tracing import KnowledgeTracker, StudentModel
-    from src.models.cognitive_load import CognitiveLoadEstimator, CognitiveLoad, CognitiveLoadSignals
+    from src.models.cognitive_load import (
+        CognitiveLoadEstimator,
+    )
+    from src.models.knowledge_tracing import KnowledgeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -464,7 +466,8 @@ class ProfilerAgent:
             response = self.llm.generate(
                 prompt=prompt,
                 temperature=0.3,  # Низкая для точности
-                max_tokens=1000
+                max_tokens=1000,
+                thinking=False,  # строгий JSON: reasoning-канал течёт в content и ломает json.loads
             )
 
             # Парсим JSON

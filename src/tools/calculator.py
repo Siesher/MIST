@@ -6,18 +6,24 @@ Supports symbolic and numerical calculations.
 """
 
 import re
-from typing import Optional
 import time
 
 from sympy import (
-    sympify, simplify, expand, factor, solve, diff, integrate,
-    limit, series, Matrix, symbols, sqrt, sin, cos, tan, log, exp,
-    factorial, binomial, gcd, lcm, pi, E, I, oo,
-    Rational, Float, Integer, Symbol
+    diff,
+    expand,
+    factor,
+    integrate,
+    limit,
+    oo,
+    simplify,
+    solve,
+    symbols,
 )
 from sympy.parsing.sympy_parser import (
-    parse_expr, standard_transformations,
-    implicit_multiplication_application, convert_xor
+    convert_xor,
+    implicit_multiplication_application,
+    parse_expr,
+    standard_transformations,
 )
 
 from src.tools import BaseTool, ToolResult, ToolType

@@ -10,21 +10,21 @@ and recommend remediation.
 
 import logging
 import re
-from typing import Optional, List, Dict, Tuple, Any
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
+from src.data.knowledge_graph import (
+    SKILL_ERROR_MAPPING,
+    SKILL_GRAPH,
+    get_all_prerequisites,
+    get_skill_name_ru,
+)
 from src.data.schemas import (
     CounterfactualExplanation,
     Task,
 )
-from src.data.knowledge_graph import (
-    SKILL_GRAPH,
-    SKILL_ERROR_MAPPING,
-    get_skill_name_ru,
-    get_all_prerequisites,
-)
-from src.utils.sympy_utils import safe_parse_expr, verify_equality
+from src.utils.sympy_utils import verify_equality
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +290,7 @@ class CounterfactualEngine:
         output = []
 
         # Main counterfactual
-        output.append(f"💡 **Объяснение ошибки**")
+        output.append("💡 **Объяснение ошибки**")
         output.append("")
         output.append(explanation.counterfactual_statement_ru)
         output.append("")

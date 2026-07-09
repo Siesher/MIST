@@ -13,7 +13,7 @@ Memory: ~400MB for rubert-base-cased (fits easily alongside GLM on 8GB VRAM).
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Tuple
+from typing import Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +70,8 @@ class AffectiveMLDetector:
             return
 
         try:
-            from transformers import AutoTokenizer, AutoModelForSequenceClassification
             import torch
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
             self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_path))
             self.model = AutoModelForSequenceClassification.from_pretrained(

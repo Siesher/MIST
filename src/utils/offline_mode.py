@@ -11,9 +11,9 @@ Checks:
 
 import logging
 import socket
-from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +104,9 @@ def check_ollama_available(
     except ImportError:
         # Try with urllib
         try:
-            import urllib.request
-            import urllib.error
             import json
+            import urllib.error
+            import urllib.request
 
             req = urllib.request.Request(f"{host}/api/version")
             with urllib.request.urlopen(req, timeout=timeout) as response:

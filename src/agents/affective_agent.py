@@ -6,16 +6,15 @@ Supports both rule-based and ML-based (RuBERT) detection via config switch.
 """
 
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, Optional
 
 from src.agents.base_agent import BaseAgent
-from src.models.affective_detector import AffectiveDetector
+from src.config import get_settings
 from src.data.schemas import (
     AffectiveState,
     AffectiveStateType,
-    ConversationTurn,
 )
-from src.config import get_settings
+from src.models.affective_detector import AffectiveDetector
 
 logger = logging.getLogger(__name__)
 

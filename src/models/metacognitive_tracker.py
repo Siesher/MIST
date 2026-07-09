@@ -13,16 +13,16 @@ Key features:
 
 import logging
 import re
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
-from collections import defaultdict
 import uuid
+from collections import defaultdict
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from src.data.schemas import (
     MetacognitiveLevel,
-    StuckPointType,
-    StuckPoint,
     MetacognitiveProfile,
+    StuckPoint,
+    StuckPointType,
 )
 
 logger = logging.getLogger(__name__)
@@ -475,7 +475,7 @@ class MetacognitiveTracker:
                 lines.append(f"- Проверка решения: {type_counts[StuckPointType.MONITORING.value]}")
 
             if resolved_count > 0:
-                lines.append(f"")
+                lines.append("")
                 lines.append(f"Ты справился с {resolved_count} из {stuck_count} затруднений!")
 
         lines.append("")

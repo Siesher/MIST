@@ -6,7 +6,7 @@ Free, no API key required, supports Russian queries.
 """
 
 import time
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List
 
 from src.tools import BaseTool, ToolResult, ToolType
 

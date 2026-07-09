@@ -2,15 +2,14 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config, pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Ensure the project root is on sys.path so "backend.app.models" is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.models.database import Base  # noqa: E402
 from backend.app.models import tables  # noqa: E402, F401 — register all models
+from backend.app.models.database import Base  # noqa: E402
 
 config = context.config
 

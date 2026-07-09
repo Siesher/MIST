@@ -39,8 +39,8 @@ kto_results = kto.get("results", []) or kto.get("details", [])
 print("=" * 70)
 print("FAIR THREE-WAY COMPARISON")
 print("=" * 70)
-print(f"Protocol: CALC system prompt, num_predict=-1 (unlimited), temperature=0.0")
-print(f"All three models evaluated under IDENTICAL conditions.")
+print("Protocol: CALC system prompt, num_predict=-1 (unlimited), temperature=0.0")
+print("All three models evaluated under IDENTICAL conditions.")
 print(f"Subset: {len(kto_results)} balanced problems (5/domain)")
 print()
 
@@ -150,16 +150,17 @@ print()
 
 # Token-level analysis
 import statistics
+
 think_lens = [r["kto_thinking_len"] for r in items if r["kto_thinking_len"]]
 vis_lens = [r["kto_visible_len"] for r in items]
 eval_cnts = [r["kto_eval_count"] for r in items if r["kto_eval_count"]]
 if think_lens:
-    print(f"KTO output lengths (chars):")
+    print("KTO output lengths (chars):")
     print(f"  thinking: median={statistics.median(think_lens):.0f}  max={max(think_lens):.0f}  mean={statistics.mean(think_lens):.0f}")
     print(f"  visible : median={statistics.median(vis_lens):.0f}  max={max(vis_lens):.0f}  mean={statistics.mean(vis_lens):.0f}")
 if eval_cnts:
     print(f"  eval_count tokens: median={statistics.median(eval_cnts):.0f}  max={max(eval_cnts):.0f}  mean={statistics.mean(eval_cnts):.0f}")
-print(f"  (compare to Base/GSPO avg_completion_tokens=1909)")
+print("  (compare to Base/GSPO avg_completion_tokens=1909)")
 print()
 
 # Concrete examples — KTO unique wins/losses

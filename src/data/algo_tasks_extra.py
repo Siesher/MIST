@@ -2,9 +2,10 @@
 Дополнительные алгоритмические задачи (часть 2)
 """
 
-from src.data.algo_task_bank import AlgorithmicTask, Difficulty, Category
-from src.execution.code_executor import TestCase
 from typing import List
+
+from src.data.algo_task_bank import AlgorithmicTask, Category, Difficulty
+from src.execution.code_executor import TestCase
 
 
 def get_additional_easy_tasks() -> List[AlgorithmicTask]:
@@ -27,7 +28,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте оператор % для проверки остатка от деления на 2"],
             solution_code='n = int(input())\nprint("EVEN" if n % 2 == 0 else "ODD")',
         ),
-        
+
         AlgorithmicTask(
             id="min_max",
             title="Min and Max",
@@ -46,7 +47,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["Можно использовать min() и max() или один проход"],
             solution_code='arr = list(map(int, input().split()))\nprint(min(arr), max(arr))',
         ),
-        
+
         AlgorithmicTask(
             id="count_words",
             title="Count Words",
@@ -65,7 +66,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["Метод split() разбивает строку по пробелам"],
             solution_code='s = input()\nprint(len(s.split()))',
         ),
-        
+
         AlgorithmicTask(
             id="gcd",
             title="GCD",
@@ -83,7 +84,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте алгоритм Евклида: gcd(a, b) = gcd(b, a % b)"],
             solution_code='a, b = map(int, input().split())\nwhile b:\n    a, b = b, a % b\nprint(a)',
         ),
-        
+
         AlgorithmicTask(
             id="remove_duplicates",
             title="Remove Duplicates",
@@ -102,7 +103,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте множество для отслеживания виденных элементов"],
             solution_code='arr = list(map(int, input().split()))\nseen = set()\nresult = []\nfor x in arr:\n    if x not in seen:\n        seen.add(x)\n        result.append(x)\nprint(*result)',
         ),
-        
+
         AlgorithmicTask(
             id="power_of_two",
             title="Power of Two",
@@ -120,7 +121,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["n & (n-1) == 0 для степеней двойки", "Или делите на 2 пока можно"],
             solution_code='n = int(input())\nprint("YES" if n > 0 and (n & (n - 1)) == 0 else "NO")',
         ),
-        
+
         AlgorithmicTask(
             id="array_sum",
             title="Array Sum",
@@ -139,7 +140,7 @@ def get_additional_easy_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте sum() или цикл"],
             solution_code='arr = list(map(int, input().split()))\nprint(sum(arr))',
         ),
-        
+
         AlgorithmicTask(
             id="second_largest",
             title="Second Largest",
@@ -182,7 +183,7 @@ def get_additional_medium_tasks() -> List[AlgorithmicTask]:
             hints=["k = k % len(arr)", "Используйте срезы: arr[-k:] + arr[:-k]"],
             solution_code='arr = list(map(int, input().split()))\nk = int(input()) % len(arr)\nresult = arr[-k:] + arr[:-k]\nprint(*result)',
         ),
-        
+
         AlgorithmicTask(
             id="majority_element",
             title="Majority Element",
@@ -201,7 +202,7 @@ def get_additional_medium_tasks() -> List[AlgorithmicTask]:
             hints=["Алгоритм Бойера-Мура", "Или Counter и проверка"],
             solution_code='from collections import Counter\narr = list(map(int, input().split()))\nc = Counter(arr)\nprint(c.most_common(1)[0][0])',
         ),
-        
+
         AlgorithmicTask(
             id="product_except_self",
             title="Product Except Self",
@@ -220,7 +221,7 @@ def get_additional_medium_tasks() -> List[AlgorithmicTask]:
             hints=["Два прохода: слева направо и справа налево", "Или используйте деление (осторожно с нулями)"],
             solution_code='arr = list(map(int, input().split()))\nn = len(arr)\nresult = [1] * n\nleft = 1\nfor i in range(n):\n    result[i] = left\n    left *= arr[i]\nright = 1\nfor i in range(n-1, -1, -1):\n    result[i] *= right\n    right *= arr[i]\nprint(*result)',
         ),
-        
+
         AlgorithmicTask(
             id="three_sum",
             title="Three Sum",
@@ -239,7 +240,7 @@ def get_additional_medium_tasks() -> List[AlgorithmicTask]:
             hints=["Отсортируйте массив", "Фиксируйте первый элемент, для остальных — два указателя"],
             solution_code='arr = sorted(map(int, input().split()))\nn = len(arr)\nresults = []\nfor i in range(n - 2):\n    if i > 0 and arr[i] == arr[i-1]:\n        continue\n    left, right = i + 1, n - 1\n    while left < right:\n        s = arr[i] + arr[left] + arr[right]\n        if s == 0:\n            results.append((arr[i], arr[left], arr[right]))\n            while left < right and arr[left] == arr[left+1]:\n                left += 1\n            while left < right and arr[right] == arr[right-1]:\n                right -= 1\n            left += 1\n            right -= 1\n        elif s < 0:\n            left += 1\n        else:\n            right -= 1\nfor r in results:\n    print(*r)',
         ),
-        
+
         AlgorithmicTask(
             id="spiral_matrix",
             title="Spiral Matrix",
@@ -258,7 +259,7 @@ def get_additional_medium_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте 4 границы: top, bottom, left, right", "Сужайте границы после каждого прохода"],
             solution_code='n, m = map(int, input().split())\nmatrix = [list(map(int, input().split())) for _ in range(n)]\nresult = []\ntop, bottom, left, right = 0, n-1, 0, m-1\nwhile top <= bottom and left <= right:\n    for j in range(left, right+1):\n        result.append(matrix[top][j])\n    top += 1\n    for i in range(top, bottom+1):\n        result.append(matrix[i][right])\n    right -= 1\n    if top <= bottom:\n        for j in range(right, left-1, -1):\n            result.append(matrix[bottom][j])\n        bottom -= 1\n    if left <= right:\n        for i in range(bottom, top-1, -1):\n            result.append(matrix[i][left])\n        left += 1\nprint(*result)',
         ),
-        
+
         AlgorithmicTask(
             id="longest_palindrome",
             title="Longest Palindromic Substring",
@@ -278,7 +279,7 @@ def get_additional_medium_tasks() -> List[AlgorithmicTask]:
             hints=["Расширяйтесь из центра", "Проверяйте и нечётные, и чётные палиндромы"],
             solution_code='s = input()\ndef expand(l, r):\n    while l >= 0 and r < len(s) and s[l] == s[r]:\n        l -= 1\n        r += 1\n    return r - l - 1\nmax_len = 0\nfor i in range(len(s)):\n    len1 = expand(i, i)\n    len2 = expand(i, i + 1)\n    max_len = max(max_len, len1, len2)\nprint(max_len)',
         ),
-        
+
         AlgorithmicTask(
             id="subarray_sum_k",
             title="Subarray Sum Equals K",
@@ -321,7 +322,7 @@ def get_additional_hard_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте стек", "Храните индексы столбцов"],
             solution_code='heights = list(map(int, input().split()))\nstack = []\nmax_area = 0\nfor i, h in enumerate(heights + [0]):\n    while stack and heights[stack[-1]] > h:\n        height = heights[stack.pop()]\n        width = i if not stack else i - stack[-1] - 1\n        max_area = max(max_area, height * width)\n    stack.append(i)\nprint(max_area)',
         ),
-        
+
         AlgorithmicTask(
             id="trapping_water",
             title="Trapping Rain Water",
@@ -340,7 +341,7 @@ def get_additional_hard_tasks() -> List[AlgorithmicTask]:
             hints=["Вода над позицией = min(max_left, max_right) - height", "Два указателя или предвычисление"],
             solution_code='height = list(map(int, input().split()))\nn = len(height)\nif n < 3:\n    print(0)\nelse:\n    left_max = [0] * n\n    right_max = [0] * n\n    left_max[0] = height[0]\n    for i in range(1, n):\n        left_max[i] = max(left_max[i-1], height[i])\n    right_max[n-1] = height[n-1]\n    for i in range(n-2, -1, -1):\n        right_max[i] = max(right_max[i+1], height[i])\n    water = sum(min(left_max[i], right_max[i]) - height[i] for i in range(n))\n    print(water)',
         ),
-        
+
         AlgorithmicTask(
             id="regex_match",
             title="Regular Expression Matching",
@@ -360,7 +361,7 @@ def get_additional_hard_tasks() -> List[AlgorithmicTask]:
             hints=["Используйте ДП", "dp[i][j] — совпадают ли s[:i] и p[:j]"],
             solution_code='s = input()\np = input()\nm, n = len(s), len(p)\ndp = [[False] * (n + 1) for _ in range(m + 1)]\ndp[0][0] = True\nfor j in range(1, n + 1):\n    if p[j-1] == "*":\n        dp[0][j] = dp[0][j-2]\nfor i in range(1, m + 1):\n    for j in range(1, n + 1):\n        if p[j-1] == "*":\n            dp[i][j] = dp[i][j-2]\n            if p[j-2] == "." or p[j-2] == s[i-1]:\n                dp[i][j] = dp[i][j] or dp[i-1][j]\n        elif p[j-1] == "." or p[j-1] == s[i-1]:\n            dp[i][j] = dp[i-1][j-1]\nprint("YES" if dp[m][n] else "NO")',
         ),
-        
+
         AlgorithmicTask(
             id="min_window",
             title="Minimum Window Substring",
@@ -379,7 +380,7 @@ def get_additional_hard_tasks() -> List[AlgorithmicTask]:
             hints=["Скользящее окно", "Храните счётчик нужных символов"],
             solution_code='from collections import Counter\ns = input()\nt = input()\nif not t or not s:\n    print("")\nelse:\n    need = Counter(t)\n    have = 0\n    required = len(need)\n    left = 0\n    min_len = float("inf")\n    result = ""\n    window = {}\n    for right in range(len(s)):\n        c = s[right]\n        window[c] = window.get(c, 0) + 1\n        if c in need and window[c] == need[c]:\n            have += 1\n        while have == required:\n            if right - left + 1 < min_len:\n                min_len = right - left + 1\n                result = s[left:right+1]\n            lc = s[left]\n            window[lc] -= 1\n            if lc in need and window[lc] < need[lc]:\n                have -= 1\n            left += 1\n    print(result)',
         ),
-        
+
         AlgorithmicTask(
             id="word_ladder",
             title="Word Ladder",
@@ -404,7 +405,7 @@ def get_additional_hard_tasks() -> List[AlgorithmicTask]:
 def get_all_additional_tasks() -> List[AlgorithmicTask]:
     """Все дополнительные задачи."""
     return (
-        get_additional_easy_tasks() + 
-        get_additional_medium_tasks() + 
+        get_additional_easy_tasks() +
+        get_additional_medium_tasks() +
         get_additional_hard_tasks()
     )

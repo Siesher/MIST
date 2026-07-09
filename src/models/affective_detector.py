@@ -11,19 +11,19 @@ Detects student emotional state from text patterns:
 Based on research in educational affect detection.
 """
 
-import re
 import logging
-from typing import List, Optional, Tuple, Dict
+import re
+from dataclasses import dataclass
 from datetime import datetime
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
 
+from src.config import get_settings
 from src.data.schemas import (
+    AffectiveSignals,
     AffectiveState,
     AffectiveStateType,
-    AffectiveSignals,
     ConversationTurn,
 )
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 

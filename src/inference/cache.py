@@ -7,22 +7,22 @@
 Использует семантическое сходство для поиска похожих запросов.
 """
 
-import json
 import hashlib
-import time
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
-from dataclasses import dataclass, field, asdict
-from collections import OrderedDict
+import json
 import logging
 import threading
+import time
+from collections import OrderedDict
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # Опциональные зависимости
 try:
-    from sentence_transformers import SentenceTransformer
     import numpy as np
+    from sentence_transformers import SentenceTransformer
     HAS_EMBEDDINGS = True
 except ImportError:
     HAS_EMBEDDINGS = False

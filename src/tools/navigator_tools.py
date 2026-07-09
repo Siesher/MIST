@@ -29,9 +29,12 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────
 
 _GRAPH: Optional[KnowledgeGraph] = None
-_NAVIGATOR_CACHE: Dict[str, PersonalizedNavigator] = {}
+_NAVIGATOR_CACHE: Dict[Any, PersonalizedNavigator] = {}
 
-FORGE_PATH = Path("data/knowledge/forge.json")
+# Якорим к корню репозитория: относительный путь молча грузил бы не тот граф
+# (или не находил его) при запуске процесса из другого cwd
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FORGE_PATH = _PROJECT_ROOT / "data" / "knowledge" / "forge.json"
 
 
 def _get_graph() -> Optional[KnowledgeGraph]:
@@ -63,10 +66,18 @@ def get_navigator(mastery_source: Any = None) -> Optional[PersonalizedNavigator]
     if graph is None:
         return None
 
-    source = mastery_source or {}
-    source_key = id(source)
+    # mastery_source=None → один общий анонимный навигатор: раньше на каждый
+    # вызов создавался новый dict → новый id() → кэш рос неограниченно
+    if mastery_source is None:
+        source_key: Any = "__anonymous__"
+        source: Any = {}
+    else:
+        source_key = id(mastery_source)
+        source = mastery_source
 
     if source_key not in _NAVIGATOR_CACHE:
+        if len(_NAVIGATOR_CACHE) > 256:  # страховка от утечки на долгоживущем бэкенде
+            _NAVIGATOR_CACHE.clear()
         _NAVIGATOR_CACHE[source_key] = PersonalizedNavigator(graph, source)
 
     return _NAVIGATOR_CACHE[source_key]

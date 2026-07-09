@@ -9,24 +9,22 @@ MITS Inference Module.
 - metrics: Метрики производительности
 """
 
-from src.inference.cache import (
-    ResponseCache,
-    LRUCache,
-    CacheEntry,
-    TutoringCacheManager,
-    RAGQueryCache,
-    get_cache_manager,
-    get_rag_cache,
-)
-
 from src.inference.batch_processor import (
-    BatchProcessor,
     BatchItem,
+    BatchProcessor,
     BatchResult,
     EmbeddingBatchProcessor,
     get_embedding_processor,
 )
-
+from src.inference.cache import (
+    CacheEntry,
+    LRUCache,
+    RAGQueryCache,
+    ResponseCache,
+    TutoringCacheManager,
+    get_cache_manager,
+    get_rag_cache,
+)
 from src.inference.hint_prefetcher import (
     HintPrefetcher,
     PrefetchedHint,

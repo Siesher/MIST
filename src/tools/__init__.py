@@ -8,9 +8,9 @@ Provides tools for the tutor agent:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class ToolType(Enum):
@@ -103,8 +103,8 @@ def get_tool_registry() -> ToolRegistry:
 def register_default_tools():
     """Register default tools with the global registry."""
     from src.tools.calculator import CalculatorTool
-    from src.tools.web_search import WebSearchTool
     from src.tools.knowledge_search import KnowledgeSearchTool
+    from src.tools.web_search import WebSearchTool
 
     tool_registry.register(CalculatorTool())
     tool_registry.register(WebSearchTool())
@@ -113,8 +113,10 @@ def register_default_tools():
     # SKI-based tools (graceful — skip if knowledge base not available)
     try:
         from src.tools.ski_tool_adapters import (
-            ConceptLookupTool, WorkedExampleTool,
-            FormulaTool, PrerequisitesTool,
+            ConceptLookupTool,
+            FormulaTool,
+            PrerequisitesTool,
+            WorkedExampleTool,
         )
         tool_registry.register(ConceptLookupTool())
         tool_registry.register(WorkedExampleTool())

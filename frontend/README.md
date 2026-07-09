@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MITS Frontend
 
-## Getting Started
+Next.js 14 frontend for the MITS (Math Intelligent Tutoring System) — a Socratic AI tutor
+for STEM subjects (math, physics, chemistry, CS).
 
-First, run the development server:
+Built with: Next.js 14, TypeScript 5, Tailwind CSS, shadcn/ui, Zustand.
+Real-time responses via WebSocket streaming from the backend.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Requirements
+
+- Node.js 18+
+- MITS backend running on port 8000 (see `backend/`)
+
+## Environment
+
+Create `frontend/.env.local` with the following variables.
+These are **base URLs only** — all paths (`/api/v1/...`) are appended by the code
+(see `frontend/src/lib/api.ts`).
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For Docker or remote deployments replace `localhost` with the actual host.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Install dependencies
+npm install
 
-## Learn More
+# Start development server (hot-reload)
+npm run dev
 
-To learn more about Next.js, take a look at the following resources:
+# Production build
+npm run build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Type-check without emitting (CI)
+npx tsc --noEmit
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Development server starts at http://localhost:3000.
 
-## Deploy on Vercel
+## Chat modes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **chat** — direct LLM conversation
+- **guided_learning** — full Socratic agent pipeline (planner + tutor + diagnostics)
+- **task_generator** — on-demand STEM problem generation

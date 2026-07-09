@@ -12,14 +12,14 @@ T037: Hint Prefetcher для MITS.
 Feature 010: Enhanced with skill graph-based prediction
 """
 
+import hashlib
 import logging
 import threading
 import time
-from typing import Optional, Dict, Any, List, Set, Callable
-from dataclasses import dataclass, field
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from queue import PriorityQueue
-import hashlib
+from typing import Any, Callable, Dict, List, Optional, Set
 
 # Feature 010: Load configuration
 try:

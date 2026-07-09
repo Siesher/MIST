@@ -12,10 +12,8 @@ Checks:
 - Recommended settings
 """
 
-import sys
-import json
 import os
-from pathlib import Path
+import sys
 
 try:
     import requests

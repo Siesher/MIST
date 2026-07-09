@@ -665,7 +665,7 @@ class SocraticTutorAgent(BaseAgent):
             rag_context=rag_context,
         )
 
-        raw_response = self._call_llm(prompt, json_mode=True)
+        raw_response = self._call_llm(prompt, json_mode=True, thinking=False)
 
         # 5. Parse and validate response
         try:

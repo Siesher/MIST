@@ -1,0 +1,29 @@
+# Никогда не печём в образ: секреты, окружения, тяжёлые артефакты
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.git/
+.github/
+
+# Тяжёлые данные и артефакты — не нужны бэкенд-образу
+data/models/
+data/training/
+training/data/
+notebooks/
+evaluation/reports/
+docs/
+presentation/
+design_handoff/
+figures/
+research/
+logs/
+*.log
+
+# Фронтенд собирается отдельным Dockerfile со своим контекстом
+frontend/node_modules/
+frontend/.next/

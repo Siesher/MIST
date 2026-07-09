@@ -44,21 +44,29 @@ async def lifespan(app: FastAPI):
     logger.info("MITS API server shut down")
 
 
-# Create app
+# Create app (Swagger/ReDoc только в DEBUG — в проде интерактивные доки не светим)
 app = FastAPI(
     title="MITS API",
     description="Mathematics Intelligent Tutoring System API",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if backend_settings.DEBUG else None,
+    redoc_url="/redoc" if backend_settings.DEBUG else None,
     lifespan=lifespan,
 )
 
 # CORS
 origins = [o.strip() for o in backend_settings.CORS_ORIGINS.split(",")]
+# Allow temporary public-tunnel origins (Cloudflare Tunnel / ngrok / localtunnel) so a
+# one-off public URL works without a redeploy. allow_credentials=True forbids a "*"
+# allow_origins, so tunnels are matched by regex instead. Set CORS_ORIGIN_REGEX="" to disable.
+cors_origin_regex = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"https://[a-z0-9-]+\.(trycloudflare\.com|ngrok-free\.app|ngrok\.io|loca\.lt)",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=cors_origin_regex or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,10 +90,16 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error: {exc}", exc_info=True)
     # Echo CORS headers on errors too, so browsers see the real 500 instead of a
     # misleading "No Access-Control-Allow-Origin" (CORS) error masking it.
+    import re as _re
+
     origin = request.headers.get("origin")
     allowed = {o.strip() for o in backend_settings.CORS_ORIGINS.split(",")}
+    _rx = os.getenv(
+        "CORS_ORIGIN_REGEX",
+        r"https://[a-z0-9-]+\.(trycloudflare\.com|ngrok-free\.app|ngrok\.io|loca\.lt)",
+    )
     headers: dict[str, str] = {}
-    if origin and (origin in allowed or "*" in allowed):
+    if origin and (origin in allowed or "*" in allowed or (_rx and _re.match(_rx, origin))):
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
         headers["Vary"] = "Origin"

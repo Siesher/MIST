@@ -8,12 +8,13 @@ Based on:
 - Agent interface contracts from spec
 """
 
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, List
-from enum import Enum
 from datetime import datetime
-import time
+from enum import Enum
+from typing import Any, Dict, Optional
+
 import structlog
 
 # Conditional import for LLMClient
@@ -124,7 +125,7 @@ class BaseAgent(ABC):
         self._status = AgentStatus.HEALTHY
 
         self.logger.info("agent_initialized")
-    
+
     @property
     def name(self) -> str:
         """Agent identifier."""

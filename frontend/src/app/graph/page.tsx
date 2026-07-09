@@ -129,6 +129,7 @@ export default function GraphPage() {
   const [addDomain, setAddDomain] = useState("math");
   const [addType, setAddType] = useState("concept");
   const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const fieldStyle = {
     flex: 1,
@@ -144,13 +145,15 @@ export default function GraphPage() {
     const title = addTitle.trim();
     if (!title || addBusy) return;
     setAddBusy(true);
+    setAddError(null);
     try {
       await createKnowledgeNode({ title, domain: addDomain, node_type: addType });
       setData(await fetchGraph());
       setAddTitle("");
       setAddOpen(false);
     } catch (e) {
-      console.error("Failed to add topic:", e);
+      const msg = e instanceof Error ? e.message : "Не удалось добавить тему";
+      setAddError(lang === "ru" ? `Ошибка: ${msg}` : `Error: ${msg}`);
     } finally {
       setAddBusy(false);
     }
@@ -305,7 +308,7 @@ export default function GraphPage() {
 
           {addOpen && (
             <div
-              onClick={() => !addBusy && setAddOpen(false)}
+              onClick={() => { if (!addBusy) { setAddOpen(false); setAddError(null); } }}
               style={{
                 position: "fixed",
                 inset: 0,
@@ -360,8 +363,13 @@ export default function GraphPage() {
                     <option value="misconception">misconception</option>
                   </select>
                 </div>
+                {addError && (
+                  <div style={{ fontSize: 12, color: "var(--red, #f87171)", marginTop: -4 }}>
+                    {addError}
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
-                  <button className="btn-secondary" onClick={() => setAddOpen(false)} disabled={addBusy}>
+                  <button className="btn-secondary" onClick={() => { setAddOpen(false); setAddError(null); }} disabled={addBusy}>
                     {lang === "ru" ? "Отмена" : "Cancel"}
                   </button>
                   <button
@@ -704,7 +712,7 @@ export default function GraphPage() {
                       </div>
                       <div className="gs-mini">
                         <div className="k">{tt("graphLastErr")}</div>
-                        <div className="v">{tt("graph3hAgo")}</div>
+                        <div className="v">—</div>
                       </div>
                     </div>
 

@@ -3,12 +3,12 @@
 import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.tables import SessionTable, MessageTable
+from backend.app.models.tables import MessageTable, SessionTable
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,8 @@ class AnalyticsService:
             .join(SessionTable, MessageTable.session_id == SessionTable.id)
             .where(
                 SessionTable.user_id == user_id,
-                MessageTable.role == "assistant",
+                # В БД тьютор хранится как role='tutor' ('assistant' — только внешний API-формат)
+                MessageTable.role == "tutor",
                 MessageTable.move_type.isnot(None),
             )
         )

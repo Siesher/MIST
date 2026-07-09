@@ -15,7 +15,7 @@ lh = s["log_history"]
 train = [e for e in lh if "loss" in e and "eval_loss" not in e]
 evals = [e for e in lh if "eval_loss" in e]
 
-print(f"=== Training run summary ===")
+print("=== Training run summary ===")
 print(f"Step: {s['global_step']}/{s['max_steps']}  ({s['global_step']/s['max_steps']*100:.0f}%)")
 print(f"Epoch: {s['epoch']:.3f}/{s['num_train_epochs']}")
 print(f"Batch size: {s['train_batch_size']}")
@@ -45,6 +45,8 @@ margins = [e["rewards/margins"] for e in train]
 grads = [e["grad_norm"] for e in train]
 
 import statistics
+
+
 def stats(name, arr):
     mn, mx = min(arr), max(arr)
     print(f"  {name:>14}: min={mn:.4f}  max={mx:.4f}  mean={statistics.mean(arr):.4f}  "

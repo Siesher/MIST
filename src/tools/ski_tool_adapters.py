@@ -6,13 +6,15 @@ so they integrate with the existing ToolRegistry pattern.
 """
 
 import json
-import time
 import logging
-from typing import Optional
+import time
 
 from src.tools import BaseTool, ToolResult, ToolType
 from src.tools.ski_tools import (
-    lookup_concept, get_worked_example, get_formula, get_prerequisites,
+    get_formula,
+    get_prerequisites,
+    get_worked_example,
+    lookup_concept,
 )
 
 logger = logging.getLogger(__name__)

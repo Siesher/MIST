@@ -11,10 +11,11 @@ Centralized error handling for edge cases:
 Based on T057: Add error handling for edge cases across all agents.
 """
 
-from typing import Optional, Dict, Any, Callable, TypeVar, Union
-from functools import wraps
-from enum import Enum
 import time
+from enum import Enum
+from functools import wraps
+from typing import Any, Callable, Dict, Optional, TypeVar
+
 import structlog
 
 logger = structlog.get_logger()
@@ -211,6 +212,7 @@ def check_ollama_connection(host: str = None) -> bool:
     """
     try:
         import ollama
+
         from src.config import settings
 
         client = ollama.Client(host=host or settings.OLLAMA_HOST)
@@ -438,7 +440,7 @@ def handle_ui_error(
             return func(*args, **kwargs)
         except InputValidationError as e:
             return f"Input error: {e.user_message}"
-        except ConnectionError as e:
+        except ConnectionError:
             return FallbackResponses.get_fallback("connection", language)
         except MITSError as e:
             return e.user_message
