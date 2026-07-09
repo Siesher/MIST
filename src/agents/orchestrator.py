@@ -19,22 +19,29 @@
 
 import json
 import logging
-import time
 import re
+import time
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, Callable, TYPE_CHECKING
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
+from src.agents.planner import (
+    PlannerAgent,
+    TeachingMove,
+    TeachingPlan,
+    TeachingStrategy,
+)
+from src.agents.planner import (
+    SessionContext as PlannerSessionContext,
+)
 from src.agents.profiler import ProfilerAgent, StudentProfile
-from src.agents.planner import PlannerAgent, TeachingPlan, TeachingStrategy, TeachingMove, SessionContext as PlannerSessionContext
-from src.agents.verifier import VerifierAgent, VerificationResult
+from src.agents.verifier import VerificationResult, VerifierAgent
 
 # Import base agent types
 try:
-    from src.agents.base_agent import (
-        AgentStatus, AgentError, HealthCheckResult
-    )
+    from src.agents.base_agent import AgentError, AgentStatus, HealthCheckResult
+
     HAS_BASE_AGENT = True
 except ImportError:
     HAS_BASE_AGENT = False
@@ -44,7 +51,8 @@ except ImportError:
 
 # Опциональный RAG
 try:
-    from src.knowledge.rag_retriever import TutoringRAG, TutoringContext
+    from src.knowledge.rag_retriever import TutoringContext, TutoringRAG
+
     HAS_RAG = True
 except ImportError:
     HAS_RAG = False
@@ -54,6 +62,7 @@ except ImportError:
 # Опциональный Knowledge Tracker
 try:
     from src.models.knowledge_tracing import KnowledgeTracker
+
     HAS_KT = True
 except ImportError:
     HAS_KT = False
@@ -62,6 +71,7 @@ except ImportError:
 # Опциональный Cognitive Load Estimator
 try:
     from src.models.cognitive_load import CognitiveLoadEstimator
+
     HAS_CL = True
 except ImportError:
     HAS_CL = False
@@ -72,28 +82,32 @@ logger = logging.getLogger(__name__)
 
 class OrchestratorMode(Enum):
     """Режимы работы оркестратора."""
-    FULL = "full"           # Все агенты
-    FAST = "fast"           # Только репетитор + верификатор
+
+    FULL = "full"  # Все агенты
+    FAST = "fast"  # Только репетитор + верификатор
     DIAGNOSTIC = "diagnostic"  # Профайлер + планировщик (без ответа)
 
 
 class QueryType(Enum):
     """Тип запроса ученика для интеллектуальной маршрутизации (T037)."""
-    QUESTION = "question"              # Вопрос о задаче
+
+    QUESTION = "question"  # Вопрос о задаче
     ANSWER_ATTEMPT = "answer_attempt"  # Попытка ответа
-    HINT_REQUEST = "hint_request"      # Запрос подсказки
-    CONFUSION = "confusion"            # Выражение непонимания
-    OFF_TOPIC = "off_topic"            # Не по теме
-    GREETING = "greeting"              # Приветствие
-    CLARIFICATION = "clarification"    # Уточнение
+    HINT_REQUEST = "hint_request"  # Запрос подсказки
+    CONFUSION = "confusion"  # Выражение непонимания
+    OFF_TOPIC = "off_topic"  # Не по теме
+    GREETING = "greeting"  # Приветствие
+    CLARIFICATION = "clarification"  # Уточнение
     SOLUTION_CHECK = "solution_check"  # Проверка решения
-    NEXT_TASK = "next_task"            # Запрос следующей задачи
+    NEXT_TASK = "next_task"  # Запрос следующей задачи
 
 
 class AgentStage(Enum):
     """Стадии пайплайна агентов."""
+
     ROUTING = "routing"
     PROFILER = "profiler"
+    MENTAL_MODEL = "mental_model"  # ToM-Tutor (017) — между PROFILER и PLANNER
     PLANNER = "planner"
     RAG = "rag"
     TUTOR = "tutor"
@@ -104,6 +118,7 @@ class AgentStage(Enum):
 @dataclass
 class StageTrace:
     """Трейс одной стадии пайплайна."""
+
     stage: AgentStage
     started_at: datetime = field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
@@ -124,6 +139,7 @@ class StageTrace:
 @dataclass
 class PipelineTrace:
     """Трейс выполнения пайплайна агентов (T038)."""
+
     trace_id: str
     session_id: Optional[str] = None
     student_id: Optional[str] = None
@@ -170,36 +186,35 @@ class PipelineTrace:
                     "duration_ms": s.duration_ms,
                     "success": s.success,
                     "error": s.error,
-                    "output_summary": s.output_summary
+                    "output_summary": s.output_summary,
                 }
                 for s in self.stages
-            ]
+            ],
         }
 
     def summary(self) -> str:
         """Human-readable summary."""
         status = "✓" if self.final_success else "✗"
-        stages_str = " → ".join([
-            f"{s.stage.value}({'✓' if s.success else '✗'})"
-            for s in self.stages
-        ])
+        stages_str = " → ".join([f"{s.stage.value}({'✓' if s.success else '✗'})" for s in self.stages])
         return f"[{status}] {self.total_duration_ms:.0f}ms | {stages_str}"
 
 
 @dataclass
 class TurnContext:
     """Контекст одного хода диалога."""
-    problem: str                           # Текст задачи
-    student_input: str                     # Ввод ученика
-    correct_answer: Optional[str] = None   # Правильный ответ
+
+    problem: str  # Текст задачи
+    student_input: str  # Ввод ученика
+    correct_answer: Optional[str] = None  # Правильный ответ
     history: List[Dict[str, str]] = field(default_factory=list)  # История диалога
-    student_id: Optional[str] = None       # ID ученика
-    topic: Optional[str] = None            # Тема задачи
+    student_id: Optional[str] = None  # ID ученика
+    topic: Optional[str] = None  # Тема задачи
 
 
 @dataclass
 class TopicMasteryVisualization:
     """Данные для визуализации освоения топиков."""
+
     skill_name: str
     mastery: float  # 0-1
     dkt_mastery: Optional[float] = None  # DKT prediction
@@ -214,13 +229,14 @@ class TopicMasteryVisualization:
             "dkt_mastery": self.dkt_mastery,
             "attempts": self.attempts,
             "success_rate": self.success_rate,
-            "trend": self.trend
+            "trend": self.trend,
         }
 
 
 @dataclass
 class KnowledgeStateData:
     """Данные о состоянии знаний для UI."""
+
     total_interactions: int = 0
     using_dkt: bool = False
     mastery_visualization: List[TopicMasteryVisualization] = field(default_factory=list)
@@ -246,20 +262,21 @@ class KnowledgeStateData:
                 "level": self.cognitive_load_level,
                 "score": self.cognitive_load_score,
                 "should_simplify": self.should_simplify,
-                "should_offer_break": self.should_offer_break
-            }
+                "should_offer_break": self.should_offer_break,
+            },
         }
 
 
 @dataclass
 class TurnResult:
     """Результат обработки хода."""
-    response: str                          # Ответ репетитора
-    move_type: str                         # Тип хода
+
+    response: str  # Ответ репетитора
+    move_type: str  # Тип хода
     profile: Optional[StudentProfile] = None  # Профиль ученика
-    plan: Optional[TeachingPlan] = None    # План обучения
+    plan: Optional[TeachingPlan] = None  # План обучения
     verification: Optional[VerificationResult] = None  # Результат верификации
-    rag_context: Optional[Any] = None      # RAG контекст (TutoringContext)
+    rag_context: Optional[Any] = None  # RAG контекст (TutoringContext)
     metrics: Dict[str, Any] = field(default_factory=dict)  # Метрики
     knowledge_state: Optional[KnowledgeStateData] = None  # Состояние знаний для UI
     pipeline_trace: Optional[PipelineTrace] = None  # Трейс пайплайна (T038)
@@ -267,18 +284,11 @@ class TurnResult:
 
     def to_json(self) -> str:
         """Сериализация в JSON."""
-        return json.dumps({
-            "move": self.move_type,
-            "message": self.response
-        }, ensure_ascii=False)
+        return json.dumps({"move": self.move_type, "message": self.response}, ensure_ascii=False)
 
     def to_full_dict(self) -> Dict[str, Any]:
         """Полная сериализация для API."""
-        result = {
-            "move": self.move_type,
-            "message": self.response,
-            "metrics": self.metrics
-        }
+        result = {"move": self.move_type, "message": self.response, "metrics": self.metrics}
 
         if self.query_type:
             result["query_type"] = self.query_type.value
@@ -298,6 +308,7 @@ class TurnResult:
 @dataclass
 class SessionState:
     """Состояние сессии обучения."""
+
     session_id: str
     student_id: Optional[str] = None
     current_problem: Optional[str] = None
@@ -310,13 +321,15 @@ class SessionState:
     def add_turn(self, context: TurnContext, result: TurnResult):
         """Добавление хода в историю."""
         self.turn_count += 1
-        self.history.append({
-            "turn": self.turn_count,
-            "student_input": context.student_input,
-            "tutor_response": result.response,
-            "move_type": result.move_type,
-            "timestamp": time.time()
-        })
+        self.history.append(
+            {
+                "turn": self.turn_count,
+                "student_input": context.student_input,
+                "tutor_response": result.response,
+                "move_type": result.move_type,
+                "timestamp": time.time(),
+            }
+        )
         if result.profile:
             self.profiles.append(result.profile)
 
@@ -344,16 +357,16 @@ class AgentOrchestrator:
         profiler: Optional[ProfilerAgent] = None,
         planner: Optional[PlannerAgent] = None,
         verifier: Optional[VerifierAgent] = None,
-        rag: Optional['TutoringRAG'] = None,
-        knowledge_tracker: Optional['KnowledgeTracker'] = None,
-        cognitive_load_estimator: Optional['CognitiveLoadEstimator'] = None,
+        rag: Optional["TutoringRAG"] = None,
+        knowledge_tracker: Optional["KnowledgeTracker"] = None,
+        cognitive_load_estimator: Optional["CognitiveLoadEstimator"] = None,
         memory_manager: Optional[Any] = None,  # T045: MemoryManager integration
         mode: OrchestratorMode = OrchestratorMode.FULL,
         max_retries: int = 2,
         verify_responses: bool = True,
         use_rag: bool = True,
         use_knowledge_tracking: bool = True,
-        use_memory_manager: bool = True
+        use_memory_manager: bool = True,
     ):
         """
         Инициализация оркестратора.
@@ -404,10 +417,45 @@ class AgentOrchestrator:
         self.profiler = profiler or ProfilerAgent(
             llm_client,
             knowledge_tracker=self.knowledge_tracker,
-            cognitive_load_estimator=self.cognitive_load_estimator
+            cognitive_load_estimator=self.cognitive_load_estimator,
         )
         self.planner = planner or PlannerAgent()
         self.verifier = verifier or VerifierAgent()
+
+        # ToM-Tutor (017): MentalModelAgent if enabled in profile.
+        # Использует отдельный base-model LLMClient (qwen3.5:9b), т.к.
+        # thinking-модели конфликтуют с JSON mode.
+        self.mental_model_agent = None
+        try:
+            from src.resource_profiles import feature_enabled
+
+            if feature_enabled("enable_tom_agent"):
+                from src.agents.mental_model_agent import MentalModelAgent
+                from src.config import settings as _settings
+                from src.models import create_llm_client
+
+                # Ollama-путь: thinking-модель конфликтует с JSON mode → base
+                # (MODEL_FALLBACK, qwen3.5:9b). llamacpp-путь: JSON гарантирован
+                # грамматикой (response_format=json_object), модель дефолтная.
+                if _settings.LLM_BACKEND == "ollama":
+                    tom_llm = create_llm_client(backend="ollama", model=_settings.MODEL_FALLBACK)
+                else:
+                    tom_llm = create_llm_client()
+                forge_graph = None
+                try:
+                    from pathlib import Path
+
+                    from src.knowledge.knowledge_forge import KnowledgeGraph
+
+                    forge_path = Path("data/knowledge/forge.json")
+                    if forge_path.exists():
+                        forge_graph = KnowledgeGraph(forge_path)
+                except Exception:
+                    pass
+                self.mental_model_agent = MentalModelAgent(llm_client=tom_llm, knowledge_graph=forge_graph)
+                logger.info("MentalModelAgent инициализирован (ToM-Tutor 017)")
+        except Exception as e:
+            logger.warning(f"MentalModelAgent не доступен (graceful): {e}")
 
         # Инициализация RAG
         self.rag = None
@@ -428,6 +476,7 @@ class AgentOrchestrator:
                     self.memory_manager = memory_manager
                 else:
                     from src.memory.manager import create_memory_manager
+
                     self.memory_manager = create_memory_manager()
                 logger.info("MemoryManager инициализирован")
             except ImportError:
@@ -455,28 +504,48 @@ class AgentOrchestrator:
         # Query patterns for classification (T037)
         self._query_patterns = {
             QueryType.HINT_REQUEST: [
-                r'подсказ', r'помог', r'не понимаю', r'hint', r'help',
-                r'как.*начать', r'не знаю', r'затрудн'
+                r"подсказ",
+                r"помог",
+                r"не понимаю",
+                r"hint",
+                r"help",
+                r"как.*начать",
+                r"не знаю",
+                r"затрудн",
             ],
-            QueryType.GREETING: [
-                r'^привет', r'^здравств', r'^добр', r'^hi\b', r'^hello'
-            ],
+            QueryType.GREETING: [r"^привет", r"^здравств", r"^добр", r"^hi\b", r"^hello"],
             QueryType.NEXT_TASK: [
-                r'следующ.*задач', r'новую задач', r'другую задач',
-                r'next.*task', r'ещё.*задач'
+                r"следующ.*задач",
+                r"новую задач",
+                r"другую задач",
+                r"next.*task",
+                r"ещё.*задач",
             ],
             QueryType.CONFUSION: [
-                r'не понял', r'не понимаю', r'запутал', r'сложно',
-                r'confused', r'don\'t understand'
+                r"не понял",
+                r"не понимаю",
+                r"запутал",
+                r"сложно",
+                r"confused",
+                r"don\'t understand",
             ],
             QueryType.SOLUTION_CHECK: [
-                r'правильно\?', r'верно\?', r'так\?$', r'check',
-                r'проверь', r'это.*ответ'
+                r"правильно\?",
+                r"верно\?",
+                r"так\?$",
+                r"check",
+                r"проверь",
+                r"это.*ответ",
             ],
             QueryType.CLARIFICATION: [
-                r'что.*значит', r'почему', r'зачем', r'как это',
-                r'what.*mean', r'why', r'объясни'
-            ]
+                r"что.*значит",
+                r"почему",
+                r"зачем",
+                r"как это",
+                r"what.*mean",
+                r"why",
+                r"объясни",
+            ],
         }
 
         logger.info(
@@ -485,8 +554,8 @@ class AgentOrchestrator:
                 "mode": mode.value,
                 "verify": verify_responses,
                 "rag": self.use_rag,
-                "kt": self.use_knowledge_tracking
-            }
+                "kt": self.use_knowledge_tracking,
+            },
         )
 
     def create_session(
@@ -494,7 +563,7 @@ class AgentOrchestrator:
         session_id: str,
         student_id: Optional[str] = None,
         problem: Optional[str] = None,
-        topic: Optional[str] = None
+        topic: Optional[str] = None,
     ) -> SessionState:
         """
         Создание новой сессии обучения.
@@ -512,7 +581,7 @@ class AgentOrchestrator:
             session_id=session_id,
             student_id=student_id,
             current_problem=problem,
-            current_topic=topic
+            current_topic=topic,
         )
         self._sessions[session_id] = session
 
@@ -542,18 +611,15 @@ class AgentOrchestrator:
         for query_type, patterns in self._query_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, input_lower, re.IGNORECASE):
-                    logger.debug(
-                        f"Query classified as {query_type.value}",
-                        extra={"pattern": pattern}
-                    )
+                    logger.debug(f"Query classified as {query_type.value}", extra={"pattern": pattern})
                     return query_type
 
         # Check if it looks like a math expression/answer
-        if re.search(r'[=\+\-\*/\^]|x\s*=|^\d+$|\d+[,\.]\d+', input_lower):
+        if re.search(r"[=\+\-\*/\^]|x\s*=|^\d+$|\d+[,\.]\d+", input_lower):
             return QueryType.ANSWER_ATTEMPT
 
         # Check if it's a question
-        if '?' in student_input or input_lower.startswith(('как', 'что', 'где', 'когда', 'почему')):
+        if "?" in student_input or input_lower.startswith(("как", "что", "где", "когда", "почему")):
             return QueryType.QUESTION
 
         # Default to answer attempt
@@ -576,14 +642,14 @@ class AgentOrchestrator:
                 "use_rag": True,  # Важно для подсказок
                 "use_verifier": True,
                 "suggested_move": "hint",
-                "priority_rag": True
+                "priority_rag": True,
             },
             QueryType.ANSWER_ATTEMPT: {
                 "use_profiler": True,  # Диагностика ошибок
                 "use_planner": True,
                 "use_rag": True,
                 "use_verifier": True,
-                "suggested_move": None  # Определяется профайлером
+                "suggested_move": None,  # Определяется профайлером
             },
             QueryType.CONFUSION: {
                 "use_profiler": True,
@@ -591,7 +657,7 @@ class AgentOrchestrator:
                 "use_rag": True,  # Поиск более простых объяснений
                 "use_verifier": True,
                 "suggested_move": "scaffolding",
-                "simplify_response": True
+                "simplify_response": True,
             },
             QueryType.GREETING: {
                 "use_profiler": False,
@@ -599,7 +665,7 @@ class AgentOrchestrator:
                 "use_rag": False,
                 "use_verifier": False,
                 "suggested_move": "encourage",
-                "fast_response": True
+                "fast_response": True,
             },
             QueryType.NEXT_TASK: {
                 "use_profiler": False,
@@ -607,28 +673,28 @@ class AgentOrchestrator:
                 "use_rag": False,
                 "use_verifier": False,
                 "suggested_move": "tell",
-                "generate_task": True
+                "generate_task": True,
             },
             QueryType.SOLUTION_CHECK: {
                 "use_profiler": True,  # Проверка правильности
                 "use_planner": True,
                 "use_rag": False,
                 "use_verifier": True,
-                "suggested_move": None
+                "suggested_move": None,
             },
             QueryType.CLARIFICATION: {
                 "use_profiler": False,
                 "use_planner": True,
                 "use_rag": True,  # Поиск объяснений
                 "use_verifier": True,
-                "suggested_move": "clarify"
+                "suggested_move": "clarify",
             },
             QueryType.QUESTION: {
                 "use_profiler": False,
                 "use_planner": True,
                 "use_rag": True,
                 "use_verifier": True,
-                "suggested_move": "scaffolding"
+                "suggested_move": "scaffolding",
             },
             QueryType.OFF_TOPIC: {
                 "use_profiler": False,
@@ -636,8 +702,8 @@ class AgentOrchestrator:
                 "use_rag": False,
                 "use_verifier": False,
                 "suggested_move": "clarify",
-                "redirect_to_task": True
-            }
+                "redirect_to_task": True,
+            },
         }
 
         return routing_configs.get(query_type, routing_configs[QueryType.ANSWER_ATTEMPT])
@@ -647,11 +713,7 @@ class AgentOrchestrator:
     def _create_trace(self, session_id: Optional[str] = None) -> PipelineTrace:
         """Создать новый трейс пайплайна."""
         self._trace_counter += 1
-        trace = PipelineTrace(
-            trace_id=f"trace-{self._trace_counter}",
-            session_id=session_id,
-            mode=self.mode
-        )
+        trace = PipelineTrace(trace_id=f"trace-{self._trace_counter}", session_id=session_id, mode=self.mode)
 
         # Maintain history limit
         self._pipeline_traces.append(trace)
@@ -667,11 +729,7 @@ class AgentOrchestrator:
     # === T039: Graceful Degradation ===
 
     def _handle_agent_failure(
-        self,
-        agent_name: str,
-        error: Exception,
-        trace: PipelineTrace,
-        context: TurnContext
+        self, agent_name: str, error: Exception, trace: PipelineTrace, context: TurnContext
     ) -> Optional[Any]:
         """
         Обработка сбоя агента с graceful degradation (T039).
@@ -687,7 +745,7 @@ class AgentOrchestrator:
         """
         logger.warning(
             f"Agent {agent_name} failed, attempting graceful degradation",
-            extra={"error": str(error)}
+            extra={"error": str(error)},
         )
 
         # Record failure
@@ -699,7 +757,7 @@ class AgentOrchestrator:
             "planner": self._fallback_planner,
             "rag": self._fallback_rag,
             "tutor": self._fallback_tutor,
-            "verifier": self._fallback_verifier
+            "verifier": self._fallback_verifier,
         }
 
         fallback_fn = fallback_strategies.get(agent_name)
@@ -707,10 +765,7 @@ class AgentOrchestrator:
             try:
                 return fallback_fn(context, error)
             except Exception as fallback_error:
-                logger.error(
-                    f"Fallback for {agent_name} also failed",
-                    extra={"error": str(fallback_error)}
-                )
+                logger.error(f"Fallback for {agent_name} also failed", extra={"error": str(fallback_error)})
 
         return None
 
@@ -721,7 +776,7 @@ class AgentOrchestrator:
             misconceptions=[],
             strengths=[],
             recommended_approach="scaffolding",
-            confidence_level=0.5
+            confidence_level=0.5,
         )
 
     def _fallback_planner(self, context: TurnContext, error: Exception) -> TeachingPlan:
@@ -743,20 +798,23 @@ class AgentOrchestrator:
         fallback_messages = [
             "Давай попробуем разобраться вместе. Расскажи, что тебе уже понятно в этой задаче?",
             "Интересная мысль! Можешь объяснить свои рассуждения подробнее?",
-            "Хороший вопрос. Давай начнём с самого начала — какие данные нам даны?"
+            "Хороший вопрос. Давай начнём с самого начала — какие данные нам даны?",
         ]
         import random
+
         message = random.choice(fallback_messages)
         return json.dumps({"move": "scaffolding", "message": message}, ensure_ascii=False)
 
     def _fallback_verifier(self, context: TurnContext, error: Exception) -> VerificationResult:
         """Fallback верификатора - пропускаем проверку."""
         logger.info("Verifier fallback: skipping verification")
+        # NB: critical_issues/warnings — это @property (выводятся из checks), а
+        # поле оценки называется score, а не quality_score. Передаём только
+        # реальные поля dataclass, иначе VerificationResult(...) бросает TypeError.
         return VerificationResult(
             is_valid=True,  # Assume valid
-            critical_issues=[],
-            warnings=[{"issue": "verification_skipped", "reason": str(error)}],
-            quality_score=0.7
+            score=0.7,
+            checks=[],
         )
 
     # === T040: Agent Health Check ===
@@ -771,19 +829,19 @@ class AgentOrchestrator:
         health_status = {}
 
         # Check profiler
-        if hasattr(self.profiler, 'health_check'):
+        if hasattr(self.profiler, "health_check"):
             health_status["profiler"] = self.profiler.health_check()
         else:
             health_status["profiler"] = {"status": "unknown", "has_health_check": False}
 
         # Check planner
-        if hasattr(self.planner, 'health_check'):
+        if hasattr(self.planner, "health_check"):
             health_status["planner"] = self.planner.health_check()
         else:
             health_status["planner"] = {"status": "unknown", "has_health_check": False}
 
         # Check verifier
-        if hasattr(self.verifier, 'health_check'):
+        if hasattr(self.verifier, "health_check"):
             health_status["verifier"] = self.verifier.health_check()
         else:
             health_status["verifier"] = {"status": "unknown", "has_health_check": False}
@@ -801,7 +859,7 @@ class AgentOrchestrator:
         # Check LLM
         try:
             # Quick LLM ping
-            if hasattr(self.llm, 'ping') and callable(self.llm.ping):
+            if hasattr(self.llm, "ping") and callable(self.llm.ping):
                 self.llm.ping()
                 health_status["llm"] = {"status": "healthy"}
             else:
@@ -811,14 +869,13 @@ class AgentOrchestrator:
 
         # Overall status
         unhealthy_count = sum(
-            1 for s in health_status.values()
-            if isinstance(s, dict) and s.get("status") == "unhealthy"
+            1 for s in health_status.values() if isinstance(s, dict) and s.get("status") == "unhealthy"
         )
 
         health_status["overall"] = {
             "status": "degraded" if unhealthy_count > 0 else "healthy",
             "unhealthy_agents": unhealthy_count,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         self._agent_health = health_status
@@ -831,11 +888,7 @@ class AgentOrchestrator:
         llm_status = health.get("llm", {}).get("status", "unknown")
         return llm_status != "unhealthy"
 
-    def process_turn(
-        self,
-        context: TurnContext,
-        session_id: Optional[str] = None
-    ) -> TurnResult:
+    def process_turn(self, context: TurnContext, session_id: Optional[str] = None) -> TurnResult:
         """
         Обработка одного хода диалога.
 
@@ -890,15 +943,15 @@ class AgentOrchestrator:
                 move_type="encourage",
                 metrics={"fast_path": True, "query_type": query_type.value},
                 pipeline_trace=trace,
-                query_type=query_type
+                query_type=query_type,
             )
 
         # 1. ПРОФАЙЛЕР: Диагностика ошибок
         profile = None
-        should_profile = (
-            self.mode in [OrchestratorMode.FULL, OrchestratorMode.DIAGNOSTIC]
-            and routing_config.get("use_profiler", True)
-        )
+        should_profile = self.mode in [
+            OrchestratorMode.FULL,
+            OrchestratorMode.DIAGNOSTIC,
+        ] and routing_config.get("use_profiler", True)
 
         if should_profile:
             profiler_stage = trace.start_stage(AgentStage.PROFILER)
@@ -908,16 +961,16 @@ class AgentOrchestrator:
                     problem=context.problem,
                     correct_approach=context.correct_answer or "",
                     student_response=context.student_input,
-                    history=context.history
+                    history=context.history,
                 )
                 metrics["profiler_ms"] = (time.time() - profile_start) * 1000
                 profiler_stage.complete(
                     True,
-                    output_summary=f"{len(profile.errors)} errors, confidence={profile.confidence_level.value}"
+                    output_summary=f"{len(profile.errors)} errors, confidence={profile.confidence_level.value}",
                 )
                 logger.debug(
                     "Профайлер: диагностика завершена",
-                    extra={"errors": len(profile.errors), "confidence": profile.confidence_level}
+                    extra={"errors": len(profile.errors), "confidence": profile.confidence_level},
                 )
             except Exception as e:
                 logger.error(f"Ошибка профайлера: {e}")
@@ -925,12 +978,69 @@ class AgentOrchestrator:
                 # T039: Graceful degradation
                 profile = self._handle_agent_failure("profiler", e, trace, context)
 
+        # 1.4. Knowledge Forge: навигация по графу знаний.
+        # ВАЖНО: блок ДОЛЖЕН идти до MENTAL_MODEL и PLANNER — оба используют
+        # graph_context. Раньше он стоял ниже (после планировщика), из-за чего
+        # graph_context был неопределён на :1010/:1047 и фича молча отключалась.
+        graph_context = None
+        try:
+            from src.tools.navigator_tools import get_navigator, set_mastery_source
+
+            if session and hasattr(session, "student_id") and self.memory_manager:
+                set_mastery_source(self.memory_manager)
+            nav = get_navigator()
+            if nav and context.topic:
+                student_id = session.student_id if session and hasattr(session, "student_id") else "anonymous"
+                graph_context = nav.get_concept_context(student_id, f"math:{context.topic}:definition")
+                if graph_context:
+                    logger.debug("Knowledge Forge: graph context loaded", extra={"topic": context.topic})
+        except Exception as e:
+            logger.debug(f"Knowledge Forge unavailable (graceful skip): {e}")
+
+        # 1.5. MENTAL_MODEL: ToM-Tutor inference (017)
+        # Между PROFILER и PLANNER: выводим BeliefState для stratification.
+        # Graceful degradation: при любой ошибке — empty BeliefState.
+        belief_state = None
+        try:
+            from src.data.schemas import BeliefState as _BeliefState
+            from src.resource_profiles import feature_enabled
+
+            if (
+                feature_enabled("enable_tom_agent")
+                and getattr(self, "mental_model_agent", None) is not None
+                and profile is not None
+            ):
+                mm_stage = trace.start_stage(AgentStage.MENTAL_MODEL)
+                mm_start = time.time()
+                try:
+                    belief_state = self.mental_model_agent.infer(
+                        student_message=context.student_input,
+                        student_profile=profile,
+                        history=(session.recent_turns(3) if session and hasattr(session, "recent_turns") else []),
+                        graph_context=graph_context,
+                        topic=context.topic or "",
+                    )
+                    metrics["mental_model_ms"] = (time.time() - mm_start) * 1000
+                    mm_stage.complete(
+                        True,
+                        output_summary=(
+                            f"confidence={belief_state.confidence:.2f}, "
+                            f"misconception={'yes' if belief_state.active_misconception else 'no'}"
+                        ),
+                    )
+                except Exception as e:
+                    logger.warning(f"MENTAL_MODEL stage failed (graceful): {e}")
+                    mm_stage.complete(False, error=str(e))
+                    belief_state = _BeliefState.empty()
+        except ImportError:
+            pass  # ToM-Tutor not installed — skip
+
         # 2. ПЛАНИРОВЩИК: Выбор стратегии
         plan = None
-        should_plan = (
-            self.mode in [OrchestratorMode.FULL, OrchestratorMode.DIAGNOSTIC]
-            and routing_config.get("use_planner", True)
-        )
+        should_plan = self.mode in [
+            OrchestratorMode.FULL,
+            OrchestratorMode.DIAGNOSTIC,
+        ] and routing_config.get("use_planner", True)
 
         if should_plan:
             planner_stage = trace.start_stage(AgentStage.PLANNER)
@@ -944,15 +1054,20 @@ class AgentOrchestrator:
                 plan = self.planner.create_plan(
                     profile=profile or StudentProfile(),
                     context=planner_context,
+                    graph_context=graph_context,
+                    belief_state=belief_state,
                 )
                 metrics["planner_ms"] = (time.time() - plan_start) * 1000
                 planner_stage.complete(
                     True,
-                    output_summary=f"Strategy: {plan.strategy.value}, primary_move: {plan.primary_move.value}"
+                    output_summary=f"Strategy: {plan.strategy.value}, primary_move: {plan.primary_move.value}",
                 )
                 logger.debug(
                     "Планировщик: стратегия выбрана",
-                    extra={"strategy": plan.strategy.value, "primary_move": plan.primary_move.value}
+                    extra={
+                        "strategy": plan.strategy.value,
+                        "primary_move": plan.primary_move.value,
+                    },
                 )
             except Exception as e:
                 logger.error(f"Ошибка планировщика: {e}")
@@ -972,6 +1087,9 @@ class AgentOrchestrator:
                 move_sequence=[primary],
             )
 
+        # 2.4. Knowledge Forge: блок перенесён выше (до MENTAL_MODEL, см. 1.4) —
+        # graph_context должен существовать до его использования в ToM/Planner.
+
         # 2.5. RAG: Извлечение контекста
         rag_context = None
         should_rag = self.use_rag and self.rag and routing_config.get("use_rag", True)
@@ -983,19 +1101,19 @@ class AgentOrchestrator:
                 rag_context = self.rag.retrieve_context(
                     problem=context.problem,
                     student_response=context.student_input,
-                    topic=context.topic
+                    topic=context.topic,
                 )
                 metrics["rag_ms"] = (time.time() - rag_start) * 1000
                 rag_stage.complete(
                     True,
-                    output_summary=f"{len(rag_context.hints)} hints, {len(rag_context.misconceptions)} misconceptions"
+                    output_summary=f"{len(rag_context.hints)} hints, {len(rag_context.misconceptions)} misconceptions",
                 )
                 logger.debug(
                     "RAG: контекст извлечён",
                     extra={
                         "hints": len(rag_context.hints),
-                        "misconceptions": len(rag_context.misconceptions)
-                    }
+                        "misconceptions": len(rag_context.misconceptions),
+                    },
                 )
             except Exception as e:
                 logger.warning(f"Ошибка RAG: {e}")
@@ -1014,7 +1132,7 @@ class AgentOrchestrator:
                 rag_context=rag_context,
                 metrics=metrics,
                 pipeline_trace=trace,
-                query_type=query_type
+                query_type=query_type,
             )
 
         # 3. РЕПЕТИТОР: Генерация ответа
@@ -1040,18 +1158,18 @@ class AgentOrchestrator:
                             response=response,
                             problem=context.problem,
                             correct_answer=context.correct_answer,
-                            move_type=move_type
+                            move_type=move_type,
                         )
                         metrics["verifier_ms"] = (time.time() - verify_start) * 1000
 
                         if not verification.is_valid:
                             verifier_stage.complete(
                                 False,
-                                output_summary=f"Invalid: {[c.issue.value for c in verification.critical_issues]}"
+                                output_summary=f"Invalid: {[c.issue.value for c in verification.critical_issues]}",
                             )
                             logger.warning(
                                 f"Верификация не пройдена (попытка {attempt + 1})",
-                                extra={"issues": [c.issue.value for c in verification.critical_issues]}
+                                extra={"issues": [c.issue.value for c in verification.critical_issues]},
                             )
                             trace.retries += 1
                             if attempt < self.max_retries:
@@ -1059,7 +1177,7 @@ class AgentOrchestrator:
                         else:
                             verifier_stage.complete(
                                 True,
-                                output_summary=f"Valid, score={verification.quality_score:.2f}"
+                                output_summary=f"Valid, score={verification.quality_score:.2f}",
                             )
                     except Exception as e:
                         logger.error(f"Ошибка верификатора: {e}")
@@ -1092,9 +1210,7 @@ class AgentOrchestrator:
         # 5. KNOWLEDGE STATE: Собираем данные для визуализации
         knowledge_state = None
         if context.student_id and (self.use_knowledge_tracking or profile):
-            knowledge_state = self._build_knowledge_state_data(
-                context.student_id, profile
-            )
+            knowledge_state = self._build_knowledge_state_data(context.student_id, profile)
 
         # T038: Complete trace
         trace.complete(True)
@@ -1110,7 +1226,7 @@ class AgentOrchestrator:
             metrics=metrics,
             knowledge_state=knowledge_state,
             pipeline_trace=trace,
-            query_type=query_type
+            query_type=query_type,
         )
 
         # Обновляем сессию
@@ -1132,17 +1248,13 @@ class AgentOrchestrator:
                 "total_ms": f"{total_ms:.1f}",
                 "query_type": query_type.value,
                 "verified": verification.is_valid if verification else "skipped",
-                "trace": trace.summary()
-            }
+                "trace": trace.summary(),
+            },
         )
 
         return result
 
-    def _generate_fast_response(
-        self,
-        context: TurnContext,
-        query_type: QueryType
-    ) -> str:
+    def _generate_fast_response(self, context: TurnContext, query_type: QueryType) -> str:
         """
         Быстрый ответ для простых запросов (T037).
 
@@ -1152,20 +1264,21 @@ class AgentOrchestrator:
             QueryType.GREETING: [
                 "Привет! Готов помочь тебе с математикой. С какой задачей работаем?",
                 "Здравствуй! Давай займёмся математикой. Над чем ты сейчас работаешь?",
-                "Привет! Рад тебя видеть. Какую задачу будем решать?"
+                "Привет! Рад тебя видеть. Какую задачу будем решать?",
             ],
             QueryType.OFF_TOPIC: [
                 "Давай вернёмся к нашей задаче. Посмотри на условие — что тебе уже понятно?",
                 "Интересно, но давай сосредоточимся на математике. Где ты остановился в решении?",
-                "Хороший вопрос, но сейчас давай сфокусируемся на задаче. С чего начнём?"
+                "Хороший вопрос, но сейчас давай сфокусируемся на задаче. С чего начнём?",
             ],
             QueryType.NEXT_TASK: [
                 "Отлично, ты готов к новой задаче! Дай мне секунду, подберу подходящую.",
-                "Хорошо, давай возьмём следующую задачу. Сейчас подготовлю."
-            ]
+                "Хорошо, давай возьмём следующую задачу. Сейчас подготовлю.",
+            ],
         }
 
         import random
+
         messages = fast_responses.get(query_type, fast_responses[QueryType.GREETING])
         return random.choice(messages)
 
@@ -1174,7 +1287,7 @@ class AgentOrchestrator:
         context: TurnContext,
         plan: Optional[TeachingPlan],
         profile: Optional[StudentProfile],
-        rag_context: Optional[Any] = None
+        rag_context: Optional[Any] = None,
     ) -> str:
         """Генерация ответа репетитора."""
         # Формируем промпт
@@ -1182,26 +1295,57 @@ class AgentOrchestrator:
         user_prompt = self._build_user_prompt(context, profile, rag_context)
 
         # Генерируем ответ
-        response = self.llm.generate(
-            prompt=user_prompt,
-            system=system_prompt,
-            temperature=0.7,
-            max_tokens=500
-        )
+        response = self.llm.generate(prompt=user_prompt, system=system_prompt, temperature=0.7, max_tokens=500)
 
         return response
 
     def _build_system_prompt(self, plan: Optional[TeachingPlan]) -> str:
         """Построение системного промпта."""
-        base_prompt = """Ты — сократический репетитор по математике.
+        base_prompt = """Ты — сократический репетитор по STEM (математика, физика, химия, биология, информатика).
 
-ЯЗЫК: Думай и отвечай ТОЛЬКО на русском языке. Все твои мысли, рассуждения и ответы должны быть на русском (кириллица). Не используй английский ни для размышлений, ни для ответов.
+ЯЗЫК: Думай и отвечай ТОЛЬКО на русском языке. Все мысли, рассуждения и ответы — на русском (кириллица). Не используй английский ни для размышлений, ни для ответов.
 
 ПРАВИЛА:
 1. Никогда не давай прямых ответов — задавай наводящие вопросы
-2. Используй LaTeX для формул: $...$
-3. Отвечай кратко (2-4 предложения)
-4. Помогай ученику прийти к ответу самостоятельно
+2. Используй LaTeX для формул: $inline$ и $$display$$
+3. Помогай ученику прийти к ответу самостоятельно
+
+ОБЪЁМ И ФОРМА:
+- Длина ответа выбирается по сути: короткий наводящий вопрос — 1 предложение; разбор сложного шага — абзац или несколько. НЕ ограничивай себя «2-4 предложениями».
+- Структурируй длинные ответы списками, **жирным**, заголовками.
+- Можешь показать промежуточные выкладки и метод — финальный шаг оставь ученику.
+
+ПЕДАГОГИЧЕСКИЕ ИНСТРУМЕНТЫ (не "answer-fetcher"):
+- `lookup_concept(topic)` — определение + типичные ошибки → задай точечный вопрос про конкретный common_error.
+- `get_solution_method(topic)` — алгоритм решения → СПРАШИВАЙ про каждый шаг по очереди, не выдавай весь.
+- `get_worked_example(topic, difficulty)` — пример с решением → используй для аналогии.
+- `get_formula(topic)`, `get_prerequisites(topic)` — справка для тебя.
+- Knowledge Forge: `explore_concept`, `diagnose_gap`, `suggest_next`, `find_learning_path`, `get_learning_frontier`.
+ВАЖНО: после tool НИКОГДА не выдавай прямой ответ. Tool — твоя подготовка, в ответе студенту — наводящий вопрос.
+
+ВИЗУАЛИЗАЦИЯ (frontend сам отрисует):
+Когда студент просит «нарисуй график/схему» — РИСУЙ через mermaid/plotly, НЕ говори «не умею».
+
+**Mermaid** для блок-схем/процессов. КРИТИЧНО: в node labels используй ТОЛЬКО короткие фразы без скобок, знаков `=`, `(`, `)`, `<br>`, формул. Формулы оформляй ПОСЛЕ диаграммы отдельным `$LaTeX$`. Пример (КОПИРУЙ структуру):
+```mermaid
+flowchart TD
+    A[Начало] --> B[Записать уравнение]
+    B --> C[Найти коэффициенты a, b, c]
+    C --> D[Вычислить дискриминант]
+    D --> E{Знак D?}
+    E -->|меньше 0| F[Нет корней]
+    E -->|равен 0| G[Один корень]
+    E -->|больше 0| H[Два корня]
+    F --> I[Конец]
+    G --> I
+    H --> I
+```
+
+**Plotly** для графиков. КРИТИЧНО: JSON должен быть строго валидным — ровно ОДНА фигурная скобка в конце. Никаких лишних `}`, никаких комментариев внутри JSON. Пример (КОПИРУЙ структуру):
+```plotly
+{"data":[{"type":"scatter","mode":"lines","name":"y=x^2-3x+1","x":[-1,-0.5,0,0.5,1,1.5,2,2.5,3,3.5,4],"y":[5,2.75,1,-0.25,-1,-1.25,-1,-0.25,1,2.75,5]}],"layout":{"title":"График y=x^2-3x+1","xaxis":{"title":"x"},"yaxis":{"title":"y"}}}
+```
+Считай y-значения сам перед записью; пиши `^` как `^` (не `²`), чтобы JSON остался ASCII-безопасным где можно.
 
 СТИЛЬ:
 - Дружелюбный и поддерживающий тон
@@ -1228,7 +1372,7 @@ class AgentOrchestrator:
         self,
         context: TurnContext,
         profile: Optional[StudentProfile],
-        rag_context: Optional[Any] = None
+        rag_context: Optional[Any] = None,
     ) -> str:
         """Построение пользовательского промпта."""
         prompt_parts = [f"Задача: {context.problem}"]
@@ -1260,17 +1404,13 @@ class AgentOrchestrator:
 
         return "\n".join(prompt_parts)
 
-    def _fallback_response(
-        self,
-        context: TurnContext,
-        plan: Optional[TeachingPlan]
-    ) -> str:
+    def _fallback_response(self, context: TurnContext, plan: Optional[TeachingPlan]) -> str:
         """Запасной ответ при ошибках."""
         fallback_responses = {
             "scaffolding": "Давай разберём это по шагам. С чего бы ты хотел начать?",
             "hint": "Подумай о том, какую операцию нужно выполнить первой.",
             "encourage": "Ты на правильном пути! Продолжай рассуждать.",
-            "clarify": "Не совсем понял твой ответ. Можешь объяснить подробнее?"
+            "clarify": "Не совсем понял твой ответ. Можешь объяснить подробнее?",
         }
 
         move = plan.primary_move.value if plan else "scaffolding"
@@ -1281,7 +1421,7 @@ class AgentOrchestrator:
     def _extract_move_type(self, response: str, default: str) -> str:
         """Извлечение типа хода из ответа."""
         try:
-            if response.strip().startswith('{'):
+            if response.strip().startswith("{"):
                 data = json.loads(response)
                 return data.get("move", default)
         except json.JSONDecodeError:
@@ -1291,18 +1431,14 @@ class AgentOrchestrator:
     def _extract_message(self, response: str) -> str:
         """Извлечение текста сообщения."""
         try:
-            if response.strip().startswith('{'):
+            if response.strip().startswith("{"):
                 data = json.loads(response)
                 return data.get("message", response)
         except json.JSONDecodeError:
             pass
         return response
 
-    def _build_knowledge_state_data(
-        self,
-        student_id: str,
-        profile: Optional[StudentProfile]
-    ) -> KnowledgeStateData:
+    def _build_knowledge_state_data(self, student_id: str, profile: Optional[StudentProfile]) -> KnowledgeStateData:
         """
         Построение данных о состоянии знаний для UI.
 
@@ -1325,9 +1461,7 @@ class AgentOrchestrator:
                 knowledge_state.weakest_skills = kt_summary.get("weakest_skills", [])
                 knowledge_state.strongest_skills = kt_summary.get("strongest_skills", [])
                 knowledge_state.recommended_skill = kt_summary.get("recommended_skill")
-                knowledge_state.recommended_difficulty = kt_summary.get(
-                    "recommended_difficulty", "medium"
-                )
+                knowledge_state.recommended_difficulty = kt_summary.get("recommended_difficulty", "medium")
 
                 # Построение визуализации навыков
                 mastery_by_skill = kt_summary.get("mastery_by_skill", {})
@@ -1338,7 +1472,7 @@ class AgentOrchestrator:
                             mastery=skill_data.get("mastery", 0.5),
                             dkt_mastery=skill_data.get("dkt_mastery"),
                             attempts=skill_data.get("attempts", 0),
-                            success_rate=skill_data.get("success_rate", 0.0)
+                            success_rate=skill_data.get("success_rate", 0.0),
                         )
                     )
 
@@ -1356,10 +1490,7 @@ class AgentOrchestrator:
             if not knowledge_state.mastery_visualization and profile.mastery_by_skill:
                 for skill_name, mastery in profile.mastery_by_skill.items():
                     knowledge_state.mastery_visualization.append(
-                        TopicMasteryVisualization(
-                            skill_name=skill_name,
-                            mastery=mastery
-                        )
+                        TopicMasteryVisualization(skill_name=skill_name, mastery=mastery)
                     )
 
             if not knowledge_state.recommended_difficulty:
@@ -1395,7 +1526,7 @@ class AgentOrchestrator:
             "avg_latency_ms": session.total_latency_ms / session.turn_count if session.turn_count > 0 else 0,
             "total_latency_ms": session.total_latency_ms,
             "student_id": session.student_id,
-            "current_topic": session.current_topic
+            "current_topic": session.current_topic,
         }
 
     def close_session(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -1417,11 +1548,7 @@ class AgentOrchestrator:
         return stats
 
 
-def create_orchestrator(
-    llm_client,
-    mode: str = "full",
-    verify: bool = True
-) -> AgentOrchestrator:
+def create_orchestrator(llm_client, mode: str = "full", verify: bool = True) -> AgentOrchestrator:
     """
     Фабричная функция для создания оркестратора.
 
@@ -1434,11 +1561,7 @@ def create_orchestrator(
         Настроенный AgentOrchestrator
     """
     mode_enum = OrchestratorMode(mode)
-    return AgentOrchestrator(
-        llm_client=llm_client,
-        mode=mode_enum,
-        verify_responses=verify
-    )
+    return AgentOrchestrator(llm_client=llm_client, mode=mode_enum, verify_responses=verify)
 
 
 # Пример использования
@@ -1448,10 +1571,13 @@ if __name__ == "__main__":
     # Мок LLM клиент для тестирования
     class MockLLMClient:
         def generate(self, prompt, system_prompt=None, **kwargs):
-            return json.dumps({
-                "move": "scaffolding",
-                "message": "Давай посмотрим на это уравнение. Что ты видишь в левой части?"
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "move": "scaffolding",
+                    "message": "Давай посмотрим на это уравнение. Что ты видишь в левой части?",
+                },
+                ensure_ascii=False,
+            )
 
     print("=== Тест AgentOrchestrator ===\n")
 
@@ -1464,7 +1590,7 @@ if __name__ == "__main__":
         session_id="test-001",
         student_id="student-1",
         problem="Решить уравнение: $2x + 5 = 13$",
-        topic="linear_equations"
+        topic="linear_equations",
     )
 
     # Обрабатываем ход
@@ -1472,7 +1598,7 @@ if __name__ == "__main__":
         problem="Решить уравнение: $2x + 5 = 13$",
         student_input="Не знаю как начать",
         correct_answer="4",
-        topic="linear_equations"
+        topic="linear_equations",
     )
 
     result = orchestrator.process_turn(context, session_id="test-001")

@@ -4,9 +4,10 @@ MITS FastAPI Backend
 Main entry point for the tutoring API server.
 """
 
-import sys
-import os
 import logging
+import os
+import sys
+from contextlib import asynccontextmanager
 
 # Add project root to path for src/ imports
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -17,9 +18,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.app.config import backend_settings
 from backend.app.api.v1.router import router as api_router
-from backend.app.models.database import init_db, close_db
+from backend.app.config import backend_settings
+from backend.app.models.database import close_db, init_db
 from backend.app.services.orchestrator_service import get_orchestrator_service
 
 # Configure logging
@@ -29,6 +30,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup then shutdown (replaces deprecated on_event)."""
+    logger.info("Starting MITS API server...")
+    await init_db()
+    logger.info("Database initialized")
+    await get_orchestrator_service()
+    logger.info("MITS API server ready")
+    yield
+    await close_db()
+    logger.info("MITS API server shut down")
+
+
 # Create app
 app = FastAPI(
     title="MITS API",
@@ -36,6 +51,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS
@@ -64,6 +80,15 @@ async def health_check():
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error: {exc}", exc_info=True)
+    # Echo CORS headers on errors too, so browsers see the real 500 instead of a
+    # misleading "No Access-Control-Allow-Origin" (CORS) error masking it.
+    origin = request.headers.get("origin")
+    allowed = {o.strip() for o in backend_settings.CORS_ORIGINS.split(",")}
+    headers: dict[str, str] = {}
+    if origin and (origin in allowed or "*" in allowed):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Vary"] = "Origin"
     return JSONResponse(
         status_code=500,
         content={
@@ -72,26 +97,11 @@ async def global_exception_handler(request: Request, exc: Exception):
                 "message": "Внутренняя ошибка сервера",
             }
         },
+        headers=headers,
     )
-
-
-@app.on_event("startup")
-async def startup():
-    """Initialize services on startup."""
-    logger.info("Starting MITS API server...")
-    await init_db()
-    logger.info("Database initialized")
-    service = await get_orchestrator_service()
-    logger.info("MITS API server ready")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    """Cleanup on shutdown."""
-    await close_db()
-    logger.info("MITS API server shut down")
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("backend.app.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -3,15 +3,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.api.v1.auth import ensure_session_access, require_llm_budget
 from backend.app.models.database import get_db
+from backend.app.models.tables import UserTable
 from backend.app.schemas.chat import (
-    SendMessageRequest,
     ChatResponseSchema,
     HintResponseSchema,
-    SolutionResponseSchema,
-    TutorResponseData,
+    SendMessageRequest,
     SessionState,
+    SolutionResponseSchema,
     TutorMoveType,
+    TutorResponseData,
 )
 from backend.app.services.orchestrator_service import get_orchestrator_service
 
@@ -19,13 +21,19 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("/{session_id}/message", response_model=ChatResponseSchema)
-async def send_message(session_id: str, request: SendMessageRequest, db: AsyncSession = Depends(get_db)):
+async def send_message(
+    session_id: str,
+    request: SendMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(require_llm_budget),
+):
     """Send a chat message and get tutor response (non-streaming)."""
     service = await get_orchestrator_service()
     session = await service.get_session(db, session_id)
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    ensure_session_access(session.user_id, user)
 
     result = await service.process_message(db, session_id, request.content)
     if not result:
@@ -57,13 +65,18 @@ async def send_message(session_id: str, request: SendMessageRequest, db: AsyncSe
 
 
 @router.get("/{session_id}/hint", response_model=HintResponseSchema)
-async def get_hint(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_hint(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(require_llm_budget),
+):
     """Get the next progressive hint."""
     service = await get_orchestrator_service()
     session = await service.get_session(db, session_id)
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    ensure_session_access(session.user_id, user)
 
     result = await service.get_hint(db, session_id)
     if not result:
@@ -73,13 +86,18 @@ async def get_hint(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{session_id}/solution", response_model=SolutionResponseSchema)
-async def reveal_solution(session_id: str, db: AsyncSession = Depends(get_db)):
+async def reveal_solution(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: UserTable | None = Depends(require_llm_budget),
+):
     """Reveal the solution (penalized)."""
     service = await get_orchestrator_service()
     session = await service.get_session(db, session_id)
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    ensure_session_access(session.user_id, user)
 
     result = await service.reveal_solution(db, session_id)
     if not result:

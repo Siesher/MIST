@@ -1,22 +1,12 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+import "./newdesign.css";
+import "./newdesign-enh.css";
 
 export const metadata: Metadata = {
-  title: "MITS — Математический репетитор",
-  description: "Интеллектуальная система обучения математике",
+  title: "MITS — Math Intelligent Tutoring System",
+  description: "Сократический STEM-репетитор на базе Qwen3.5-9B · BKT + DKT · Bauman MSTU",
 };
 
 export default function RootLayout({
@@ -25,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className="dark">
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <link
           rel="stylesheet"
@@ -33,8 +23,17 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
+      {/* new_design "midnight" theme. The `.app` grid fills the viewport; Geist
+          fonts arrive via the @import at the top of newdesign.css. */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className="theme-midnight"
+        style={{
+          margin: 0,
+          height: "100vh",
+          background: "var(--bg)",
+          // expose a mono var for inline styles in newdesign components
+          ["--font-mono" as string]: "'Geist Mono', ui-monospace, monospace",
+        }}
       >
         <AuthProvider>{children}</AuthProvider>
       </body>

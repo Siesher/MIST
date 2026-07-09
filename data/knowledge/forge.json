@@ -1,0 +1,2293 @@
+{
+  "version": "1.0",
+  "saved_at": "2026-05-28T14:18:02.097712",
+  "nodes": [
+    {
+      "id": "math:arithmetic:definition",
+      "node_type": "concept",
+      "title": "Арифметика",
+      "title_en": "Arithmetic",
+      "content": "Определение: Арифметика",
+      "domain": "math",
+      "tags": [
+        "math",
+        "arithmetic"
+      ],
+      "difficulty": 0.1,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 2.0,
+        "original_skill_id": "arithmetic"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:fractions:definition",
+      "node_type": "concept",
+      "title": "Дроби",
+      "title_en": "Fractions",
+      "content": "Определение: Дроби",
+      "domain": "math",
+      "tags": [
+        "math",
+        "fractions"
+      ],
+      "difficulty": 0.2,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 3.0,
+        "original_skill_id": "fractions"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:decimals:definition",
+      "node_type": "concept",
+      "title": "Десятичные дроби",
+      "title_en": "Decimals",
+      "content": "Определение: Десятичные дроби",
+      "domain": "math",
+      "tags": [
+        "math",
+        "decimals"
+      ],
+      "difficulty": 0.2,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 2.0,
+        "original_skill_id": "decimals"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:percentages:definition",
+      "node_type": "concept",
+      "title": "Проценты",
+      "title_en": "Percentages",
+      "content": "Определение: Проценты",
+      "domain": "math",
+      "tags": [
+        "math",
+        "percentages"
+      ],
+      "difficulty": 0.25,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 2.0,
+        "original_skill_id": "percentages"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:variables:definition",
+      "node_type": "concept",
+      "title": "Переменные и выражения",
+      "title_en": "Variables and Expressions",
+      "content": "Определение: Переменные и выражения",
+      "domain": "math",
+      "tags": [
+        "math",
+        "variables"
+      ],
+      "difficulty": 0.25,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 3.0,
+        "original_skill_id": "variables"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:linear_equations:definition",
+      "node_type": "concept",
+      "title": "Линейные уравнения",
+      "title_en": "Linear Equations",
+      "content": "Определение: Линейные уравнения",
+      "domain": "math",
+      "tags": [
+        "math",
+        "linear_equations"
+      ],
+      "difficulty": 0.3,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "linear_equations"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:linear_inequalities:definition",
+      "node_type": "concept",
+      "title": "Линейные неравенства",
+      "title_en": "Linear Inequalities",
+      "content": "Определение: Линейные неравенства",
+      "domain": "math",
+      "tags": [
+        "math",
+        "linear_inequalities"
+      ],
+      "difficulty": 0.35,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 3.0,
+        "original_skill_id": "linear_inequalities"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:systems_of_equations:definition",
+      "node_type": "concept",
+      "title": "Системы уравнений",
+      "title_en": "Systems of Equations",
+      "content": "Определение: Системы уравнений",
+      "domain": "math",
+      "tags": [
+        "math",
+        "systems_of_equations"
+      ],
+      "difficulty": 0.4,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "systems_of_equations"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:quadratic_equations:definition",
+      "node_type": "concept",
+      "title": "Квадратные уравнения",
+      "title_en": "Quadratic Equations",
+      "content": "Определение: Квадратные уравнения",
+      "domain": "math",
+      "tags": [
+        "math",
+        "quadratic_equations"
+      ],
+      "difficulty": 0.45,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "quadratic_equations"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:factoring:definition",
+      "node_type": "concept",
+      "title": "Разложение на множители",
+      "title_en": "Factoring",
+      "content": "Определение: Разложение на множители",
+      "domain": "math",
+      "tags": [
+        "math",
+        "factoring"
+      ],
+      "difficulty": 0.5,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "factoring"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:polynomials:definition",
+      "node_type": "concept",
+      "title": "Многочлены",
+      "title_en": "Polynomials",
+      "content": "Определение: Многочлены",
+      "domain": "math",
+      "tags": [
+        "math",
+        "polynomials"
+      ],
+      "difficulty": 0.55,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "polynomials"
+      },
+      "created_at": "2026-04-16T12:55:14.647764",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:rational_expressions:definition",
+      "node_type": "concept",
+      "title": "Рациональные выражения",
+      "title_en": "Rational Expressions",
+      "content": "Определение: Рациональные выражения",
+      "domain": "math",
+      "tags": [
+        "math",
+        "rational_expressions"
+      ],
+      "difficulty": 0.6,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "rational_expressions"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:trig_basics:definition",
+      "node_type": "concept",
+      "title": "Основы тригонометрии",
+      "title_en": "Trigonometric Basics",
+      "content": "Определение: Основы тригонометрии",
+      "domain": "math",
+      "tags": [
+        "math",
+        "trig_basics"
+      ],
+      "difficulty": 0.45,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "trig_basics"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:trig_identities:definition",
+      "node_type": "concept",
+      "title": "Тригонометрические тождества",
+      "title_en": "Trigonometric Identities",
+      "content": "Определение: Тригонометрические тождества",
+      "domain": "math",
+      "tags": [
+        "math",
+        "trig_identities"
+      ],
+      "difficulty": 0.55,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "trig_identities"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:trig_equations:definition",
+      "node_type": "concept",
+      "title": "Тригонометрические уравнения",
+      "title_en": "Trigonometric Equations",
+      "content": "Определение: Тригонометрические уравнения",
+      "domain": "math",
+      "tags": [
+        "math",
+        "trig_equations"
+      ],
+      "difficulty": 0.6,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "trig_equations"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:inverse_trig:definition",
+      "node_type": "concept",
+      "title": "Обратные тригонометрические функции",
+      "title_en": "Inverse Trigonometric Functions",
+      "content": "Определение: Обратные тригонометрические функции",
+      "domain": "math",
+      "tags": [
+        "math",
+        "inverse_trig"
+      ],
+      "difficulty": 0.65,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "inverse_trig"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:functions_basics:definition",
+      "node_type": "concept",
+      "title": "Основы функций",
+      "title_en": "Functions Basics",
+      "content": "Определение: Основы функций",
+      "domain": "math",
+      "tags": [
+        "math",
+        "functions_basics"
+      ],
+      "difficulty": 0.4,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "functions_basics"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:function_transformations:definition",
+      "node_type": "concept",
+      "title": "Преобразования функций",
+      "title_en": "Function Transformations",
+      "content": "Определение: Преобразования функций",
+      "domain": "math",
+      "tags": [
+        "math",
+        "function_transformations"
+      ],
+      "difficulty": 0.5,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "function_transformations"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:exponential_functions:definition",
+      "node_type": "concept",
+      "title": "Показательные функции",
+      "title_en": "Exponential Functions",
+      "content": "Определение: Показательные функции",
+      "domain": "math",
+      "tags": [
+        "math",
+        "exponential_functions"
+      ],
+      "difficulty": 0.55,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "exponential_functions"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:logarithms:definition",
+      "node_type": "concept",
+      "title": "Логарифмы",
+      "title_en": "Logarithms",
+      "content": "Определение: Логарифмы",
+      "domain": "math",
+      "tags": [
+        "math",
+        "logarithms"
+      ],
+      "difficulty": 0.6,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "logarithms"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:limits_intuition:definition",
+      "node_type": "concept",
+      "title": "Интуитивное понимание пределов",
+      "title_en": "Limits Intuition",
+      "content": "Определение: Интуитивное понимание пределов",
+      "domain": "math",
+      "tags": [
+        "math",
+        "limits_intuition"
+      ],
+      "difficulty": 0.6,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "limits_intuition"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:limits_formal:definition",
+      "node_type": "concept",
+      "title": "Формальное определение предела",
+      "title_en": "Formal Limits",
+      "content": "Определение: Формальное определение предела",
+      "domain": "math",
+      "tags": [
+        "math",
+        "limits_formal"
+      ],
+      "difficulty": 0.65,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "limits_formal"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:limits_techniques:definition",
+      "node_type": "concept",
+      "title": "Методы вычисления пределов",
+      "title_en": "Limit Calculation Techniques",
+      "content": "Определение: Методы вычисления пределов",
+      "domain": "math",
+      "tags": [
+        "math",
+        "limits_techniques"
+      ],
+      "difficulty": 0.7,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "limits_techniques"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:continuity:definition",
+      "node_type": "concept",
+      "title": "Непрерывность",
+      "title_en": "Continuity",
+      "content": "Определение: Непрерывность",
+      "domain": "math",
+      "tags": [
+        "math",
+        "continuity"
+      ],
+      "difficulty": 0.65,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "continuity"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:derivatives_definition:definition",
+      "node_type": "concept",
+      "title": "Определение производной",
+      "title_en": "Derivative Definition",
+      "content": "Определение: Определение производной",
+      "domain": "math",
+      "tags": [
+        "math",
+        "derivatives_definition"
+      ],
+      "difficulty": 0.7,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "derivatives_definition"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:derivatives_basic:definition",
+      "node_type": "concept",
+      "title": "Основные производные",
+      "title_en": "Basic Derivatives",
+      "content": "Определение: Основные производные",
+      "domain": "math",
+      "tags": [
+        "math",
+        "derivatives_basic"
+      ],
+      "difficulty": 0.7,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "derivatives_basic"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:power_rule:definition",
+      "node_type": "concept",
+      "title": "Правило степени",
+      "title_en": "Power Rule",
+      "content": "Определение: Правило степени",
+      "domain": "math",
+      "tags": [
+        "math",
+        "power_rule"
+      ],
+      "difficulty": 0.7,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 2.0,
+        "original_skill_id": "power_rule"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:product_rule:definition",
+      "node_type": "concept",
+      "title": "Правило произведения",
+      "title_en": "Product Rule",
+      "content": "Определение: Правило произведения",
+      "domain": "math",
+      "tags": [
+        "math",
+        "product_rule"
+      ],
+      "difficulty": 0.75,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 3.0,
+        "original_skill_id": "product_rule"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:quotient_rule:definition",
+      "node_type": "concept",
+      "title": "Правило частного",
+      "title_en": "Quotient Rule",
+      "content": "Определение: Правило частного",
+      "domain": "math",
+      "tags": [
+        "math",
+        "quotient_rule"
+      ],
+      "difficulty": 0.75,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 3.0,
+        "original_skill_id": "quotient_rule"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:chain_rule:definition",
+      "node_type": "concept",
+      "title": "Правило цепочки",
+      "title_en": "Chain Rule",
+      "content": "Определение: Правило цепочки",
+      "domain": "math",
+      "tags": [
+        "math",
+        "chain_rule"
+      ],
+      "difficulty": 0.8,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "chain_rule"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:trig_derivatives:definition",
+      "node_type": "concept",
+      "title": "Производные тригонометрических функций",
+      "title_en": "Trigonometric Derivatives",
+      "content": "Определение: Производные тригонометрических функций",
+      "domain": "math",
+      "tags": [
+        "math",
+        "trig_derivatives"
+      ],
+      "difficulty": 0.8,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "trig_derivatives"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:implicit_differentiation:definition",
+      "node_type": "concept",
+      "title": "Неявное дифференцирование",
+      "title_en": "Implicit Differentiation",
+      "content": "Определение: Неявное дифференцирование",
+      "domain": "math",
+      "tags": [
+        "math",
+        "implicit_differentiation"
+      ],
+      "difficulty": 0.85,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "implicit_differentiation"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:extrema:definition",
+      "node_type": "concept",
+      "title": "Экстремумы",
+      "title_en": "Extrema (Min/Max)",
+      "content": "Определение: Экстремумы",
+      "domain": "math",
+      "tags": [
+        "math",
+        "extrema"
+      ],
+      "difficulty": 0.8,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "extrema"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:optimization:definition",
+      "node_type": "concept",
+      "title": "Задачи на оптимизацию",
+      "title_en": "Optimization Problems",
+      "content": "Определение: Задачи на оптимизацию",
+      "domain": "math",
+      "tags": [
+        "math",
+        "optimization"
+      ],
+      "difficulty": 0.85,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "optimization"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:related_rates:definition",
+      "node_type": "concept",
+      "title": "Связанные скорости",
+      "title_en": "Related Rates",
+      "content": "Определение: Связанные скорости",
+      "domain": "math",
+      "tags": [
+        "math",
+        "related_rates"
+      ],
+      "difficulty": 0.85,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "related_rates"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:antiderivatives:definition",
+      "node_type": "concept",
+      "title": "Первообразные",
+      "title_en": "Antiderivatives",
+      "content": "Определение: Первообразные",
+      "domain": "math",
+      "tags": [
+        "math",
+        "antiderivatives"
+      ],
+      "difficulty": 0.75,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "antiderivatives"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:definite_integrals:definition",
+      "node_type": "concept",
+      "title": "Определённые интегралы",
+      "title_en": "Definite Integrals",
+      "content": "Определение: Определённые интегралы",
+      "domain": "math",
+      "tags": [
+        "math",
+        "definite_integrals"
+      ],
+      "difficulty": 0.8,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "definite_integrals"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:fundamental_theorem:definition",
+      "node_type": "concept",
+      "title": "Основная теорема анализа",
+      "title_en": "Fundamental Theorem of Calculus",
+      "content": "Определение: Основная теорема анализа",
+      "domain": "math",
+      "tags": [
+        "math",
+        "fundamental_theorem"
+      ],
+      "difficulty": 0.8,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 4.0,
+        "original_skill_id": "fundamental_theorem"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:substitution:definition",
+      "node_type": "concept",
+      "title": "Интегрирование заменой",
+      "title_en": "Integration by Substitution",
+      "content": "Определение: Интегрирование заменой",
+      "domain": "math",
+      "tags": [
+        "math",
+        "substitution"
+      ],
+      "difficulty": 0.85,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "substitution"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:integration_by_parts:definition",
+      "node_type": "concept",
+      "title": "Интегрирование по частям",
+      "title_en": "Integration by Parts",
+      "content": "Определение: Интегрирование по частям",
+      "domain": "math",
+      "tags": [
+        "math",
+        "integration_by_parts"
+      ],
+      "difficulty": 0.85,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "integration_by_parts"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:trig_integrals:definition",
+      "node_type": "concept",
+      "title": "Тригонометрические интегралы",
+      "title_en": "Trigonometric Integrals",
+      "content": "Определение: Тригонометрические интегралы",
+      "domain": "math",
+      "tags": [
+        "math",
+        "trig_integrals"
+      ],
+      "difficulty": 0.9,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "trig_integrals"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:python_basics:definition",
+      "node_type": "concept",
+      "title": "Основы Python",
+      "title_en": "Python Basics",
+      "content": "Определение: Основы Python",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "python_basics"
+      ],
+      "difficulty": 0.2,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 10.0,
+        "original_skill_id": "python_basics"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:control_flow:definition",
+      "node_type": "concept",
+      "title": "Управляющие конструкции",
+      "title_en": "Control Flow",
+      "content": "Определение: Управляющие конструкции",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "control_flow"
+      ],
+      "difficulty": 0.3,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "control_flow"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:functions_prog:definition",
+      "node_type": "concept",
+      "title": "Функции (программирование)",
+      "title_en": "Functions (Programming)",
+      "content": "Определение: Функции (программирование)",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "functions_prog"
+      ],
+      "difficulty": 0.35,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "functions_prog"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:data_structures:definition",
+      "node_type": "concept",
+      "title": "Структуры данных",
+      "title_en": "Data Structures",
+      "content": "Определение: Структуры данных",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "data_structures"
+      ],
+      "difficulty": 0.5,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 8.0,
+        "original_skill_id": "data_structures"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:recursion:definition",
+      "node_type": "concept",
+      "title": "Рекурсия",
+      "title_en": "Recursion",
+      "content": "Определение: Рекурсия",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "recursion"
+      ],
+      "difficulty": 0.6,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "recursion"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:sorting_algorithms:definition",
+      "node_type": "concept",
+      "title": "Алгоритмы сортировки",
+      "title_en": "Sorting Algorithms",
+      "content": "Определение: Алгоритмы сортировки",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "sorting_algorithms"
+      ],
+      "difficulty": 0.6,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "sorting_algorithms"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:search_algorithms:definition",
+      "node_type": "concept",
+      "title": "Алгоритмы поиска",
+      "title_en": "Search Algorithms",
+      "content": "Определение: Алгоритмы поиска",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "search_algorithms"
+      ],
+      "difficulty": 0.55,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 5.0,
+        "original_skill_id": "search_algorithms"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:complexity_analysis:definition",
+      "node_type": "concept",
+      "title": "Анализ сложности",
+      "title_en": "Complexity Analysis",
+      "content": "Определение: Анализ сложности",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "complexity_analysis"
+      ],
+      "difficulty": 0.7,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 6.0,
+        "original_skill_id": "complexity_analysis"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:dynamic_programming:definition",
+      "node_type": "concept",
+      "title": "Динамическое программирование",
+      "title_en": "Dynamic Programming",
+      "content": "Определение: Динамическое программирование",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "dynamic_programming"
+      ],
+      "difficulty": 0.85,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 10.0,
+        "original_skill_id": "dynamic_programming"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "programming:oop_basics:definition",
+      "node_type": "concept",
+      "title": "Основы ООП",
+      "title_en": "OOP Basics",
+      "content": "Определение: Основы ООП",
+      "domain": "programming",
+      "tags": [
+        "programming",
+        "oop_basics"
+      ],
+      "difficulty": 0.5,
+      "source": "skill_graph_migration",
+      "metadata": {
+        "estimated_time_hours": 8.0,
+        "original_skill_id": "oop_basics"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:definition",
+      "node_type": "concept",
+      "title": "derivatives",
+      "title_en": "calculus.derivatives",
+      "content": "Производная функции $f$ в точке $x_0$ — это предел отношения приращения функции к приращению аргумента: $$f'(x_0) = \\lim_{\\Delta x \\to 0} \\frac{f(x_0 + \\Delta x) - f(x_0)}{\\Delta x}$$",
+      "domain": "math",
+      "tags": [
+        "calculus",
+        "derivatives",
+        "chain_rule",
+        "product_rule",
+        "trigonometry"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:0",
+      "node_type": "formula",
+      "title": "Производная степени",
+      "title_en": "Производная степени",
+      "content": "Производная степени: (x^n)' = n \\cdot x^{n-1}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(x^n)' = n \\cdot x^{n-1}"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:1",
+      "node_type": "formula",
+      "title": "Производная суммы",
+      "title_en": "Производная суммы",
+      "content": "Производная суммы: (f + g)' = f' + g'",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(f + g)' = f' + g'"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:2",
+      "node_type": "formula",
+      "title": "Производная произведения",
+      "title_en": "Производная произведения",
+      "content": "Производная произведения: (f \\cdot g)' = f' \\cdot g + f \\cdot g'",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(f \\cdot g)' = f' \\cdot g + f \\cdot g'"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:3",
+      "node_type": "formula",
+      "title": "Производная частного",
+      "title_en": "Производная частного",
+      "content": "Производная частного: \\left(\\frac{f}{g}\\right)' = \\frac{f' \\cdot g - f \\cdot g'}{g^2}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "\\left(\\frac{f}{g}\\right)' = \\frac{f' \\cdot g - f \\cdot g'}{g^2}"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:4",
+      "node_type": "formula",
+      "title": "Цепное правило",
+      "title_en": "Цепное правило",
+      "content": "Цепное правило: (f(g(x)))' = f'(g(x)) \\cdot g'(x)",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(f(g(x)))' = f'(g(x)) \\cdot g'(x)"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:5",
+      "node_type": "formula",
+      "title": "Производная sin",
+      "title_en": "Производная sin",
+      "content": "Производная sin: (\\sin x)' = \\cos x",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(\\sin x)' = \\cos x"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:6",
+      "node_type": "formula",
+      "title": "Производная cos",
+      "title_en": "Производная cos",
+      "content": "Производная cos: (\\cos x)' = -\\sin x",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(\\cos x)' = -\\sin x"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:7",
+      "node_type": "formula",
+      "title": "Производная e^x",
+      "title_en": "Производная e^x",
+      "content": "Производная e^x: (e^x)' = e^x",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(e^x)' = e^x"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:formula:8",
+      "node_type": "formula",
+      "title": "Производная ln",
+      "title_en": "Производная ln",
+      "content": "Производная ln: (\\ln x)' = \\frac{1}{x}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "(\\ln x)' = \\frac{1}{x}"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:example:0",
+      "node_type": "example",
+      "title": "Найдите производную $f(x) = 3x^4 - 2x^2 + 7x - 1$",
+      "title_en": "Example 1: calculus.derivatives",
+      "content": "{\"difficulty\": \"easy\", \"problem\": \"Найдите производную $f(x) = 3x^4 - 2x^2 + 7x - 1$\", \"steps\": [\"Применяем правило степени к каждому слагаемому\", \"$(3x^4)' = 12x^3$\", \"$(-2x^2)' = -4x$\", \"$(7x)' = 7$\", \"$(-1)' = 0$\", \"Итого: $f'(x) = 12x^3 - 4x + 7$\"], \"answer\": \"$f'(x) = 12x^3 - 4x + 7$\"}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "example"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:example:1",
+      "node_type": "example",
+      "title": "Найдите производную $f(x) = x^2 \\cdot \\sin x$",
+      "title_en": "Example 2: calculus.derivatives",
+      "content": "{\"difficulty\": \"medium\", \"problem\": \"Найдите производную $f(x) = x^2 \\\\cdot \\\\sin x$\", \"steps\": [\"Это произведение двух функций: $u = x^2$, $v = \\\\sin x$\", \"По формуле $(uv)' = u'v + uv'$:\", \"$u' = 2x$, $v' = \\\\cos x$\", \"$f'(x) = 2x \\\\sin x + x^2 \\\\cos x$\"], \"answer\": \"$f'(x) = 2x \\\\sin x + x^2 \\\\cos x$\"}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "example"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:example:2",
+      "node_type": "example",
+      "title": "Найдите производную $f(x) = \\ln(\\sin(x^2))$",
+      "title_en": "Example 3: calculus.derivatives",
+      "content": "{\"difficulty\": \"hard\", \"problem\": \"Найдите производную $f(x) = \\\\ln(\\\\sin(x^2))$\", \"steps\": [\"Цепное правило: три вложенные функции\", \"Внешняя: $\\\\ln(u)$, $u = \\\\sin(v)$, $v = x^2$\", \"$(\\\\ln u)' = \\\\frac{1}{u} = \\\\frac{1}{\\\\sin(x^2)}$\", \"$(\\\\sin v)' = \\\\cos v = \\\\cos(x^2)$\", \"$(x^2)' = 2x$\", \"$f'(x) = \\\\frac{1}{\\\\sin(x^2)} \\\\cdot \\\\cos(x^2) \\\\cdot 2x = \\\\frac{2x \\\\cos(x^2)}{\\\\sin(x^2)} = 2x \\\\cdot \\\\text{ctg}(x^2)$\"], \"answer\": \"$f'(x) = 2x \\\\cdot \\\\text{ctg}(x^2)$\"}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "example"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:method:0",
+      "node_type": "method",
+      "title": "Правило произведения (Лейбница)",
+      "title_en": "derivative_product_rule",
+      "content": "Правило произведения (Лейбница)\n  1. {'step': '1', 'action': 'Определить $u$ и $v$ в произведении $u \\\\cdot v$', 'formula': ''}\n  2. {'step': '2', 'action': \"Найти $u'$ и $v'$ по отдельности\", 'formula': ''}\n  3. {'step': '3', 'action': 'Применить формулу произведения', 'formula': \"$(uv)' = u'v + uv'$\"}\n  4. {'step': '4', 'action': 'Упростить результат', 'formula': ''}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "method"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "when_to_use": "Когда нужно продифференцировать произведение двух функций, которые нельзя просто перемножить."
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:method:1",
+      "node_type": "method",
+      "title": "Цепное правило (производная сложной функции)",
+      "title_en": "derivative_chain_rule",
+      "content": "Цепное правило (производная сложной функции)\n  1. {'step': '1', 'action': 'Определить внешнюю $f$ и внутреннюю $g$ функции', 'formula': ''}\n  2. {'step': '2', 'action': 'Найти производную внешней функции при аргументе $g(x)$', 'formula': \"$f'(g(x))$\"}\n  3. {'step': '3', 'action': 'Найти производную внутренней функции', 'formula': \"$g'(x)$\"}\n  4. {'step': '4', 'action': 'Перемножить результаты', 'formula': \"$(f(g(x)))' = f'(g(x)) \\\\cdot g'(x)$\"}",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "method"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "when_to_use": "Когда функция — это композиция (функция от функции), например $\\sin(x^2)$, $\\ln(\\cos x)$, $e^{3x}$."
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:misconception:0",
+      "node_type": "misconception",
+      "title": "Забыта внутренняя производная в цепном правиле",
+      "title_en": "Error 1: calculus.derivatives",
+      "content": "Забыта внутренняя производная в цепном правиле\nИсправление: Всегда умножай на производную внутренней функции: $(f(g(x)))' = f'(g(x)) \\cdot g'(x)$.",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "misconception"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:misconception:1",
+      "node_type": "misconception",
+      "title": "Перепутаны формулы произведения и суммы",
+      "title_en": "Error 2: calculus.derivatives",
+      "content": "Перепутаны формулы произведения и суммы\nИсправление: Производная произведения — НЕ произведение производных. Используй $(fg)' = f'g + fg'$.",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "misconception"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:calculus.derivatives:misconception:2",
+      "node_type": "misconception",
+      "title": "Неверный знак у производной cos",
+      "title_en": "Error 3: calculus.derivatives",
+      "content": "Неверный знак у производной cos\nИсправление: Запомни: $(\\cos x)' = -\\sin x$ — минус обязателен.",
+      "domain": "math",
+      "tags": [
+        "calculus.derivatives",
+        "misconception"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:definition",
+      "node_type": "concept",
+      "title": "quadratic_equations",
+      "title_en": "algebra.quadratic",
+      "content": "Квадратное уравнение — уравнение вида $ax^2 + bx + c = 0$, где $a \\neq 0$. Коэффициент $a$ называется старшим, $b$ — вторым, $c$ — свободным членом.",
+      "domain": "math",
+      "tags": [
+        "algebra",
+        "quadratic",
+        "discriminant",
+        "vieta",
+        "factoring"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:formula:0",
+      "node_type": "formula",
+      "title": "Дискриминант",
+      "title_en": "Дискриминант",
+      "content": "Дискриминант: D = b^2 - 4ac",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "D = b^2 - 4ac"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:formula:1",
+      "node_type": "formula",
+      "title": "Формула корней",
+      "title_en": "Формула корней",
+      "content": "Формула корней: x_{1,2} = \\frac{-b \\pm \\sqrt{D}}{2a}",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "x_{1,2} = \\frac{-b \\pm \\sqrt{D}}{2a}"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:formula:2",
+      "node_type": "formula",
+      "title": "Теорема Виета",
+      "title_en": "Теорема Виета",
+      "content": "Теорема Виета: x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 \\cdot x_2 = \\frac{c}{a}",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 \\cdot x_2 = \\frac{c}{a}"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:formula:3",
+      "node_type": "formula",
+      "title": "Разложение на множители",
+      "title_en": "Разложение на множители",
+      "content": "Разложение на множители: ax^2 + bx + c = a(x - x_1)(x - x_2)",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "formula"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "latex": "ax^2 + bx + c = a(x - x_1)(x - x_2)"
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:example:0",
+      "node_type": "example",
+      "title": "Решите уравнение $x^2 - 5x + 6 = 0$",
+      "title_en": "Example 1: algebra.quadratic",
+      "content": "{\"difficulty\": \"easy\", \"problem\": \"Решите уравнение $x^2 - 5x + 6 = 0$\", \"steps\": [\"Определяем коэффициенты: $a = 1$, $b = -5$, $c = 6$\", \"Вычисляем дискриминант: $D = (-5)^2 - 4 \\\\cdot 1 \\\\cdot 6 = 25 - 24 = 1$\", \"$D > 0$, значит два различных корня\", \"$x_1 = \\\\frac{5 + 1}{2} = 3$, $x_2 = \\\\frac{5 - 1}{2} = 2$\"], \"answer\": \"$x_1 = 3, \\\\; x_2 = 2$\"}",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "example"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:example:1",
+      "node_type": "example",
+      "title": "Решите уравнение $2x^2 + 3x - 2 = 0$",
+      "title_en": "Example 2: algebra.quadratic",
+      "content": "{\"difficulty\": \"medium\", \"problem\": \"Решите уравнение $2x^2 + 3x - 2 = 0$\", \"steps\": [\"Коэффициенты: $a = 2$, $b = 3$, $c = -2$\", \"$D = 9 - 4 \\\\cdot 2 \\\\cdot (-2) = 9 + 16 = 25$\", \"$x_1 = \\\\frac{-3 + 5}{4} = \\\\frac{1}{2}$, $x_2 = \\\\frac{-3 - 5}{4} = -2$\"], \"answer\": \"$x_1 = \\\\frac{1}{2}, \\\\; x_2 = -2$\"}",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "example"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:method:0",
+      "node_type": "method",
+      "title": "Решение через дискриминант",
+      "title_en": "quadratic_discriminant",
+      "content": "Решение через дискриминант\n  1. {'step': '1', 'action': 'Определить коэффициенты $a$, $b$, $c$', 'formula': ''}\n  2. {'step': '2', 'action': 'Вычислить дискриминант', 'formula': '$D = b^2 - 4ac$'}\n  3. {'step': '3', 'action': 'Определить количество корней по знаку $D$', 'formula': '$D>0$: два корня, $D=0$: один, $D<0$: нет'}\n  4. {'step': '4', 'action': 'Вычислить корни по формуле', 'formula': '$x_{1,2} = \\\\frac{-b \\\\pm \\\\sqrt{D}}{2a}$'}",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "method"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "when_to_use": "Универсальный метод. Используй когда уравнение не поддаётся разложению на множители или теореме Виета."
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:method:1",
+      "node_type": "method",
+      "title": "Решение по теореме Виета",
+      "title_en": "quadratic_vieta",
+      "content": "Решение по теореме Виета\n  1. {'step': '1', 'action': 'Привести к виду $x^2+px+q=0$ (разделить на $a$)', 'formula': ''}\n  2. {'step': '2', 'action': 'Подобрать два числа с суммой $-p$ и произведением $q$', 'formula': '$x_1+x_2=-p, \\\\; x_1 \\\\cdot x_2=q$'}\n  3. {'step': '3', 'action': 'Записать корни', 'formula': ''}",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "method"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {
+        "when_to_use": "Быстрый метод для приведённых уравнений с целыми корнями. Если корни не целые — используй дискриминант."
+      },
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:misconception:0",
+      "node_type": "misconception",
+      "title": "Неправильный знак в формуле корней",
+      "title_en": "Error 1: algebra.quadratic",
+      "content": "Неправильный знак в формуле корней\nИсправление: Запомни: перед $b$ всегда стоит минус в числителе.",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "misconception"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:misconception:1",
+      "node_type": "misconception",
+      "title": "Ошибка в вычислении дискриминанта",
+      "title_en": "Error 2: algebra.quadratic",
+      "content": "Ошибка в вычислении дискриминанта\nИсправление: Аккуратно подставляй все коэффициенты с их знаками.",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "misconception"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:algebra.quadratic:misconception:2",
+      "node_type": "misconception",
+      "title": "Деление только на $a$ вместо $2a$",
+      "title_en": "Error 3: algebra.quadratic",
+      "content": "Деление только на $a$ вместо $2a$\nИсправление: Знаменатель формулы — это $2a$, не забывай двойку.",
+      "domain": "math",
+      "tags": [
+        "algebra.quadratic",
+        "misconception"
+      ],
+      "difficulty": 0.5,
+      "source": "textbook_migration",
+      "metadata": {},
+      "created_at": "2026-04-16T12:55:14.648969",
+      "confidence": 1.0
+    },
+    {
+      "id": "math:factoring:misconception:observed_ec0187c195",
+      "node_type": "misconception",
+      "title": "Ученик не смог разложить многочлен на множители для решения квадратного уравнения",
+      "title_en": "Misconception in math:factoring:definition",
+      "content": "Ученик не смог разложить многочлен на множители для решения квадратного уравнения",
+      "domain": "math",
+      "tags": [
+        "math:factoring:definition",
+        "misconception",
+        "session_derived"
+      ],
+      "difficulty": 0.5,
+      "source": "session_sess_a_0_8422c8",
+      "metadata": {},
+      "created_at": "2026-04-18T12:50:32.901126",
+      "confidence": 0.882351
+    },
+    {
+      "id": "math:quadratic_equations:misconception:observed_f745311294",
+      "node_type": "misconception",
+      "title": "Неверно применена формула корней",
+      "title_en": "Misconception in math:quadratic_equations:definition",
+      "content": "Неверно применена формула корней",
+      "domain": "math",
+      "tags": [
+        "math:quadratic_equations:definition",
+        "misconception",
+        "session_derived"
+      ],
+      "difficulty": 0.45,
+      "source": "session_sess_a_0_8422c8",
+      "metadata": {},
+      "created_at": "2026-04-18T12:50:32.901126",
+      "confidence": 0.882351
+    },
+    {
+      "id": "math:limits_formal:misconception:observed_5b0d452199",
+      "node_type": "misconception",
+      "title": "Смешал определение предела с методом вычисления",
+      "title_en": "Misconception in math:limits_formal:definition",
+      "content": "Смешал определение предела с методом вычисления",
+      "domain": "math",
+      "tags": [
+        "math:limits_formal:definition",
+        "misconception",
+        "session_derived"
+      ],
+      "difficulty": 0.65,
+      "source": "session_sess_b_3_adfd55",
+      "metadata": {},
+      "created_at": "2026-05-28T14:18:02.096348",
+      "confidence": 0.7599
+    },
+    {
+      "id": "math:limits_techniques:misconception:observed_81f062888b",
+      "node_type": "misconception",
+      "title": "Применил формальное определение там, где нужен готовый метод",
+      "title_en": "Misconception in math:limits_techniques:definition",
+      "content": "Применил формальное определение там, где нужен готовый метод",
+      "domain": "math",
+      "tags": [
+        "math:limits_techniques:definition",
+        "misconception",
+        "session_derived"
+      ],
+      "difficulty": 0.7,
+      "source": "session_sess_b_3_adfd55",
+      "metadata": {},
+      "created_at": "2026-05-28T14:18:02.096653",
+      "confidence": 0.7599
+    }
+  ],
+  "edges": [
+    {
+      "source_id": "math:arithmetic:definition",
+      "target_id": "math:fractions:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:arithmetic:definition",
+      "target_id": "math:decimals:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:fractions:definition",
+      "target_id": "math:percentages:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:decimals:definition",
+      "target_id": "math:percentages:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:arithmetic:definition",
+      "target_id": "math:variables:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:variables:definition",
+      "target_id": "math:linear_equations:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:linear_equations:definition",
+      "target_id": "math:linear_inequalities:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:linear_equations:definition",
+      "target_id": "math:systems_of_equations:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:linear_equations:definition",
+      "target_id": "math:quadratic_equations:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:quadratic_equations:definition",
+      "target_id": "math:factoring:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:factoring:definition",
+      "target_id": "math:polynomials:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:fractions:definition",
+      "target_id": "math:rational_expressions:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:polynomials:definition",
+      "target_id": "math:rational_expressions:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:fractions:definition",
+      "target_id": "math:trig_basics:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:quadratic_equations:definition",
+      "target_id": "math:trig_basics:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:trig_basics:definition",
+      "target_id": "math:trig_identities:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:trig_identities:definition",
+      "target_id": "math:trig_equations:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:trig_identities:definition",
+      "target_id": "math:inverse_trig:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:linear_equations:definition",
+      "target_id": "math:functions_basics:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:functions_basics:definition",
+      "target_id": "math:function_transformations:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:functions_basics:definition",
+      "target_id": "math:exponential_functions:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:exponential_functions:definition",
+      "target_id": "math:logarithms:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:functions_basics:definition",
+      "target_id": "math:limits_intuition:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:rational_expressions:definition",
+      "target_id": "math:limits_intuition:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:limits_intuition:definition",
+      "target_id": "math:limits_formal:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:limits_formal:definition",
+      "target_id": "math:limits_techniques:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:limits_formal:definition",
+      "target_id": "math:continuity:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:limits_techniques:definition",
+      "target_id": "math:derivatives_definition:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:derivatives_definition:definition",
+      "target_id": "math:derivatives_basic:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:derivatives_basic:definition",
+      "target_id": "math:power_rule:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:derivatives_basic:definition",
+      "target_id": "math:product_rule:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:product_rule:definition",
+      "target_id": "math:quotient_rule:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:product_rule:definition",
+      "target_id": "math:chain_rule:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:chain_rule:definition",
+      "target_id": "math:trig_derivatives:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:trig_identities:definition",
+      "target_id": "math:trig_derivatives:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:chain_rule:definition",
+      "target_id": "math:implicit_differentiation:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:chain_rule:definition",
+      "target_id": "math:extrema:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:extrema:definition",
+      "target_id": "math:optimization:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:implicit_differentiation:definition",
+      "target_id": "math:related_rates:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:derivatives_basic:definition",
+      "target_id": "math:antiderivatives:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:antiderivatives:definition",
+      "target_id": "math:definite_integrals:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:definite_integrals:definition",
+      "target_id": "math:fundamental_theorem:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:fundamental_theorem:definition",
+      "target_id": "math:substitution:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:substitution:definition",
+      "target_id": "math:integration_by_parts:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:integration_by_parts:definition",
+      "target_id": "math:trig_integrals:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:trig_identities:definition",
+      "target_id": "math:trig_integrals:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:python_basics:definition",
+      "target_id": "programming:control_flow:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:control_flow:definition",
+      "target_id": "programming:functions_prog:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:functions_prog:definition",
+      "target_id": "programming:data_structures:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:functions_prog:definition",
+      "target_id": "programming:recursion:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:data_structures:definition",
+      "target_id": "programming:sorting_algorithms:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:recursion:definition",
+      "target_id": "programming:sorting_algorithms:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:data_structures:definition",
+      "target_id": "programming:search_algorithms:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:sorting_algorithms:definition",
+      "target_id": "programming:complexity_analysis:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:recursion:definition",
+      "target_id": "programming:dynamic_programming:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:complexity_analysis:definition",
+      "target_id": "programming:dynamic_programming:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "programming:functions_prog:definition",
+      "target_id": "programming:oop_basics:definition",
+      "edge_type": "prerequisite",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:0",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:1",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:2",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:3",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:4",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:5",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:6",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:7",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:definition",
+      "target_id": "math:calculus.derivatives:formula:8",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:example:0",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "illustrates",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:example:1",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "illustrates",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:example:2",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "illustrates",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:method:0",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "applies_to",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:method:1",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "applies_to",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:misconception:0",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "common_error_for",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:misconception:1",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "common_error_for",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:calculus.derivatives:misconception:2",
+      "target_id": "math:calculus.derivatives:definition",
+      "edge_type": "common_error_for",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:definition",
+      "target_id": "math:algebra.quadratic:formula:0",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:definition",
+      "target_id": "math:algebra.quadratic:formula:1",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:definition",
+      "target_id": "math:algebra.quadratic:formula:2",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:definition",
+      "target_id": "math:algebra.quadratic:formula:3",
+      "edge_type": "derived_from",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:example:0",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "illustrates",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:example:1",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "illustrates",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:method:0",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "applies_to",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:method:1",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "applies_to",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:misconception:0",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "common_error_for",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:misconception:1",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "common_error_for",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:algebra.quadratic:misconception:2",
+      "target_id": "math:algebra.quadratic:definition",
+      "edge_type": "common_error_for",
+      "weight": 1.0,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:factoring:misconception:observed_ec0187c195",
+      "target_id": "math:factoring:definition",
+      "edge_type": "common_error_for",
+      "weight": 0.882351,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:quadratic_equations:misconception:observed_f745311294",
+      "target_id": "math:quadratic_equations:definition",
+      "edge_type": "common_error_for",
+      "weight": 0.882351,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:quadratic_equations:definition",
+      "target_id": "math:factoring:definition",
+      "edge_type": "confused_with",
+      "weight": 0.882351,
+      "metadata": {
+        "derived_from_sessions": 6,
+        "origin": "confusion_pattern"
+      }
+    },
+    {
+      "source_id": "math:limits_formal:misconception:observed_5b0d452199",
+      "target_id": "math:limits_formal:definition",
+      "edge_type": "common_error_for",
+      "weight": 0.7599,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:limits_techniques:misconception:observed_81f062888b",
+      "target_id": "math:limits_techniques:definition",
+      "edge_type": "common_error_for",
+      "weight": 0.7599,
+      "metadata": {}
+    },
+    {
+      "source_id": "math:limits_formal:definition",
+      "target_id": "math:limits_techniques:definition",
+      "edge_type": "confused_with",
+      "weight": 0.7599,
+      "metadata": {
+        "derived_from_sessions": 4,
+        "origin": "confusion_pattern"
+      }
+    }
+  ]
+}

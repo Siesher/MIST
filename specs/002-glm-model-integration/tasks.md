@@ -131,7 +131,7 @@
 - [ ] T040 [P] Handle GPU memory overflow gracefully in `src/inference/model_manager.py`
 - [ ] T041 [P] Handle model file corruption/missing with clear error in `src/inference/model_manager.py`
 - [ ] T042 [P] Handle context overflow with truncation in `src/models/llm_client.py`
-- [ ] T043 Update `docs/MODEL_SELECTION.md` with GLM rationale
+- [ ] T043 Update `docs/architecture/MODEL_SELECTION.md` with GLM rationale
 - [ ] T044 Update `README.md` with new model capabilities
 - [ ] T045 Run quickstart.md validation (full setup on clean system)
 - [ ] T046 [P] Create test file `tests/test_glm_integration.py` with basic inference test

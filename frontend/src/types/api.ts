@@ -68,6 +68,12 @@ export interface GenerateTaskRequest {
 
 // --- Response types ---
 
+export interface Citation {
+  source_id: string;
+  title: string;
+  excerpt?: string;
+}
+
 export interface Message {
   id: string;
   session_id: string;
@@ -76,6 +82,8 @@ export interface Message {
   timestamp: string;
   move_type?: TutorMoveType;
   is_correct?: boolean;
+  thinking?: string;
+  citations?: Citation[];
 }
 
 export interface Task {
@@ -122,6 +130,7 @@ export interface TutorResponse {
   move_type?: TutorMoveType;
   is_correct?: boolean;
   thinking?: string;
+  citations?: Citation[];
 }
 
 export interface SessionState {
@@ -224,6 +233,11 @@ export interface WSModeChanged {
   message?: string;
 }
 
+export interface WSSuggestRest {
+  type: "suggest_rest";
+  reason: string;
+}
+
 export type WSServerMessage =
   | WSTokenMessage
   | WSResponseComplete
@@ -231,7 +245,8 @@ export type WSServerMessage =
   | WSConnectionReady
   | WSError
   | WSKnowledgeUpdate
-  | WSModeChanged;
+  | WSModeChanged
+  | WSSuggestRest;
 
 export interface WSClientMessage {
   type: "message" | "hint_request" | "mode_change" | "typing_start" | "typing_stop";

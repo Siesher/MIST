@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { MathRenderer } from "./MathRenderer";
+import { SmartContent } from "./SmartContent";
+import { MitsMark } from "@/components/cyber/MitsMark";
 import type { MessageRole, TutorMoveType } from "@/types/api";
 
 interface MessageProps {
@@ -16,14 +16,14 @@ interface MessageProps {
 }
 
 const moveTypeLabels: Record<TutorMoveType, string> = {
-  scaffolding: "Разбираем по шагам",
-  problematize: "Вопрос для размышления",
-  rectify: "Исправление",
-  encourage: "Отлично!",
-  hint: "Подсказка",
-  tell: "Объяснение",
-  clarify: "Уточнение",
-  system: "Система",
+  scaffolding: "scaffolding",
+  problematize: "вопрос",
+  rectify: "rectify",
+  encourage: "encourage",
+  hint: "подсказка",
+  tell: "объяснение",
+  clarify: "уточнение",
+  system: "система",
 };
 
 export function Message({
@@ -31,103 +31,142 @@ export function Message({
   content,
   thinking,
   moveType,
+  isCorrect,
   isStreaming,
 }: MessageProps) {
   const isTutor = role === "tutor" || role === "system";
-  const [thinkingExpanded, setThinkingExpanded] = useState(false);
-
-  // Count thinking tokens for display
-  const thinkingTokens = thinking ? thinking.split(/\s+/).length : 0;
+  const [expanded, setExpanded] = useState(false);
+  const tokens = thinking ? thinking.split(/\s+/).length : 0;
 
   return (
     <div
-      className={cn(
-        "flex w-full gap-3 py-4 px-4 md:px-8",
-        isTutor ? "bg-muted/30" : "",
-      )}
+      className="flex gap-3.5 items-start"
+      style={{ padding: "12px 0" }}
     >
-      {/* Avatar */}
       <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium",
-          isTutor
-            ? "bg-amber-600 text-white"
-            : "bg-blue-600 text-white",
-        )}
+        style={{
+          width: 28,
+          height: 28,
+          flex: "0 0 28px",
+          border: "1px solid var(--line-hi)",
+          background: isTutor ? "rgba(181, 138, 255, 0.06)" : "transparent",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--yellow)",
+          fontSize: 12,
+          borderRadius: 999,
+        }}
       >
-        {isTutor ? "T" : "S"}
+        {isTutor ? <MitsMark size={18} animated={false} /> : ">_"}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            {isTutor ? "Репетитор" : "Вы"}
+      <div
+        className={`flex-1 min-w-0 ${isTutor ? "msg-tutor" : "msg-user"}`}
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <span
+            className="up"
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.22em",
+              color: isTutor ? "var(--violet)" : "var(--text-ghost)",
+              textShadow: isTutor
+                ? "0 0 12px rgba(165, 131, 255, 0.5)"
+                : "none",
+            }}
+          >
+            {isTutor ? "MITS · tutor" : "USER · you"}
           </span>
-          {moveType && isTutor && (
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {moveTypeLabels[moveType] || moveType}
+          {moveType && isTutor && <span className="chip v">{moveTypeLabels[moveType] || moveType}</span>}
+          {isStreaming && (
+            <span className="chip v">
+              <span className="dot v" /> поток
             </span>
           )}
+          {isCorrect && <span className="chip on">✓ проверено</span>}
         </div>
 
-        {/* Thinking block (collapsible) */}
         {thinking && isTutor && (
           <div className="mb-2">
             <button
-              onClick={() => setThinkingExpanded(!thinkingExpanded)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-1.5 font-mono up"
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.2em",
+                color: "var(--text-muted)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+              }}
             >
-              <svg
-                className={cn(
-                  "w-3 h-3 transition-transform",
-                  thinkingExpanded ? "rotate-90" : ""
-                )}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              <span>
-                {thinkingExpanded ? "Скрыть размышления" : "Показать размышления"}
+              <span style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 120ms", color: "var(--violet)" }}>
+                ›
               </span>
-              <span className="text-muted-foreground/60">
-                ({thinkingTokens} токенов)
-              </span>
+              <span>{expanded ? "скрыть размышления" : "показать размышления"}</span>
+              <span style={{ color: "var(--text-ghost)" }}>({tokens} tok)</span>
             </button>
-            {thinkingExpanded && (
-              <div className="mt-1.5 pl-4 border-l-2 border-amber-500/30 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            {expanded && (
+              <div
+                style={{
+                  marginTop: 6,
+                  padding: "8px 12px",
+                  background: "rgba(0,0,0,0.35)",
+                  border: "1px dashed var(--line-hi)",
+                  fontSize: 11,
+                  color: "var(--text-dim)",
+                  fontFamily: "var(--font-mono)",
+                  whiteSpace: "pre-wrap",
+                  maxHeight: 256,
+                  overflowY: "auto",
+                  borderRadius: 3,
+                }}
+              >
                 {thinking}
               </div>
             )}
           </div>
         )}
 
-        <div className="text-sm leading-relaxed text-foreground/90 prose prose-sm dark:prose-invert max-w-none">
-          <MathRenderer content={content} />
-          {isStreaming && (
-            <span className="inline-block w-2 h-4 ml-0.5 bg-amber-500 animate-pulse" />
-          )}
+        <div
+          style={{
+            color: "var(--text)",
+            fontSize: 13.5,
+            lineHeight: 1.7,
+          }}
+        >
+          <SmartContent content={content} />
+          {isStreaming && <span className="caret" />}
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * Typing indicator shown while tutor is generating.
- */
 export function TypingIndicator() {
   return (
-    <div className="flex w-full gap-3 py-4 px-4 md:px-8 bg-muted/30">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-600 text-white text-sm font-medium">
-        T
+    <div className="flex gap-3.5 items-start" style={{ padding: "12px 0" }}>
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          flex: "0 0 28px",
+          border: "1px solid var(--line-hi)",
+          background: "rgba(181, 138, 255, 0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 3,
+        }}
+      >
+        <MitsMark size={18} animated={false} />
       </div>
       <div className="flex items-center gap-1 pt-2">
-        <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:0ms]" />
-        <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
-        <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
+        <span className="dot v" style={{ animation: "pulseV 1.2s infinite" }} />
+        <span className="dot v" style={{ animation: "pulseV 1.2s infinite 0.2s" }} />
+        <span className="dot v" style={{ animation: "pulseV 1.2s infinite 0.4s" }} />
       </div>
     </div>
   );

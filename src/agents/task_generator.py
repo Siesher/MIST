@@ -9,28 +9,163 @@ Based on research:
 - GenMentor (WWW 2025) - multi-agent task selection
 """
 
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
 import json
-import uuid
-import random
 import logging
+import random
+import re
+import uuid
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.agents.base_agent import BaseAgent
+from src.data.schemas import Difficulty, Subject, Task
 from src.models.llm_client import LLMClient
-from src.models.prompts import TASK_GENERATOR_SYSTEM, TASK_GENERATOR_PROMPT
-from src.data.schemas import Task, Difficulty, Subject
-from src.config import settings
+from src.models.prompts import TASK_GENERATOR_PROMPT, TASK_GENERATOR_SYSTEM
+
+_CTRL_ESCAPES = {"\n": "\\n", "\r": "\\r", "\t": "\\t", "\b": "\\b", "\f": "\\f"}
+
+
+def _repair_latex_json(text: str) -> str:
+    r"""Make LLM task replies valid JSON by repairing the two faults seen in practice.
+
+    A single left-to-right pass that tracks whether we're inside a string literal and,
+    while inside one, fixes:
+
+    1. **Invalid backslash escapes** — raw LaTeX (\int, \frac, \,) has single backslashes
+       that aren't legal JSON escapes. We double any backslash that does NOT begin a valid
+       escape (\" \\ \/ \uXXXX, or \b\f\n\r\t when NOT followed by a letter — a following
+       letter means a LaTeX command like \frac/\beta, not a control escape). Genuine
+       escapes are kept; literal LaTeX backslashes become \\ and survive (unlike json5,
+       which mangles \int -> int).
+    2. **Literal control characters** — multi-line problem/solution values contain raw
+       newlines/tabs, illegal inside a JSON string; we escape them (\n, \t, ...).
+
+    Structural characters outside strings are passed through untouched. Truncated replies
+    (hit max_tokens) can't be repaired here — they need a larger budget upstream.
+    """
+    out: list[str] = []
+    in_str = False
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        if not in_str:
+            out.append(ch)
+            if ch == '"':
+                in_str = True
+            i += 1
+            continue
+        # --- inside a string literal ---
+        if ch == "\\":
+            nxt = text[i + 1] if i + 1 < n else ""
+            if nxt in '"\\/bfnrtu':
+                # \b\f\n\r\t followed by a letter is really LaTeX (\frac, \beta) → escape it
+                if nxt in "bfnrt" and i + 2 < n and text[i + 2].isalpha():
+                    out.append("\\\\")
+                    i += 1
+                else:
+                    out.append(ch)
+                    out.append(nxt)
+                    i += 2
+            else:
+                out.append("\\\\")  # invalid escape (\, \int \sqrt) → literal backslash
+                i += 1
+            continue
+        if ch == '"':
+            in_str = False
+            out.append(ch)
+            i += 1
+            continue
+        if ch in _CTRL_ESCAPES:
+            out.append(_CTRL_ESCAPES[ch])
+            i += 1
+            continue
+        if ord(ch) < 0x20:
+            out.append("\\u%04x" % ord(ch))
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _parse_task_json(response: str, agent_logger=None) -> Optional[Dict[str, Any]]:
+    """Robust JSON parser for LLM task generation output.
+
+    Tries in order:
+      1. Plain json.loads (happy path)
+      2. Extract from markdown fence (```json ... ```)
+      3. Extract largest {...} balanced block via regex
+      4. json5.loads (tolerates trailing commas, unquoted keys, comments)
+      5. None on total failure — caller should retry or raise
+
+    The LLM often returns malformed JSON on long tasks (line 4 col 4584-style
+    errors typically come from unescaped quotes/newlines in LaTeX strings).
+    """
+    if not response:
+        return None
+    text = response.strip()
+
+    # 1. Fast path
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 2. Strip markdown fences (```json ... ``` or ``` ... ```)
+    fence = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text)
+    if fence:
+        inner = fence.group(1)
+        try:
+            return json.loads(inner)
+        except json.JSONDecodeError:
+            text = inner  # keep for downstream attempts
+
+    # 3. Extract outermost {...} balanced block
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        candidate = text[start : end + 1]
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            text = candidate
+
+    # 4. Repair LaTeX backslashes (\frac, \int, \,) that are invalid JSON escapes — the
+    #    dominant failure mode — then re-parse with the strict (lossless) json module.
+    try:
+        return json.loads(_repair_latex_json(text))
+    except json.JSONDecodeError:
+        pass
+
+    # 5. json5 fallback — handles trailing commas, unquoted keys, single quotes
+    try:
+        import json5
+
+        return json5.loads(text)
+    except Exception as e:
+        if agent_logger is not None:
+            try:
+                agent_logger.debug(
+                    "json5_parse_failed",
+                    error=str(e)[:100],
+                    preview=text[:120].replace("\n", " "),
+                )
+            except Exception:
+                pass
+
+    return None
+
 
 # SKI for textbook grounding
 try:
     from src.knowledge.ski import get_ski
+
     HAS_SKI = True
 except ImportError:
     HAS_SKI = False
     get_ski = None
 
 if TYPE_CHECKING:
-    from src.models.knowledge_tracing import KnowledgeTracker, StudentModel
+    from src.models.knowledge_tracing import KnowledgeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -53,51 +188,40 @@ class TaskGeneratorAgent(BaseAgent):
     ZPD_MAX = 0.8  # Above this, task too easy
 
     # Difficulty mapping for adaptive selection
-    DIFFICULTY_ORDER = [
-        Difficulty.EASY,
-        Difficulty.MEDIUM,
-        Difficulty.HARD,
-        Difficulty.OLYMPIAD
-    ]
+    DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD, Difficulty.OLYMPIAD]
 
     # Mastery thresholds for difficulty recommendation
     MASTERY_TO_DIFFICULTY = {
         (0.0, 0.3): Difficulty.EASY,
         (0.3, 0.5): Difficulty.MEDIUM,
         (0.5, 0.7): Difficulty.HARD,
-        (0.7, 1.0): Difficulty.OLYMPIAD
+        (0.7, 1.0): Difficulty.OLYMPIAD,
     }
 
-    def __init__(
-        self,
-        llm_client: LLMClient,
-        knowledge_tracker: Optional["KnowledgeTracker"] = None
-    ):
-        super().__init__(
-            name="TaskGenerator",
-            llm_client=llm_client,
-            system_prompt=TASK_GENERATOR_SYSTEM
-        )
+    def __init__(self, llm_client: LLMClient, knowledge_tracker: Optional["KnowledgeTracker"] = None):
+        super().__init__(name="TaskGenerator", llm_client=llm_client, system_prompt=TASK_GENERATOR_SYSTEM)
 
         self.knowledge_tracker = knowledge_tracker
 
         # Skill taxonomy for math
         self.math_skills = {
             "algebra": [
-                "linear_equations", "quadratic_equations",
-                "systems", "inequalities", "factoring"
+                "linear_equations",
+                "quadratic_equations",
+                "systems",
+                "inequalities",
+                "factoring",
             ],
             "calculus": [
-                "limits", "derivatives", "chain_rule",
-                "product_rule", "quotient_rule", "integrals"
+                "limits",
+                "derivatives",
+                "chain_rule",
+                "product_rule",
+                "quotient_rule",
+                "integrals",
             ],
-            "geometry": [
-                "triangles", "circles", "vectors",
-                "coordinate_geometry", "trigonometry"
-            ],
-            "number_theory": [
-                "divisibility", "primes", "modular_arithmetic", "gcd_lcm"
-            ],
+            "geometry": ["triangles", "circles", "vectors", "coordinate_geometry", "trigonometry"],
+            "number_theory": ["divisibility", "primes", "modular_arithmetic", "gcd_lcm"],
         }
 
         # Skill prerequisites (for ZPD-aware selection)
@@ -115,11 +239,11 @@ class TaskGeneratorAgent(BaseAgent):
     def set_knowledge_tracker(self, tracker: "KnowledgeTracker"):
         """Set or update the knowledge tracker."""
         self.knowledge_tracker = tracker
-    
+
     def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate a task based on specifications.
-        
+
         Args:
             input_data: {
                 "topic": str,
@@ -128,7 +252,7 @@ class TaskGeneratorAgent(BaseAgent):
                 "subject": Subject (optional),
                 "student_level": dict (optional)
             }
-            
+
         Returns:
             {"task": Task}
         """
@@ -137,35 +261,35 @@ class TaskGeneratorAgent(BaseAgent):
         skills = input_data.get("skills", [])
         subject = input_data.get("subject", Subject.MATH)
         student_level = input_data.get("student_level", {})
-        
+
         task = self.generate_task(
             topic=topic,
             difficulty=difficulty,
             skills=skills,
             subject=subject,
-            student_level=student_level
+            student_level=student_level,
         )
-        
+
         return {"task": task}
-    
+
     def generate_task(
         self,
         topic: str,
         difficulty: Difficulty = Difficulty.MEDIUM,
         skills: List[str] = None,
         subject: Subject = Subject.MATH,
-        student_level: dict = None
+        student_level: dict = None,
     ) -> Task:
         """
         Generate a single educational task.
-        
+
         Args:
             topic: Math topic (e.g., "derivatives", "integrals")
             difficulty: Task difficulty level
             skills: Specific skills to test
             subject: Subject area
             student_level: Student's current mastery levels
-            
+
         Returns:
             Generated Task object
         """
@@ -211,30 +335,41 @@ class TaskGeneratorAgent(BaseAgent):
             method_context=method_context,
             notation_context=notation_context,
         )
-        
-        self._log_action("generating_task", {
-            "topic": topic,
-            "difficulty": difficulty.value
-        })
-        
+
+        self._log_action("generating_task", {"topic": topic, "difficulty": difficulty.value})
+
         response = self._call_llm(prompt, json_mode=True, thinking=False)
-        
+        task_data = _parse_task_json(response, self.logger)
+        if task_data is None:
+            # One retry with a gentler temperature before giving up
+            self.logger.warning("task_json_parse_failed_retrying")
+            response = self._call_llm(
+                prompt + "\n\nВажно: возвращай ТОЛЬКО валидный JSON-объект.",
+                json_mode=True,
+                thinking=False,
+                temperature=0.5,
+            )
+            task_data = _parse_task_json(response, self.logger)
+
+        if task_data is None:
+            preview = (response or "")[:300].replace("\n", " ")
+            self.logger.error("task_generation_failed_all_attempts", preview=preview)
+            raise ValueError(f"Failed to generate valid task after 2 attempts. Response preview: {preview}")
+
         try:
-            task_data = json.loads(response)
-            
             # Normalize fields - LLM may return lists instead of strings
             solution = task_data.get("solution", "")
             if isinstance(solution, list):
-                solution = "\n".join(solution)
-            
+                solution = "\n".join(str(s) for s in solution)
+
             answer = task_data.get("answer", "")
             if isinstance(answer, list):
                 answer = ", ".join(str(a) for a in answer)
-            
+
             problem = task_data.get("problem", "")
             if isinstance(problem, list):
-                problem = "\n".join(problem)
-            
+                problem = "\n".join(str(p) for p in problem)
+
             task = Task(
                 id=str(uuid.uuid4()),
                 subject=subject,
@@ -246,48 +381,32 @@ class TaskGeneratorAgent(BaseAgent):
                 answer=str(answer),
                 hints=task_data.get("hints", [])[:3],
                 common_mistakes=task_data.get("common_mistakes", []),
-                estimated_time_minutes=self._estimate_time(difficulty)
+                estimated_time_minutes=self._estimate_time(difficulty),
             )
-            
+
             self._log_action("task_generated", {"task_id": task.id})
             return task
-            
-        except (json.JSONDecodeError, KeyError) as e:
+
+        except (KeyError, TypeError) as e:
             self.logger.error("task_generation_failed", error=str(e))
             raise ValueError(f"Failed to generate valid task: {e}")
-    
-    def generate_batch(
-        self,
-        topic: str,
-        difficulty: Difficulty,
-        count: int = 5,
-        **kwargs
-    ) -> List[Task]:
+
+    def generate_batch(self, topic: str, difficulty: Difficulty, count: int = 5, **kwargs) -> List[Task]:
         """Generate multiple tasks for a topic."""
         tasks = []
-        
+
         for i in range(count):
             try:
-                task = self.generate_task(
-                    topic=topic,
-                    difficulty=difficulty,
-                    **kwargs
-                )
+                task = self.generate_task(topic=topic, difficulty=difficulty, **kwargs)
                 tasks.append(task)
             except Exception as e:
-                self.logger.warning(
-                    "batch_task_failed",
-                    index=i,
-                    error=str(e)
-                )
-        
+                self.logger.warning("batch_task_failed", index=i, error=str(e))
+
         return tasks
-    
+
     # ── Template-based task generation ─────────────────────────────
 
-    def _generate_from_template(
-        self, topic: str, difficulty: Difficulty
-    ) -> Optional[Task]:
+    def _generate_from_template(self, topic: str, difficulty: Difficulty) -> Optional[Task]:
         """
         Try to generate a task from a problem template.
         Returns None if no template available or sampling fails.
@@ -342,9 +461,7 @@ class TaskGeneratorAgent(BaseAgent):
             logger.debug(f"Template generation failed: {e}")
             return None
 
-    def _sample_template_params(
-        self, template: Dict[str, Any], max_retries: int = 20
-    ) -> Optional[Dict[str, Any]]:
+    def _sample_template_params(self, template: Dict[str, Any], max_retries: int = 20) -> Optional[Dict[str, Any]]:
         """
         Sample random parameters from template ranges, respecting constraints.
         Returns None if no valid sample found after max_retries.
@@ -387,9 +504,7 @@ class TaskGeneratorAgent(BaseAgent):
 
         return None
 
-    def _compute_derived_params(
-        self, template: Dict[str, Any], params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _compute_derived_params(self, template: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate derived_params expressions (e.g. 'D': 'b*b - 4*a*c')."""
         derived = template.get("derived_params", {})
         safe_ns = {"__builtins__": {}, "abs": abs, "round": round}
@@ -404,9 +519,7 @@ class TaskGeneratorAgent(BaseAgent):
         return params
 
     @staticmethod
-    def _check_constraints(
-        constraints: List[str], params: Dict[str, Any]
-    ) -> bool:
+    def _check_constraints(constraints: List[str], params: Dict[str, Any]) -> bool:
         """Check all constraint expressions evaluate to True."""
         safe_ns = {"__builtins__": {}, "abs": abs, "round": round}
         safe_ns.update(params)
@@ -424,18 +537,18 @@ class TaskGeneratorAgent(BaseAgent):
             Difficulty.EASY: 2,
             Difficulty.MEDIUM: 4,
             Difficulty.HARD: 6,
-            Difficulty.OLYMPIAD: 8
+            Difficulty.OLYMPIAD: 8,
         }.get(difficulty, 4)
-    
+
     def _estimate_time(self, difficulty: Difficulty) -> int:
         """Estimate solving time in minutes."""
         return {
             Difficulty.EASY: 5,
             Difficulty.MEDIUM: 10,
             Difficulty.HARD: 20,
-            Difficulty.OLYMPIAD: 30
+            Difficulty.OLYMPIAD: 30,
         }.get(difficulty, 10)
-    
+
     def get_available_topics(self, subject: Subject = Subject.MATH) -> List[str]:
         """Get list of available topics."""
         if subject == Subject.MATH:
@@ -447,10 +560,7 @@ class TaskGeneratorAgent(BaseAgent):
         return []
 
     def select_adaptive_difficulty(
-        self,
-        student_id: str,
-        topic: str,
-        cognitive_load_level: str = "optimal"
+        self, student_id: str, topic: str, cognitive_load_level: str = "optimal"
     ) -> Difficulty:
         """
         Select appropriate difficulty based on student's knowledge state.
@@ -482,9 +592,7 @@ class TaskGeneratorAgent(BaseAgent):
                         recommended = difficulty
                         break
 
-                logger.debug(
-                    f"Adaptive difficulty for {topic}: mastery={mastery:.2f} -> {recommended.value}"
-                )
+                logger.debug(f"Adaptive difficulty for {topic}: mastery={mastery:.2f} -> {recommended.value}")
 
             except Exception as e:
                 logger.warning(f"Error getting student mastery: {e}")
@@ -494,11 +602,7 @@ class TaskGeneratorAgent(BaseAgent):
 
         return recommended
 
-    def _adjust_for_cognitive_load(
-        self,
-        difficulty: Difficulty,
-        cognitive_load: str
-    ) -> Difficulty:
+    def _adjust_for_cognitive_load(self, difficulty: Difficulty, cognitive_load: str) -> Difficulty:
         """
         Adjust difficulty based on cognitive load.
 
@@ -522,18 +626,12 @@ class TaskGeneratorAgent(BaseAgent):
 
         if adjusted != difficulty:
             logger.debug(
-                f"Difficulty adjusted for cognitive load {cognitive_load}: "
-                f"{difficulty.value} -> {adjusted.value}"
+                f"Difficulty adjusted for cognitive load {cognitive_load}: {difficulty.value} -> {adjusted.value}"
             )
 
         return adjusted
 
-    def select_adaptive_topic(
-        self,
-        student_id: str,
-        subject: Subject = Subject.MATH,
-        prefer_weak: bool = True
-    ) -> str:
+    def select_adaptive_topic(self, student_id: str, subject: Subject = Subject.MATH, prefer_weak: bool = True) -> str:
         """
         Select topic based on student's knowledge state.
 
@@ -566,9 +664,7 @@ class TaskGeneratorAgent(BaseAgent):
                 if self.ZPD_MIN <= mastery <= self.ZPD_MAX:
                     # Check prerequisites
                     prereqs = self.skill_prerequisites.get(topic, [])
-                    prereqs_met = all(
-                        student.get_mastery(p) > 0.6 for p in prereqs
-                    )
+                    prereqs_met = all(student.get_mastery(p) > 0.6 for p in prereqs)
 
                     if prereqs_met or not prereqs:
                         zpd_topics.append((topic, mastery))
@@ -600,7 +696,7 @@ class TaskGeneratorAgent(BaseAgent):
         student_id: str,
         topic: Optional[str] = None,
         subject: Subject = Subject.MATH,
-        cognitive_load_level: str = "optimal"
+        cognitive_load_level: str = "optimal",
     ) -> Task:
         """
         Generate a task with adaptive difficulty and topic selection.
@@ -621,42 +717,26 @@ class TaskGeneratorAgent(BaseAgent):
             topic = self.select_adaptive_topic(student_id, subject)
 
         # Select difficulty based on knowledge state
-        difficulty = self.select_adaptive_difficulty(
-            student_id, topic, cognitive_load_level
-        )
+        difficulty = self.select_adaptive_difficulty(student_id, topic, cognitive_load_level)
 
         # Get student level for context
         student_level = {}
         if self.knowledge_tracker:
             try:
                 summary = self.knowledge_tracker.get_knowledge_state_summary(student_id)
-                student_level = {
-                    skill: data["mastery"]
-                    for skill, data in summary.get("mastery_by_skill", {}).items()
-                }
+                student_level = {skill: data["mastery"] for skill, data in summary.get("mastery_by_skill", {}).items()}
             except Exception as e:
                 logger.warning(f"Could not get student level: {e}")
 
         # Generate task
-        task = self.generate_task(
-            topic=topic,
-            difficulty=difficulty,
-            subject=subject,
-            student_level=student_level
-        )
+        task = self.generate_task(topic=topic, difficulty=difficulty, subject=subject, student_level=student_level)
 
-        logger.info(
-            f"Adaptive task generated: topic={topic}, difficulty={difficulty.value}, "
-            f"student={student_id}"
-        )
+        logger.info(f"Adaptive task generated: topic={topic}, difficulty={difficulty.value}, student={student_id}")
 
         return task
 
     def get_recommended_practice(
-        self,
-        student_id: str,
-        count: int = 3,
-        subject: Subject = Subject.MATH
+        self, student_id: str, count: int = 3, subject: Subject = Subject.MATH
     ) -> List[Dict[str, Any]]:
         """
         Get recommended practice tasks based on student's knowledge state.
@@ -680,11 +760,13 @@ class TaskGeneratorAgent(BaseAgent):
             # Fallback: random topics
             topics = self.get_available_topics(subject)
             for _ in range(count):
-                recommendations.append({
-                    "topic": random.choice(topics),
-                    "difficulty": Difficulty.MEDIUM,
-                    "reason": "general_practice"
-                })
+                recommendations.append(
+                    {
+                        "topic": random.choice(topics),
+                        "difficulty": Difficulty.MEDIUM,
+                        "reason": "general_practice",
+                    }
+                )
             return recommendations
 
         try:
@@ -695,24 +777,28 @@ class TaskGeneratorAgent(BaseAgent):
             weak_skills = student.get_weakest_skills(weak_count)
             for skill, mastery in weak_skills:
                 difficulty = self.select_adaptive_difficulty(student_id, skill)
-                recommendations.append({
-                    "topic": skill,
-                    "difficulty": difficulty,
-                    "mastery": mastery,
-                    "reason": "weak_skill_reinforcement"
-                })
+                recommendations.append(
+                    {
+                        "topic": skill,
+                        "difficulty": difficulty,
+                        "mastery": mastery,
+                        "reason": "weak_skill_reinforcement",
+                    }
+                )
 
             # Get ready-to-learn skills (20% new skills)
             new_count = max(1, int(count * 0.2))
             ready_skills = student.get_ready_skills()
             for skill in ready_skills[:new_count]:
                 if skill not in [r["topic"] for r in recommendations]:
-                    recommendations.append({
-                        "topic": skill,
-                        "difficulty": Difficulty.EASY,  # Start easy for new skills
-                        "mastery": student.get_mastery(skill),
-                        "reason": "new_skill_introduction"
-                    })
+                    recommendations.append(
+                        {
+                            "topic": skill,
+                            "difficulty": Difficulty.EASY,  # Start easy for new skills
+                            "mastery": student.get_mastery(skill),
+                            "reason": "new_skill_introduction",
+                        }
+                    )
 
             # Strong skill maintenance (remaining)
             strong_count = count - len(recommendations)
@@ -720,12 +806,14 @@ class TaskGeneratorAgent(BaseAgent):
                 strong_skills = student.get_strongest_skills(strong_count)
                 for skill, mastery in strong_skills:
                     if skill not in [r["topic"] for r in recommendations]:
-                        recommendations.append({
-                            "topic": skill,
-                            "difficulty": Difficulty.HARD,  # Challenge on strong skills
-                            "mastery": mastery,
-                            "reason": "strong_skill_maintenance"
-                        })
+                        recommendations.append(
+                            {
+                                "topic": skill,
+                                "difficulty": Difficulty.HARD,  # Challenge on strong skills
+                                "mastery": mastery,
+                                "reason": "strong_skill_maintenance",
+                            }
+                        )
 
             # Trim to requested count
             recommendations = recommendations[:count]

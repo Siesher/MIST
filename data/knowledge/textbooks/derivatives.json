@@ -1,0 +1,201 @@
+{
+  "cards": [
+    {
+      "id": "math_derivatives_01",
+      "topic": "derivatives",
+      "domain": "math",
+      "skill": "calculus.derivatives",
+      "difficulty": "medium",
+      "prerequisites": ["limits", "functions", "algebra"],
+      "definition": "Производная функции $f$ в точке $x_0$ — это предел отношения приращения функции к приращению аргумента: $$f'(x_0) = \\lim_{\\Delta x \\to 0} \\frac{f(x_0 + \\Delta x) - f(x_0)}{\\Delta x}$$",
+      "key_formulas": [
+        {
+          "name": "Производная степени",
+          "latex": "(x^n)' = n \\cdot x^{n-1}"
+        },
+        {
+          "name": "Производная суммы",
+          "latex": "(f + g)' = f' + g'"
+        },
+        {
+          "name": "Производная произведения",
+          "latex": "(f \\cdot g)' = f' \\cdot g + f \\cdot g'"
+        },
+        {
+          "name": "Производная частного",
+          "latex": "\\left(\\frac{f}{g}\\right)' = \\frac{f' \\cdot g - f \\cdot g'}{g^2}"
+        },
+        {
+          "name": "Цепное правило",
+          "latex": "(f(g(x)))' = f'(g(x)) \\cdot g'(x)"
+        },
+        {
+          "name": "Производная sin",
+          "latex": "(\\sin x)' = \\cos x"
+        },
+        {
+          "name": "Производная cos",
+          "latex": "(\\cos x)' = -\\sin x"
+        },
+        {
+          "name": "Производная e^x",
+          "latex": "(e^x)' = e^x"
+        },
+        {
+          "name": "Производная ln",
+          "latex": "(\\ln x)' = \\frac{1}{x}"
+        }
+      ],
+      "notation": {
+        "f'(x)": "производная функции f по x",
+        "dy/dx": "производная y по x (обозначение Лейбница)",
+        "Δx": "приращение аргумента",
+        "Δy": "приращение функции"
+      },
+      "worked_examples": [
+        {
+          "difficulty": "easy",
+          "problem": "Найдите производную $f(x) = 3x^4 - 2x^2 + 7x - 1$",
+          "steps": [
+            "Применяем правило степени к каждому слагаемому",
+            "$(3x^4)' = 12x^3$",
+            "$(-2x^2)' = -4x$",
+            "$(7x)' = 7$",
+            "$(-1)' = 0$",
+            "Итого: $f'(x) = 12x^3 - 4x + 7$"
+          ],
+          "answer": "$f'(x) = 12x^3 - 4x + 7$"
+        },
+        {
+          "difficulty": "medium",
+          "problem": "Найдите производную $f(x) = x^2 \\cdot \\sin x$",
+          "steps": [
+            "Это произведение двух функций: $u = x^2$, $v = \\sin x$",
+            "По формуле $(uv)' = u'v + uv'$:",
+            "$u' = 2x$, $v' = \\cos x$",
+            "$f'(x) = 2x \\sin x + x^2 \\cos x$"
+          ],
+          "answer": "$f'(x) = 2x \\sin x + x^2 \\cos x$"
+        },
+        {
+          "difficulty": "hard",
+          "problem": "Найдите производную $f(x) = \\ln(\\sin(x^2))$",
+          "steps": [
+            "Цепное правило: три вложенные функции",
+            "Внешняя: $\\ln(u)$, $u = \\sin(v)$, $v = x^2$",
+            "$(\\ln u)' = \\frac{1}{u} = \\frac{1}{\\sin(x^2)}$",
+            "$(\\sin v)' = \\cos v = \\cos(x^2)$",
+            "$(x^2)' = 2x$",
+            "$f'(x) = \\frac{1}{\\sin(x^2)} \\cdot \\cos(x^2) \\cdot 2x = \\frac{2x \\cos(x^2)}{\\sin(x^2)} = 2x \\cdot \\text{ctg}(x^2)$"
+          ],
+          "answer": "$f'(x) = 2x \\cdot \\text{ctg}(x^2)$"
+        }
+      ],
+      "common_errors": [
+        {
+          "error": "Забыта внутренняя производная в цепном правиле",
+          "description": "Студент находит $(\\sin(2x))' = \\cos(2x)$ вместо $2\\cos(2x)$.",
+          "correction": "Всегда умножай на производную внутренней функции: $(f(g(x)))' = f'(g(x)) \\cdot g'(x)$."
+        },
+        {
+          "error": "Перепутаны формулы произведения и суммы",
+          "description": "Студент считает $(fg)' = f' \\cdot g'$ вместо $f'g + fg'$.",
+          "correction": "Производная произведения — НЕ произведение производных. Используй $(fg)' = f'g + fg'$."
+        },
+        {
+          "error": "Неверный знак у производной cos",
+          "description": "Студент пишет $(\\cos x)' = \\sin x$ вместо $-\\sin x$.",
+          "correction": "Запомни: $(\\cos x)' = -\\sin x$ — минус обязателен."
+        }
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "Математический анализ",
+        "author": "Л.Д. Кудрявцев"
+      },
+      "tags": ["calculus", "derivatives", "chain_rule", "product_rule", "trigonometry"],
+
+      "solution_methods": [
+        {
+          "method_id": "derivative_product_rule",
+          "name": "Правило произведения (Лейбница)",
+          "applicability": "Производная произведения двух функций $f(x) \\cdot g(x)$",
+          "steps": [
+            {"step": "1", "action": "Определить $u$ и $v$ в произведении $u \\cdot v$", "formula": ""},
+            {"step": "2", "action": "Найти $u'$ и $v'$ по отдельности", "formula": ""},
+            {"step": "3", "action": "Применить формулу произведения", "formula": "$(uv)' = u'v + uv'$"},
+            {"step": "4", "action": "Упростить результат", "formula": ""}
+          ],
+          "when_to_use": "Когда нужно продифференцировать произведение двух функций, которые нельзя просто перемножить.",
+          "common_pitfalls": [
+            "Путать с $(uv)' = u' \\cdot v'$ — это НЕВЕРНО",
+            "Забыть одно из слагаемых в сумме $u'v + uv'$"
+          ]
+        },
+        {
+          "method_id": "derivative_chain_rule",
+          "name": "Цепное правило (производная сложной функции)",
+          "applicability": "Производная композиции $f(g(x))$",
+          "steps": [
+            {"step": "1", "action": "Определить внешнюю $f$ и внутреннюю $g$ функции", "formula": ""},
+            {"step": "2", "action": "Найти производную внешней функции при аргументе $g(x)$", "formula": "$f'(g(x))$"},
+            {"step": "3", "action": "Найти производную внутренней функции", "formula": "$g'(x)$"},
+            {"step": "4", "action": "Перемножить результаты", "formula": "$(f(g(x)))' = f'(g(x)) \\cdot g'(x)$"}
+          ],
+          "when_to_use": "Когда функция — это композиция (функция от функции), например $\\sin(x^2)$, $\\ln(\\cos x)$, $e^{3x}$.",
+          "common_pitfalls": [
+            "Забыть умножить на $g'(x)$ — самая частая ошибка",
+            "Неправильно определить внешнюю и внутреннюю функции при тройной вложенности"
+          ]
+        }
+      ],
+
+      "problem_templates": [
+        {
+          "template_id": "derivative_power_01",
+          "pattern": "Найдите производную $f(x) = {a}x^{n} + {b}x^2 + {c}x$",
+          "parameters": {
+            "a": {"type": "int", "range": [1, 8], "exclude": [0]},
+            "n": {"type": "int", "range": [3, 6], "exclude": []},
+            "b": {"type": "int", "range": [-5, 5], "exclude": [0]},
+            "c": {"type": "int", "range": [-9, 9], "exclude": [0]}
+          },
+          "derived_params": {
+            "an": "a * n",
+            "n1": "n - 1",
+            "b2": "b * 2"
+          },
+          "constraints": ["n >= 3"],
+          "answer_template": "$f'(x) = {an}x^{{{n1}}} + {b2}x + {c}$",
+          "solution_method_id": "derivative_power_rule",
+          "difficulty": "easy",
+          "hints": [
+            "Используй правило степени: $(x^n)' = nx^{n-1}$",
+            "Дифференцируй каждое слагаемое отдельно",
+            "Не забудь, что $(cx)' = c$"
+          ]
+        },
+        {
+          "template_id": "derivative_composition_01",
+          "pattern": "Найдите производную $f(x) = \\sin({a}x^2 + {b})$",
+          "parameters": {
+            "a": {"type": "int", "range": [1, 5], "exclude": [0]},
+            "b": {"type": "int", "range": [-5, 5], "exclude": []}
+          },
+          "derived_params": {
+            "a2": "a * 2"
+          },
+          "constraints": [],
+          "answer_template": "$f'(x) = {a2}x \\cdot \\cos({a}x^2 + {b})$",
+          "solution_method_id": "derivative_chain_rule",
+          "difficulty": "medium",
+          "hints": [
+            "Это сложная функция — используй цепное правило",
+            "Внешняя: $\\sin(u)$, внутренняя: $u = {a}x^2 + {b}$",
+            "$(\\sin u)' = \\cos u \\cdot u'$"
+          ]
+        }
+      ]
+    }
+  ]
+}

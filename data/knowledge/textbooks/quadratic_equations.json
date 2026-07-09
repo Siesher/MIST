@@ -1,0 +1,164 @@
+{
+  "cards": [
+    {
+      "id": "math_quadratic_01",
+      "topic": "quadratic_equations",
+      "domain": "math",
+      "skill": "algebra.quadratic",
+      "difficulty": "medium",
+      "prerequisites": ["linear_equations", "factoring", "square_roots"],
+      "definition": "Квадратное уравнение — уравнение вида $ax^2 + bx + c = 0$, где $a \\neq 0$. Коэффициент $a$ называется старшим, $b$ — вторым, $c$ — свободным членом.",
+      "key_formulas": [
+        {
+          "name": "Дискриминант",
+          "latex": "D = b^2 - 4ac"
+        },
+        {
+          "name": "Формула корней",
+          "latex": "x_{1,2} = \\frac{-b \\pm \\sqrt{D}}{2a}"
+        },
+        {
+          "name": "Теорема Виета",
+          "latex": "x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 \\cdot x_2 = \\frac{c}{a}"
+        },
+        {
+          "name": "Разложение на множители",
+          "latex": "ax^2 + bx + c = a(x - x_1)(x - x_2)"
+        }
+      ],
+      "notation": {
+        "D": "дискриминант",
+        "a": "старший коэффициент",
+        "b": "второй коэффициент",
+        "c": "свободный член"
+      },
+      "worked_examples": [
+        {
+          "difficulty": "easy",
+          "problem": "Решите уравнение $x^2 - 5x + 6 = 0$",
+          "steps": [
+            "Определяем коэффициенты: $a = 1$, $b = -5$, $c = 6$",
+            "Вычисляем дискриминант: $D = (-5)^2 - 4 \\cdot 1 \\cdot 6 = 25 - 24 = 1$",
+            "$D > 0$, значит два различных корня",
+            "$x_1 = \\frac{5 + 1}{2} = 3$, $x_2 = \\frac{5 - 1}{2} = 2$"
+          ],
+          "answer": "$x_1 = 3, \\; x_2 = 2$"
+        },
+        {
+          "difficulty": "medium",
+          "problem": "Решите уравнение $2x^2 + 3x - 2 = 0$",
+          "steps": [
+            "Коэффициенты: $a = 2$, $b = 3$, $c = -2$",
+            "$D = 9 - 4 \\cdot 2 \\cdot (-2) = 9 + 16 = 25$",
+            "$x_1 = \\frac{-3 + 5}{4} = \\frac{1}{2}$, $x_2 = \\frac{-3 - 5}{4} = -2$"
+          ],
+          "answer": "$x_1 = \\frac{1}{2}, \\; x_2 = -2$"
+        }
+      ],
+      "common_errors": [
+        {
+          "error": "Неправильный знак в формуле корней",
+          "description": "Студент пишет $x = \\frac{b \\pm \\sqrt{D}}{2a}$ вместо $\\frac{-b \\pm \\sqrt{D}}{2a}$ — забывает минус перед $b$.",
+          "correction": "Запомни: перед $b$ всегда стоит минус в числителе."
+        },
+        {
+          "error": "Ошибка в вычислении дискриминанта",
+          "description": "Студент считает $D = b^2 - 4ac$ без учёта знака $c$ или забывает $4a$.",
+          "correction": "Аккуратно подставляй все коэффициенты с их знаками."
+        },
+        {
+          "error": "Деление только на $a$ вместо $2a$",
+          "description": "В знаменателе формулы корней стоит $2a$, а не $a$.",
+          "correction": "Знаменатель формулы — это $2a$, не забывай двойку."
+        }
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "Алгебра 8 класс",
+        "author": "А.Г. Мордкович"
+      },
+      "tags": ["algebra", "quadratic", "discriminant", "vieta", "factoring"],
+
+      "solution_methods": [
+        {
+          "method_id": "quadratic_discriminant",
+          "name": "Решение через дискриминант",
+          "applicability": "Любое квадратное уравнение $ax^2+bx+c=0$",
+          "steps": [
+            {"step": "1", "action": "Определить коэффициенты $a$, $b$, $c$", "formula": ""},
+            {"step": "2", "action": "Вычислить дискриминант", "formula": "$D = b^2 - 4ac$"},
+            {"step": "3", "action": "Определить количество корней по знаку $D$", "formula": "$D>0$: два корня, $D=0$: один, $D<0$: нет"},
+            {"step": "4", "action": "Вычислить корни по формуле", "formula": "$x_{1,2} = \\frac{-b \\pm \\sqrt{D}}{2a}$"}
+          ],
+          "when_to_use": "Универсальный метод. Используй когда уравнение не поддаётся разложению на множители или теореме Виета.",
+          "common_pitfalls": [
+            "Забыть минус перед $b$ в числителе",
+            "Делить на $a$ вместо $2a$",
+            "Неправильно учесть знак $c$ в дискриминанте"
+          ]
+        },
+        {
+          "method_id": "quadratic_vieta",
+          "name": "Решение по теореме Виета",
+          "applicability": "Приведённое квадратное уравнение ($a=1$): $x^2+px+q=0$",
+          "steps": [
+            {"step": "1", "action": "Привести к виду $x^2+px+q=0$ (разделить на $a$)", "formula": ""},
+            {"step": "2", "action": "Подобрать два числа с суммой $-p$ и произведением $q$", "formula": "$x_1+x_2=-p, \\; x_1 \\cdot x_2=q$"},
+            {"step": "3", "action": "Записать корни", "formula": ""}
+          ],
+          "when_to_use": "Быстрый метод для приведённых уравнений с целыми корнями. Если корни не целые — используй дискриминант.",
+          "common_pitfalls": [
+            "Забыть поменять знак $p$ для суммы корней",
+            "Не проверить, что $a=1$ (или не привести к этому виду)"
+          ]
+        }
+      ],
+
+      "problem_templates": [
+        {
+          "template_id": "quadratic_integer_roots_01",
+          "pattern": "Решите уравнение $x^2 + {b}x + {c} = 0$",
+          "parameters": {
+            "x1": {"type": "int", "range": [-9, 9], "exclude": [0]},
+            "x2": {"type": "int", "range": [-9, 9], "exclude": [0]}
+          },
+          "derived_params": {
+            "b": "-(x1 + x2)",
+            "c": "x1 * x2"
+          },
+          "constraints": ["x1 != x2", "abs(b) <= 20", "abs(c) <= 50"],
+          "answer_template": "$x_1 = {x1}, \\; x_2 = {x2}$",
+          "solution_method_id": "quadratic_discriminant",
+          "difficulty": "easy",
+          "hints": [
+            "Определите коэффициенты $a$, $b$, $c$",
+            "Вычислите дискриминант $D = b^2 - 4ac$",
+            "Подставьте в формулу корней"
+          ]
+        },
+        {
+          "template_id": "quadratic_general_01",
+          "pattern": "Решите уравнение ${a}x^2 + {b}x + {c} = 0$",
+          "parameters": {
+            "a": {"type": "int", "range": [2, 5], "exclude": [0]},
+            "x1": {"type": "int", "range": [-5, 5], "exclude": [0]},
+            "x2": {"type": "int", "range": [-5, 5], "exclude": [0]}
+          },
+          "derived_params": {
+            "b": "-(x1 + x2) * a",
+            "c": "x1 * x2 * a"
+          },
+          "constraints": ["x1 != x2", "abs(b) <= 30", "abs(c) <= 60"],
+          "answer_template": "$x_1 = {x1}, \\; x_2 = {x2}$",
+          "solution_method_id": "quadratic_discriminant",
+          "difficulty": "medium",
+          "hints": [
+            "Не забудьте, что $a \\neq 1$ — это влияет на знаменатель формулы",
+            "Дискриминант: $D = b^2 - 4ac$. Подставьте числа аккуратно",
+            "Корни: $x = \\frac{-b \\pm \\sqrt{D}}{2a}$"
+          ]
+        }
+      ]
+    }
+  ]
+}

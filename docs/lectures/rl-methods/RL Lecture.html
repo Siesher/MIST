@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Современные методы RL для языковых моделей</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<deck-stage>
+
+<!-- 1. TITLE -->
+<section data-screen-label="01 Title">
+  <div class="grid-bg"></div>
+  <canvas class="particles" data-count="80" style="position:absolute;inset:0;"></canvas>
+  <div class="glow-orb" style="left:-200px;top:-200px;width:700px;height:700px;background:#bb9af7;"></div>
+  <div class="glow-orb" style="right:-100px;bottom:-150px;width:600px;height:600px;background:#7dd3fc;"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+
+  <div style="position:absolute;right:120px;top:140px;bottom:130px;width:640px;display:flex;align-items:center;justify-content:center;opacity:0.95;">
+    <div id="scene-holo"></div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;height:380px;opacity:0.6;pointer-events:none;" id="scene-city"></div>
+
+  <div class="chrome">
+    <span><span class="dot"></span>RL // ALIGNMENT // 2026</span>
+    <span class="right"><span class="num">00 <em>/</em> 20</span></span>
+  </div>
+
+  <div class="stage" style="justify-content:center;">
+    <div class="kicker fade-in">Лекция · ~50 минут</div>
+    <h1 class="title fade-up">Современные<br>методы <em>RL</em><br>для языковых моделей</h1>
+    <div style="margin-top:42px;font-size:32px;color:var(--violet);letter-spacing:0.08em;font-family:'JetBrains Mono';" class="fade-up d2">
+      <span style="color:var(--cyan);">PPO</span>  →  <span style="color:var(--cyan);">GRPO</span>  →  <span style="color:var(--cyan);">DPO</span>  →  <span style="color:var(--cyan);">KTO</span>  →  <span style="color:var(--cyan);">GSPO</span>
+    </div>
+    <div style="margin-top:32px;" class="fade-up d3 muted">
+      <span class="accent" style="font-family:'JetBrains Mono';">[</span>&nbsp; конспект на примере проекта MITS &nbsp;<span class="accent" style="font-family:'JetBrains Mono';">]</span>
+    </div>
+  </div>
+  <div class="hud">
+    <span>./lecture --start</span>
+    <span class="marks"></span>
+    <span>net://aligned · v.4.7</span>
+  </div>
+</section>
+
+<!-- 2. AGENDA -->
+<section data-screen-label="02 Agenda">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// AGENDA</span><span class="num">02 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Содержание</div>
+    <h2 class="heading fade-up">Структура <em>лекции</em></h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:36px 80px;margin-top:36px;font-size:22px;line-height:1.7;" class="fade-up d2">
+      <div>
+        <div class="muted" style="font-size:14px;letter-spacing:0.24em;color:var(--violet);margin-bottom:14px;">I · ОСНОВЫ</div>
+        <div>01 — Контекст: проект MITS</div>
+        <div>02 — Почему SFT недостаточно</div>
+        <div>03 — KL-регуляризованная задача</div>
+        <div>04 — Bradley–Terry</div>
+        <div style="margin-top:28px;" class="muted"><span style="font-size:14px;letter-spacing:0.24em;color:var(--violet);">II · ЯДРО</span></div>
+        <div>05 — PPO · классика RLHF</div>
+        <div>06 — GRPO · groups instead of critic</div>
+        <div>07 — DPO · direct preference</div>
+        <div>08 — KTO · prospect theory</div>
+        <div>09 — GSPO · sequence-level</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size:14px;letter-spacing:0.24em;color:var(--violet);margin-bottom:14px;">III · СЕМЕЙСТВА</div>
+        <div>10 — DAPO · RLOO · ReMax</div>
+        <div>11 — IPO · SimPO · CPO · ORPO</div>
+        <div>12 — NPO · RLAIF · Iterative DPO</div>
+        <div style="margin-top:28px;"><span style="font-size:14px;letter-spacing:0.24em;color:var(--violet);">IV · ФРОНТИР</span></div>
+        <div>13 — SOTA 2025–2026</div>
+        <div>14 — Сравнение методов</div>
+        <div>15 — Pipeline в MITS</div>
+        <div>16 — Подводные камни</div>
+        <div>17 — Финал · что почитать</div>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./agenda</span><span>17 разделов</span></div>
+</section>
+
+<!-- 3. MITS -->
+<section data-screen-label="03 MITS">
+  <div class="grid-bg"></div>
+  <canvas class="particles" data-count="40" style="position:absolute;inset:0;opacity:0.6;"></canvas>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 01 · CONTEXT</span><span class="num">03 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Сюжет</div>
+    <h2 class="heading fade-up"><em>MITS</em> — математический тьютор</h2>
+    <p class="body fade-up d2" style="max-width:1300px;">
+      Mathematics Intelligent Tutoring System на базе <span class="accent">Qwen3.5-9B</span>.
+      Дообучение в три RL-стадии · A100 80 ГБ · TRL + Unsloth.
+      Деплой через REAP-pruning → GGUF Q4_K_M → Ollama на локальной RTX 2080.
+    </p>
+    <div class="cards fade-up d3" style="grid-template-columns:repeat(4,1fr);margin-top:48px;">
+      <div class="card"><div class="tag">// 01</div><h4>Диалог</h4><p>Не выдавать ответ, а вести наводящими вопросами.</p></div>
+      <div class="card"><div class="tag">// 02</div><h4>Reasoning</h4><p>Пошаговые решения, проверяемые SymPy / ChemPy.</p></div>
+      <div class="card"><div class="tag">// 03</div><h4>Counterfactuals</h4><p>«Если бы X — то Y»: подсветить пробел.</p></div>
+      <div class="card"><div class="tag">// 04</div><h4>Эмпатия</h4><p>Реакция на фрустрацию, скуку, вовлечённость.</p></div>
+    </div>
+    <div class="divider fade-up d4">→ почему всё это плохо передаётся обычным SFT ←</div>
+  </div>
+  <div class="hud"><span>./mits.json</span><span>Qwen3.5-9B · 3-stage RL</span></div>
+</section>
+
+<!-- 4. WHY NOT SFT -->
+<section data-screen-label="04 Why not SFT">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 02 · MOTIVATION</span><span class="num">04 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Проблема</div>
+    <h2 class="heading fade-up">Почему <em>SFT</em> недостаточно</h2>
+    <p class="body fade-up d2" style="margin-bottom:36px;">SFT максимизирует правдоподобие демонстраций. У этого три фундаментальных ограничения:</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:36px;" class="fade-up d3">
+      <div class="card">
+        <div class="tag">I</div>
+        <h4>Нет ранжирования</h4>
+        <p>Все «хорошие» примеры равны. Модель не знает, какое объяснение лучше другого.</p>
+      </div>
+      <div class="card">
+        <div class="tag">II</div>
+        <h4>Distribution shift</h4>
+        <p>На инференсе модель попадает в собственные сэмплы. Ошибки накапливаются.</p>
+      </div>
+      <div class="card">
+        <div class="tag">III</div>
+        <h4>Сложно «отрицание»</h4>
+        <p>SFT не умеет учить тому, чего <span class="rose">не</span> делать (например — не спойлерить).</p>
+      </div>
+    </div>
+    <div style="margin-top:48px;" class="fade-up d4">
+      <p class="body">RL добавляет сигнал <span class="accent">предпочтения</span>: что <em>лучше</em>, что проходит верификатор, как реагирует студент.</p>
+    </div>
+  </div>
+  <div class="hud"><span>./why-rl</span><span>SFT vs preference</span></div>
+</section>
+
+<!-- 5. KL OBJECTIVE -->
+<section data-screen-label="05 KL Objective">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 03 · BASE TASK</span><span class="num">05 <em>/</em> 20</span></div>
+
+  <div style="position:absolute;right:120px;top:200px;width:520px;height:340px;opacity:0.85;" id="scene-kl-dist"></div>
+
+  <div class="stage" style="right:760px;">
+    <div class="kicker fade-in">Единая формулировка</div>
+    <h2 class="heading fade-up">Все методы — <em>один лосс</em></h2>
+    <div class="formula fade-up d2" data-tag="OBJECTIVE">
+      max<sub>θ</sub>  E<sub>x∼D, y∼π<sub>θ</sub></sub> [ <span class="accent">r(x, y)</span> ] − <span class="violet">β</span> · KL[ π<sub>θ</sub> ‖ <span class="violet">π<sub>ref</sub></span> ]
+    </div>
+    <div style="font-size:20px;line-height:1.7;color:var(--ink-1);margin-top:24px;" class="fade-up d3">
+      <div><span class="accent">r</span> — награда: RM, верификатор или неявная</div>
+      <div><span class="violet">π<sub>ref</sub></span> — референс, обычно SFT-чекпоинт</div>
+      <div><span class="violet">β</span> — сила KL: держит политику рядом с референсом</div>
+    </div>
+    <div class="formula fade-up d4" data-tag="ANALYTIC OPTIMUM" style="margin-top:32px;">
+      π*(y|x)  ∝  π<sub>ref</sub>(y|x) · exp( <span class="accent">r(x, y) / β</span> )
+    </div>
+    <p class="body fade-up d5" style="margin-top:18px;font-size:20px;">
+      <span class="muted">мост, по которому пойдут DPO и KTO →</span>
+    </p>
+  </div>
+  <div class="hud"><span>./kl-objective</span><span>shared core</span></div>
+</section>
+
+<!-- 6. BRADLEY-TERRY -->
+<section data-screen-label="06 Bradley-Terry">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 04 · PREFERENCE MODEL</span><span class="num">06 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Источник сигнала</div>
+    <h2 class="heading fade-up">Bradley–Terry · <em>модель выбора</em></h2>
+    <p class="body fade-up d2">
+      На один вход <span class="accent">x</span> аннотатор выбирает между <span class="violet">y<sub>w</sub></span> (winner) и <span class="rose">y<sub>l</sub></span> (loser).
+    </p>
+    <div class="formula fade-up d3" data-tag="BRADLEY–TERRY" style="margin-top:24px;">
+      P( <span class="violet">y<sub>w</sub></span> ≻ <span class="rose">y<sub>l</sub></span> | x )  =  σ( r*(x, <span class="violet">y<sub>w</sub></span>) − r*(x, <span class="rose">y<sub>l</sub></span>) )
+    </div>
+    <div class="formula fade-up d4" data-tag="REWARD MODEL LOSS">
+      L<sub>RM</sub> = − log σ( r<sub>φ</sub>(x, y<sub>w</sub>) − r<sub>φ</sub>(x, y<sub>l</sub>) )
+    </div>
+    <div style="margin-top:32px;display:flex;gap:48px;" class="fade-up d5">
+      <div style="flex:1;border-left:2px solid var(--cyan);padding:8px 24px;">
+        <div style="color:var(--cyan);font-size:14px;letter-spacing:0.24em;text-transform:uppercase;margin-bottom:6px;">КЛАССИКА</div>
+        <div style="font-size:22px;">пары → RM → PPO с r<sub>φ</sub></div>
+      </div>
+      <div style="flex:1;border-left:2px solid var(--violet);padding:8px 24px;">
+        <div style="color:var(--violet);font-size:14px;letter-spacing:0.24em;text-transform:uppercase;margin-bottom:6px;">DPO-ТРЮК</div>
+        <div style="font-size:22px;">пары → политика напрямую (r<sub>φ</sub> сократится)</div>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./bradley-terry</span><span>preference → reward</span></div>
+</section>
+
+<!-- 7. PPO -->
+<section data-screen-label="07 PPO">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 05 · PPO</span><span class="num">07 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Origin · 2017</div>
+    <h2 class="heading fade-up"><em>PPO</em> — классика RLHF</h2>
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:64px;margin-top:24px;">
+      <div class="fade-up d2">
+        <div class="formula" data-tag="IMPORTANCE RATIO">
+          r<sub>t</sub>(θ)  =  π<sub>θ</sub>(a<sub>t</sub>|s<sub>t</sub>) / π<sub>θ<sub>old</sub></sub>(a<sub>t</sub>|s<sub>t</sub>)
+        </div>
+        <div class="formula" data-tag="CLIPPED OBJECTIVE">
+          L<sup>CLIP</sup> = E<sub>t</sub>[ min( r<sub>t</sub>·Â<sub>t</sub>,  clip(r<sub>t</sub>, 1−ε, 1+ε)·Â<sub>t</sub> ) ]
+        </div>
+        <div class="formula" data-tag="FULL RLHF LOSS">
+          L<sup>RLHF</sup> = L<sup>CLIP</sup> − c<sub>v</sub>L<sup>VF</sup> − <span class="violet">β·KL</span> + c<sub>e</sub>H[π<sub>θ</sub>]
+        </div>
+      </div>
+      <div class="fade-up d3">
+        <div style="font-size:14px;letter-spacing:0.24em;color:var(--violet);text-transform:uppercase;margin-bottom:14px;">⚠ Проблемы в проде</div>
+        <div style="display:flex;flex-direction:column;gap:14px;font-size:20px;">
+          <div style="padding:12px 18px;border-left:2px solid var(--rose);">
+            <span class="rose">×</span> 4 модели в памяти<br>
+            <span class="muted" style="font-size:16px;">policy + ref + critic + RM</span>
+          </div>
+          <div style="padding:12px 18px;border-left:2px solid var(--rose);">
+            <span class="rose">×</span> Reward hacking, KL-коллапс
+          </div>
+          <div style="padding:12px 18px;border-left:2px solid var(--rose);">
+            <span class="rose">×</span> Critic шумит на длинных текстах
+          </div>
+          <div style="padding:12px 18px;border-left:2px solid var(--rose);">
+            <span class="rose">×</span> RM — узкое место, плохо OOD
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./ppo · schulman 2017</span><span>InstructGPT, ChatGPT</span></div>
+</section>
+
+<!-- 8. GRPO -->
+<section data-screen-label="08 GRPO">
+  <div class="grid-bg"></div>
+  <canvas class="particles" data-count="30" style="position:absolute;inset:0;opacity:0.4;"></canvas>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 06 · GRPO</span><span class="num">08 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">DeepSeek-Math · 2024</div>
+    <h2 class="heading fade-up"><em>GRPO</em> · группа вместо критика</h2>
+    <p class="body fade-up d2" style="max-width:1500px;">
+      Сэмплируем <span class="accent">G</span> ответов на промпт. Programmatic reward (SymPy / тесты). Среднее по группе — baseline.
+    </p>
+
+    <div class="formula fade-up d3" data-tag="GROUP ADVANTAGE" style="margin-top:32px;">
+      Â<sub>i</sub>  =  ( r<sub>i</sub> − mean(r<sub>1..G</sub>) )  /  std(r<sub>1..G</sub>)
+    </div>
+    <div class="formula fade-up d4" data-tag="GRPO LOSS">
+      L<sup>GRPO</sup> = (1/G)·Σ<sub>i</sub> (1/|o<sub>i</sub>|)·Σ<sub>t</sub> min(ρ<sub>i,t</sub>·Â<sub>i</sub>, clip(ρ<sub>i,t</sub>, 1±ε)·Â<sub>i</sub>) − <span class="violet">β·KL</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:36px;" class="fade-up d5">
+      <div class="card"><div class="tag">+ выгода</div><h4 style="font-size:30px;">3 модели</h4><p>нет critic</p></div>
+      <div class="card"><div class="tag">+ выгода</div><h4 style="font-size:30px;">Programmatic R</h4><p>SymPy, юнит-тесты</p></div>
+      <div class="card"><div class="tag">+ выгода</div><h4 style="font-size:30px;">Reasoning native</h4><p>group baseline ≈ trajectory advantage</p></div>
+    </div>
+  </div>
+  <div class="hud"><span>./grpo · shao 2024</span><span>DeepSeek-R1 base</span></div>
+</section>
+
+<!-- 9. DPO -->
+<section data-screen-label="09 DPO">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 07 · DPO</span><span class="num">09 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Rafailov · NeurIPS 2023</div>
+    <h2 class="heading fade-up"><em>DPO</em> · напрямую к политике</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:24px;">
+      <div class="fade-up d2">
+        <div style="font-size:14px;letter-spacing:0.24em;color:var(--violet);text-transform:uppercase;margin-bottom:14px;">Вывод</div>
+        <div class="formula" data-tag="ИЗ ОПТИМУМА">
+          r*(x, y) = β · log( π*(y|x) / π<sub>ref</sub>(y|x) ) + c(x)
+        </div>
+        <div style="text-align:center;font-size:22px;color:var(--violet);margin:18px 0;">↓ подставляем в Bradley–Terry</div>
+        <div class="formula" data-tag="DPO LOSS" style="font-size:22px;">
+          L<sup>DPO</sup> = − E[ log σ( <span class="violet">β</span> · ( log<sub>w</sub>−log<sub>l</sub> ) ) ]<br>
+          <span style="color:var(--ink-2);font-size:18px;">где log<sub>·</sub> = log[π<sub>θ</sub>(y<sub>·</sub>|x)/π<sub>ref</sub>(y<sub>·</sub>|x)]</span>
+        </div>
+      </div>
+      <div class="fade-up d3">
+        <div style="font-size:14px;letter-spacing:0.24em;color:var(--cyan);text-transform:uppercase;margin-bottom:14px;">Магия</div>
+        <ul style="font-size:22px;line-height:1.8;list-style:none;padding:0;">
+          <li>✦ <span class="muted">никакой</span> RM</li>
+          <li>✦ <span class="muted">никакого</span> RL-цикла</li>
+          <li>✦ <span class="muted">никакого</span> critic</li>
+          <li>✦ supervised-style лосс</li>
+          <li>✦ только пары + 2 модели в памяти</li>
+        </ul>
+        <div style="margin-top:28px;font-size:14px;letter-spacing:0.24em;color:var(--rose);text-transform:uppercase;margin-bottom:10px;">⚠ слабости</div>
+        <div style="font-size:20px;line-height:1.6;color:var(--ink-1);">
+          length bias · шум разметки · off-policy gap
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./dpo · rafailov 2023</span><span>arXiv:2305.18290</span></div>
+</section>
+
+<!-- 10. KTO -->
+<section data-screen-label="10 KTO">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 08 · KTO</span><span class="num">10 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Ethayarajh · 2024 · prospect theory</div>
+    <h2 class="heading fade-up"><em>KTO</em> · когда пар нет</h2>
+    <p class="body fade-up d2" style="max-width:1400px;">
+      В проде сигнал бинарный: <span class="accent">лайк/дизлайк</span>, «понял/не понял», «решил/не решил».
+      Канеман–Тверски: потери ≠ выигрыши по силе.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:36px;">
+      <div class="fade-up d3">
+        <div class="formula" data-tag="IMPLICIT REWARD">
+          r<sub>θ</sub>(x,y) = β · log( π<sub>θ</sub>(y|x) / π<sub>ref</sub>(y|x) )
+        </div>
+        <div class="formula" data-tag="UTILITY (асимметрия)">
+          v<sub>θ</sub> = <span class="accent">λ<sub>D</sub></span>·σ(r<sub>θ</sub>−z<sub>ref</sub>)  если desirable<br>
+          v<sub>θ</sub> = <span class="rose">λ<sub>U</sub></span>·σ(z<sub>ref</sub>−r<sub>θ</sub>)  если undesirable
+        </div>
+        <div class="formula" data-tag="KTO LOSS">
+          L<sup>KTO</sup> = E[ 1 − v<sub>θ</sub>(x, y) ]
+        </div>
+      </div>
+      <div class="fade-up d4">
+        <div style="font-size:14px;letter-spacing:0.24em;color:var(--cyan);text-transform:uppercase;margin-bottom:14px;">Сигналы в MITS</div>
+        <div style="font-size:20px;line-height:1.9;">
+          <div><span class="accent">+</span> лайк под объяснением</div>
+          <div><span class="accent">+</span> решение задачи после подсказки</div>
+          <div><span class="rose">−</span> переспрос «не понял» &lt; 30s</div>
+          <div><span class="rose">−</span> закрытие сессии без решения</div>
+        </div>
+        <div style="margin-top:32px;padding:18px 24px;border:1px dashed var(--violet);font-size:18px;color:var(--ink-1);">
+          λ<sub>U</sub> &gt; λ<sub>D</sub> — <em>«плохое» болезненнее «хорошего»</em>.
+          KTO хорошо живёт с дисбалансом 5:1.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./kto · ethayarajh 2024</span><span>arXiv:2402.01306</span></div>
+</section>
+
+<!-- 11. GSPO -->
+<section data-screen-label="11 GSPO">
+  <div class="grid-bg"></div>
+  <canvas class="particles" data-count="50" style="position:absolute;inset:0;opacity:0.5;"></canvas>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 09 · GSPO</span><span class="num">11 <em>/</em> 20</span></div>
+  <div style="position:absolute;right:80px;top:300px;width:600px;opacity:0.85;" id="scene-tokenflow"></div>
+  <div class="stage" style="right:760px;">
+    <div class="kicker fade-in">Qwen team · 2025</div>
+    <h2 class="heading fade-up"><em>GSPO</em> · последовательность целиком</h2>
+    <p class="body fade-up d2">
+      На длинных reasoning-трейсах токеновый ratio накапливает дисперсию. Clip срабатывает не там, где надо. <span class="accent">Решение:</span> один ratio на всю последовательность.
+    </p>
+    <div class="formula fade-up d3" data-tag="SEQUENCE RATIO" style="margin-top:24px;">
+      s<sub>i</sub>(θ) = ( π<sub>θ</sub>(o<sub>i</sub>|q) / π<sub>θ<sub>old</sub></sub>(o<sub>i</sub>|q) )<sup>1/|o<sub>i</sub>|</sup>
+    </div>
+    <div class="formula fade-up d4" data-tag="GSPO LOSS">
+      L<sup>GSPO</sup> = (1/G)·Σ<sub>i</sub> min( s<sub>i</sub>·Â<sub>i</sub>, clip(s<sub>i</sub>, 1±ε)·Â<sub>i</sub> )
+    </div>
+    <p class="body fade-up d5" style="margin-top:24px;">
+      <span class="muted">меньше шум · корректные градиенты на длинных trace · мягче для MoE</span>
+    </p>
+  </div>
+  <div class="hud"><span>./gspo · qwen 2025</span><span>arXiv:2507.18071</span></div>
+</section>
+
+<!-- 12. MITS PIPELINE -->
+<section data-screen-label="12 MITS Pipeline">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 10 · MITS PIPELINE</span><span class="num">12 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Каскад трёх стадий</div>
+    <h2 class="heading fade-up">Pipeline в <em>MITS</em></h2>
+
+    <div style="margin-top:48px;display:flex;flex-direction:column;gap:0;" class="fade-up d2">
+      <div class="flow" style="justify-content:center;gap:18px;">
+        <div class="node"><em>BASE</em>Qwen3.5-9B Instruct</div>
+        <div class="arrow"></div>
+        <div class="node" style="border-color:var(--violet);color:var(--violet);background:rgba(187,154,247,0.05);"><em>STAGE 1</em>GSPO · math + format + socratic</div>
+        <div class="arrow"></div>
+        <div class="node" style="border-color:var(--violet);color:var(--violet);background:rgba(187,154,247,0.05);"><em>STAGE 2</em>KTO · бинарный фидбэк</div>
+        <div class="arrow"></div>
+        <div class="node" style="border-color:var(--violet);color:var(--violet);background:rgba(187,154,247,0.05);"><em>STAGE 3</em>DPO · экспертные пары</div>
+      </div>
+      <div style="text-align:center;color:var(--ink-2);margin-top:32px;font-size:18px;letter-spacing:0.24em;">
+        ↓ &nbsp; REAP-pruning (42 эксперта) &nbsp; → &nbsp; GGUF Q4_K_M &nbsp; → &nbsp; Ollama (RTX 2080)
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:64px;" class="fade-up d4">
+      <div class="card">
+        <div class="tag" style="color:var(--cyan);">// STAGE 01</div>
+        <h4>Корректность</h4>
+        <p>r = 1.0·correct + 0.3·format + 0.5·socratic. SymPy-верификатор + LLM-judge на спойлеры.</p>
+      </div>
+      <div class="card">
+        <div class="tag" style="color:var(--cyan);">// STAGE 02</div>
+        <h4>Предпочтительность</h4>
+        <p>Лайки, переспросы, time-to-resolve. Шумно, асимметрично — KTO в своей стихии.</p>
+      </div>
+      <div class="card">
+        <div class="tag" style="color:var(--cyan);">// STAGE 03</div>
+        <h4>Полишинг стиля</h4>
+        <p>Hint vs spoiler · краткий vs длинный · преподавательские ранкинги.</p>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./mits-pipeline</span><span>3-stage cascade</span></div>
+</section>
+
+<!-- 13. DAPO + light alts -->
+<section data-screen-label="13 DAPO RLOO ReMax">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 11 · LIGHT ALTERNATIVES</span><span class="num">13 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">PPO без лишнего</div>
+    <h2 class="heading fade-up"><em>DAPO</em> · RLOO · ReMax</h2>
+    <p class="body fade-up d2">Насколько ещё можно упростить on-policy RL?</p>
+
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:24px;margin-top:36px;" class="fade-up d3">
+      <div class="card" style="border-color:var(--cyan);">
+        <div class="tag" style="color:var(--cyan);">★ DAPO · ByteDance 2025</div>
+        <h4>Decoupled clip + dynamic sampling</h4>
+        <p>Asymmetric ε для +/− advantages · dynamic sampling (отбрасываем «плоские» группы) · token-level loss · overlong filtering. <span class="accent">SOTA AIME 2024 на Qwen2.5-32B.</span></p>
+      </div>
+      <div class="card">
+        <div class="tag">REINFORCE++</div>
+        <h4>Вильямс 1992++</h4>
+        <p>Per-token KL, нормирование, PPO-clip. Без critic. Простейший baseline.</p>
+      </div>
+      <div class="card">
+        <div class="tag">RLOO</div>
+        <h4>Leave-One-Out</h4>
+        <p>Baseline = среднее остальных k−1. Несмещённо, низкая дисперсия. ≈ PPO дешевле.</p>
+      </div>
+      <div class="card">
+        <div class="tag">ReMax</div>
+        <h4>Argmax baseline</h4>
+        <p>Baseline = greedy generation. 1 лишний forward вместо value-сети. ~2× быстрее PPO.</p>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./light-rl</span><span>no critic, please</span></div>
+</section>
+
+<!-- 14. DPO FAMILY -->
+<section data-screen-label="14 DPO Family">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 12 · DPO FAMILY</span><span class="num">14 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">4 слабости → 4 решения</div>
+    <h2 class="heading fade-up">Семейство <em>DPO</em></h2>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:32px 64px;margin-top:36px;" class="fade-up d2">
+      <div class="card">
+        <div class="tag">★ IPO · Azar 2024</div>
+        <h4>Identity preference</h4>
+        <p>Квадратичный лосс вместо log-σ. Не уходит в ∞ при детерминированных предпочтениях.</p>
+        <div class="formula" data-tag="IPO" style="margin-top:18px;font-size:20px;padding:14px 20px;">
+          L<sup>IPO</sup> = ( Δ<sub>w</sub> − Δ<sub>l</sub> − 1/(2β) )²
+        </div>
+      </div>
+      <div class="card">
+        <div class="tag">★ SimPO · Meng 2024</div>
+        <h4>Simple — без π<sub>ref</sub></h4>
+        <p>Length-normalized log-likelihood + явный margin γ. 1 модель в памяти, нет length bias.</p>
+        <div class="formula" data-tag="SimPO" style="margin-top:18px;font-size:18px;padding:14px 20px;">
+          L = − log σ( β·(s<sub>w</sub>/|y<sub>w</sub>| − s<sub>l</sub>/|y<sub>l</sub>|) − γ )
+        </div>
+      </div>
+      <div class="card">
+        <div class="tag">★ CPO · Xu 2024</div>
+        <h4>Contrastive + SFT</h4>
+        <p>L<sup>CPO</sup> = L<sup>DPO</sup> + λ·NLL(y<sub>w</sub>|x). Качество генерации (MT, code).</p>
+      </div>
+      <div class="card">
+        <div class="tag">★ ORPO · Hong 2024</div>
+        <h4>Odds-ratio · 1 модель</h4>
+        <p>SFT + preference в одном проходе. Без π<sub>ref</sub>, без отдельной SFT-стадии. Стартует с base.</p>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./dpo-family</span><span>IPO·SimPO·CPO·ORPO</span></div>
+</section>
+
+<!-- 15. NPO + RLAIF + iterative -->
+<section data-screen-label="15 NPO RLAIF">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 13 · OTHER FAMILIES</span><span class="num">15 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Без человека в петле</div>
+    <h2 class="heading fade-up">NPO · RLAIF · <em>iterative DPO</em></h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;margin-top:36px;" class="fade-up d2">
+      <div class="card">
+        <div class="tag">// NPO · Zhang 2024</div>
+        <h4>Negative-only</h4>
+        <p>Когда есть <em>только</em> то, что нужно забыть: вред, приватность, копирайт. Используется в machine unlearning.</p>
+        <div class="formula" data-tag="NPO" style="margin-top:14px;font-size:18px;padding:12px 16px;">
+          − E[ log σ( −β · log(π<sub>θ</sub>/π<sub>ref</sub>) ) ]
+        </div>
+      </div>
+      <div class="card">
+        <div class="tag">// RLAIF · 2023</div>
+        <h4>Constitutional AI</h4>
+        <p>Сильная LLM оценивает по «конституции» вместо человека. Использовалось в Claude, Gemini.</p>
+      </div>
+      <div class="card">
+        <div class="tag">// Iterative DPO / Self-Reward</div>
+        <h4>Закрыть off-policy gap</h4>
+        <p>DPO → сэмпл → judge → новый DPO. Self-Rewarding LM: модель сама себе judge. Llama-2-70B бьёт GPT-4 за 3 итерации.</p>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./feedback-loops</span><span>no humans involved</span></div>
+</section>
+
+<!-- 16. SOTA 2025-2026 -->
+<section data-screen-label="16 SOTA 2025-2026">
+  <div class="grid-bg"></div>
+  <canvas class="particles" data-count="60" style="position:absolute;inset:0;opacity:0.4;"></canvas>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 14 · POST-QWEN3 WAVE</span><span class="num">16 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Frontier · 2025–2026</div>
+    <h2 class="heading fade-up">Новая волна · <em>гранулярность</em> и <em>clip</em></h2>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:24px;" class="fade-up d2">
+      <div class="card"><div class="tag">SSPO · 11.2025</div><h4 style="font-size:30px;">Sub-Sentence</h4><p>Между токеном и последовательностью. Adaptive clip по entropy. <span class="accent">+3.7</span> над GRPO.</p></div>
+      <div class="card"><div class="tag">CISPO</div><h4 style="font-size:30px;">Clipped IS</h4><p>Мягкий clip: токены не теряют градиент полностью.</p></div>
+      <div class="card"><div class="tag">GMPO</div><h4 style="font-size:30px;">Group Mean</h4><p>Без std-нормировки. Стабильно при G=2–4.</p></div>
+      <div class="card"><div class="tag">VAPO · Tencent</div><h4 style="font-size:30px;">Lite critic</h4><p>Гибрид: вспомогательный critic для длинных trace. &gt; DAPO на AIME.</p></div>
+      <div class="card"><div class="tag">REBEL</div><h4 style="font-size:30px;">Regression</h4><p>Регрессия на разности наград. Без clipping.</p></div>
+      <div class="card"><div class="tag">GTPO · 08.2025</div><h4 style="font-size:30px;">Group-Token</h4><p>Контроль градиента и entropy в clip.</p></div>
+      <div class="card"><div class="tag">λ-GRPO · 10.2025</div><h4 style="font-size:30px;">Learnable λ</h4><p>Унификация GRPO/DAPO/GSPO в одной параметризации.</p></div>
+      <div class="card" style="border-color:var(--violet);">
+        <div class="tag" style="color:var(--violet);">⚡ THEOREM</div>
+        <h4 style="font-size:26px;">GRPO ≡ DPO</h4>
+        <p>В пределе ∞ группы. <span class="muted">arXiv:2510.00977</span></p>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./sota-2026</span><span>granularity · clipping · IS</span></div>
+</section>
+
+<!-- 17. COMPARISON TABLE -->
+<section data-screen-label="17 Comparison">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 15 · COMPARISON</span><span class="num">17 <em>/</em> 20</span></div>
+  <div class="stage" style="bottom:170px;">
+    <div class="kicker fade-in">Сводная таблица</div>
+    <h2 class="heading fade-up" style="font-size:54px;margin-bottom:14px;">Сравнение методов · <em>2026</em></h2>
+    <table class="compare fade-up d2" style="margin-top:8px;font-size:17px;">
+      <thead><tr>
+        <th>Метод</th><th>Тип</th><th>Что нужно</th><th>Моделей</th><th>Сильно</th><th>Слабо</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="method">PPO</td><td>on-policy RL</td><td>RM + пары</td><td>4</td><td>универсален</td><td class="rose">дорого, нестабильно</td></tr>
+        <tr><td class="method">GRPO</td><td>on-policy RL</td><td>верификатор</td><td>3</td><td>math/code reasoning</td><td class="muted">токеновый clip шумит</td></tr>
+        <tr><td class="method">DAPO</td><td>on-policy RL</td><td>верификатор</td><td>3</td><td><span class="accent">SOTA AIME</span>, dyn-sampling</td><td class="muted">сложнее настраивать</td></tr>
+        <tr><td class="method">GSPO</td><td>on-policy RL</td><td>верификатор</td><td>3</td><td>длинные reasoning, MoE</td><td class="muted">нужен верификатор</td></tr>
+        <tr><td class="method">SSPO</td><td>on-policy RL</td><td>верификатор</td><td>3</td><td>sub-sentence — между GRPO и GSPO</td><td class="muted">мало бенчей</td></tr>
+        <tr><td class="method">VAPO</td><td>on-policy RL</td><td>верификатор</td><td>3-4</td><td>lite critic, &gt; DAPO</td><td class="muted">возвращает critic</td></tr>
+        <tr><td class="method">RLOO/ReMax</td><td>on-policy RL</td><td>RM</td><td>2-3</td><td>проще PPO, не хуже</td><td class="muted">требует RM</td></tr>
+        <tr><td class="method">DPO</td><td>offline contrastive</td><td>пары</td><td>2</td><td>дёшево, на стиль</td><td class="rose">length bias, шум</td></tr>
+        <tr><td class="method">IPO</td><td>offline contrastive</td><td>пары</td><td>2</td><td>робаст к шуму</td><td class="muted">медленно сходится</td></tr>
+        <tr><td class="method">SimPO</td><td>offline contrastive</td><td>пары</td><td>1</td><td>без π<sub>ref</sub>, без length bias</td><td class="muted">осторожно с γ</td></tr>
+        <tr><td class="method">ORPO</td><td>offline contrastive</td><td>пары + SFT</td><td>1</td><td>SFT+pref за один шаг</td><td class="muted">—</td></tr>
+        <tr><td class="method">KTO</td><td>offline prospect</td><td>бинарь</td><td>2</td><td>не нужны пары; шум-устойчив</td><td class="muted">не учит ранжирование</td></tr>
+        <tr><td class="method">NPO</td><td>offline prospect</td><td>negative-only</td><td>2</td><td>unlearning, GDPR</td><td class="muted">узкая задача</td></tr>
+        <tr><td class="method">Iter-DPO / Self-Rew.</td><td>iterative</td><td>LLM-judge</td><td>2-3</td><td>без человека</td><td class="muted">зависит от judge</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="hud"><span>./compare.tsv</span><span>14 methods</span></div>
+</section>
+
+<!-- 18. DECISION MAP -->
+<section data-screen-label="18 Decision Map">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 16 · DECISION MAP</span><span class="num">18 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Что выбрать?</div>
+    <h2 class="heading fade-up">Карта <em>решений</em></h2>
+    <div style="margin-top:42px;font-family:'JetBrains Mono';font-size:22px;line-height:2;" class="fade-up d2">
+      <div><span class="violet">if</span> <span class="accent">verifier</span> (SymPy, тесты, formatter):</div>
+      <div style="padding-left:48px;"><span class="muted">↳ длинные reasoning →</span> <span class="accent">GSPO</span></div>
+      <div style="padding-left:48px;"><span class="muted">↳ короткие ответы →</span> <span class="accent">GRPO</span> <span class="muted">/ DAPO</span></div>
+      <div style="margin-top:14px;"><span class="violet">elif</span> <span class="accent">пары</span> (human ranking, LLM-judge):</div>
+      <div style="padding-left:48px;"><span class="muted">↳ чистые →</span> <span class="accent">DPO</span></div>
+      <div style="padding-left:48px;"><span class="muted">↳ шумные / мало →</span> <span class="accent">KTO</span> <span class="muted">/ IPO</span></div>
+      <div style="padding-left:48px;"><span class="muted">↳ из base без SFT →</span> <span class="accent">ORPO</span></div>
+      <div style="margin-top:14px;"><span class="violet">elif</span> <span class="accent">бинарь</span> (лайки, completion):</div>
+      <div style="padding-left:48px;"><span class="muted">↳</span> <span class="accent">KTO</span></div>
+      <div style="margin-top:14px;"><span class="violet">elif</span> <span class="accent">unlearning</span>:</div>
+      <div style="padding-left:48px;"><span class="muted">↳</span> <span class="accent">NPO</span></div>
+      <div style="margin-top:14px;"><span class="violet">else</span>:  <span class="muted"># много железа, всё есть</span></div>
+      <div style="padding-left:48px;"><span class="accent">PPO</span> <span class="muted">или каскад GSPO → KTO → DPO</span></div>
+    </div>
+  </div>
+  <div class="hud"><span>./decide.py</span><span>which spell?</span></div>
+</section>
+
+<!-- 19. PITFALLS -->
+<section data-screen-label="19 Pitfalls">
+  <div class="grid-bg"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// 17 · PITFALLS</span><span class="num">19 <em>/</em> 20</span></div>
+  <div class="stage">
+    <div class="kicker fade-in">Подводные камни</div>
+    <h2 class="heading fade-up"><em>Failure modes</em></h2>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:28px;margin-top:36px;" class="fade-up d2">
+      <div class="card">
+        <div class="tag" style="color:var(--rose);">⚠ REWARD HACKING</div>
+        <h4>Дешёвый путь к награде</h4>
+        <p>Длинные псевдо-выкладки набирают format-score без correctness. <span class="muted">Лечить:</span> ограничить длину, штраф за повторы, composite reward, LLM-judge.</p>
+      </div>
+      <div class="card">
+        <div class="tag" style="color:var(--rose);">⚠ KL-COLLAPSE</div>
+        <h4>β слишком мал/велик</h4>
+        <p>Политика уезжает от ref → теряет язык. Или ничего не учится. <span class="muted">DPO/KTO:</span> β = 0.05–0.2; мониторить KL онлайн.</p>
+      </div>
+      <div class="card">
+        <div class="tag" style="color:var(--rose);">⚠ LENGTH BIAS</div>
+        <h4>Длинные ≈ выигрывают</h4>
+        <p>Σ logprob больше у длинного ответа. <span class="muted">Лечить:</span> length-normalized DPO, R-DPO, SimPO, штраф в reward.</p>
+      </div>
+      <div class="card">
+        <div class="tag" style="color:var(--rose);">⚠ OFF-POLICY GAP</div>
+        <h4>π<sub>ref</sub> устаревает</h4>
+        <p>Данные собирались давно — «неявная награда» становится неточной. <span class="muted">Лечить:</span> Iterative DPO, ORPO, Self-Rewarding LM.</p>
+      </div>
+    </div>
+  </div>
+  <div class="hud"><span>./pitfalls</span><span>here be dragons</span></div>
+</section>
+
+<!-- 20. END -->
+<section data-screen-label="20 End">
+  <div class="grid-bg"></div>
+  <canvas class="particles" data-count="100" style="position:absolute;inset:0;"></canvas>
+  <div class="glow-orb" style="left:50%;top:50%;transform:translate(-50%,-50%);width:900px;height:900px;background:#bb9af7;opacity:0.25;"></div>
+  <div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+  <div class="scanlines"></div><div class="vignette"></div>
+  <div class="chrome"><span><span class="dot"></span>// FIN</span><span class="num">20 <em>/</em> 20</span></div>
+
+  <div style="position:absolute;left:80px;top:50%;transform:translateY(-50%);width:520px;opacity:0.9;" id="scene-end-holo"></div>
+
+  <div class="stage" style="left:760px;">
+    <div class="kicker fade-in">Резюме</div>
+    <h2 class="heading fade-up" style="font-size:88px;">Спасибо. <em>Вопросы.</em></h2>
+
+    <div style="margin-top:48px;font-size:22px;line-height:1.7;color:var(--ink-1);" class="fade-up d2">
+      <p>Все методы — одна KL-регуляризованная задача с разной формой <em>r</em>.</p>
+      <p>PPO уходит из практики · GRPO/DAPO/GSPO — стандарт для задач с верификатором.</p>
+      <p>Граница «online RL ↔ offline preference» растворяется (<span class="muted">arXiv:2510.00977</span>).</p>
+    </div>
+
+    <div style="margin-top:64px;padding:24px 32px;border:1px solid var(--violet);font-family:'JetBrains Mono';" class="fade-up d3">
+      <div style="font-size:14px;letter-spacing:0.24em;color:var(--violet);margin-bottom:14px;">// ARTIFACT</div>
+      <div style="font-size:22px;color:var(--cyan);">Siesher/mits-qwen3-9b-final</div>
+      <div style="font-size:18px;color:var(--ink-2);margin-top:8px;">Qwen3.5-9B → GSPO → KTO → DPO → REAP → GGUF Q4_K_M</div>
+    </div>
+
+    <div style="margin-top:48px;font-size:18px;color:var(--ink-2);letter-spacing:0.18em;" class="fade-up d4">
+      <span class="accent" style="font-family:'JetBrains Mono';">&gt;</span>&nbsp;&nbsp;<span data-typewriter data-speed="40">end of lecture // press → for fin</span><span class="cursor"></span>
+    </div>
+  </div>
+  <div class="hud"><span>./fin</span><span>thank you</span></div>
+</section>
+
+</deck-stage>
+
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js" style="display:none"></script>
+<script src="deck-stage.js?v=2"></script>
+<script src="scenes.js?v=2"></script>
+<script>
+  // inject scenes
+  document.getElementById('scene-holo').innerHTML = window.SceneHoloCore({size: 640});
+  document.getElementById('scene-city').innerHTML = window.SceneCity();
+  document.getElementById('scene-end-holo').innerHTML = window.SceneCircuit({w: 520, h: 520});
+  document.getElementById('scene-tokenflow').innerHTML = window.SceneTokenFlow();
+  document.getElementById('scene-kl-dist').innerHTML = window.SceneKLDist();
+</script>
+<script src="animations.js?v=2"></script>
+</body>
+</html>

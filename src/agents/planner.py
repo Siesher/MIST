@@ -18,19 +18,22 @@
 - GenMentor (WWW 2025)
 """
 
-import json
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
-from enum import Enum
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from src.agents.profiler import StudentProfile, ErrorType, ConfidenceLevel
+from src.agents.profiler import ConfidenceLevel, ErrorType, StudentProfile
+
+if TYPE_CHECKING:
+    from src.data.schemas import BeliefState
 
 logger = logging.getLogger(__name__)
 
 
 class CognitiveLoadLevel(Enum):
     """Уровни когнитивной нагрузки."""
+
     LOW = "low"
     OPTIMAL = "optimal"
     HIGH = "high"
@@ -39,19 +42,21 @@ class CognitiveLoadLevel(Enum):
 
 class TeachingStrategy(Enum):
     """Стратегии обучения."""
-    GUIDED_DISCOVERY = "guided_discovery"     # Направляемое открытие
-    SCAFFOLDED = "scaffolded"                 # Пошаговый скаффолдинг
-    ERROR_CORRECTION = "error_correction"     # Исправление ошибок
-    CONCEPTUAL_REPAIR = "conceptual_repair"   # Ремонт концепций
-    ENCOURAGEMENT = "encouragement"           # Поддержка и мотивация
-    REVIEW = "review"                         # Повторение материала
-    DIRECT_INSTRUCTION = "direct_instruction" # Прямое объяснение
-    COGNITIVE_OFFLOAD = "cognitive_offload"   # Разгрузка когнитивной нагрузки
-    BREAK_SUGGESTED = "break_suggested"       # Предложение перерыва
+
+    GUIDED_DISCOVERY = "guided_discovery"  # Направляемое открытие
+    SCAFFOLDED = "scaffolded"  # Пошаговый скаффолдинг
+    ERROR_CORRECTION = "error_correction"  # Исправление ошибок
+    CONCEPTUAL_REPAIR = "conceptual_repair"  # Ремонт концепций
+    ENCOURAGEMENT = "encouragement"  # Поддержка и мотивация
+    REVIEW = "review"  # Повторение материала
+    DIRECT_INSTRUCTION = "direct_instruction"  # Прямое объяснение
+    COGNITIVE_OFFLOAD = "cognitive_offload"  # Разгрузка когнитивной нагрузки
+    BREAK_SUGGESTED = "break_suggested"  # Предложение перерыва
 
 
 class TeachingMove(Enum):
     """Педагогические ходы."""
+
     SCAFFOLDING = "scaffolding"
     PROBLEMATIZE = "problematize"
     RECTIFY = "rectify"
@@ -63,6 +68,7 @@ class TeachingMove(Enum):
 @dataclass
 class TeachingPlan:
     """План обучения для текущего взаимодействия."""
+
     strategy: TeachingStrategy
     primary_move: TeachingMove
     move_sequence: List[TeachingMove] = field(default_factory=list)
@@ -85,7 +91,7 @@ class TeachingPlan:
             "hints_to_use": self.hints_to_use,
             "max_hints_before_tell": self.max_hints_before_tell,
             "should_check_understanding": self.should_check_understanding,
-            "prerequisites_to_review": self.prerequisites_to_review
+            "prerequisites_to_review": self.prerequisites_to_review,
         }
 
     def to_prompt_context(self) -> str:
@@ -93,7 +99,7 @@ class TeachingPlan:
         parts = [
             f"СТРАТЕГИЯ: {self.strategy.value}",
             f"ОСНОВНОЙ ХОД: {self.primary_move.value}",
-            f"ТОН: {self.tone}"
+            f"ТОН: {self.tone}",
         ]
 
         if self.focus_areas:
@@ -111,6 +117,7 @@ class TeachingPlan:
 @dataclass
 class SessionContext:
     """Контекст сессии обучения."""
+
     topic: str
     difficulty: str
     turn_number: int = 0
@@ -197,8 +204,8 @@ class PlannerAgent:
         TeachingStrategy.COGNITIVE_OFFLOAD: [
             TeachingMove.ENCOURAGE,
             TeachingMove.SCAFFOLDING,  # Simplified scaffolding
-            TeachingMove.HINT,         # More direct hints
-            TeachingMove.TELL,         # Willing to tell sooner
+            TeachingMove.HINT,  # More direct hints
+            TeachingMove.TELL,  # Willing to tell sooner
         ],
         TeachingStrategy.BREAK_SUGGESTED: [
             TeachingMove.ENCOURAGE,
@@ -211,7 +218,7 @@ class PlannerAgent:
         CognitiveLoadLevel.LOW: 0.3,
         CognitiveLoadLevel.OPTIMAL: 0.5,
         CognitiveLoadLevel.HIGH: 0.7,
-        CognitiveLoadLevel.OVERLOAD: 0.85
+        CognitiveLoadLevel.OVERLOAD: 0.85,
     }
 
     # Тон для разных ситуаций
@@ -239,7 +246,9 @@ class PlannerAgent:
         self,
         profile: StudentProfile,
         context: SessionContext,
-        available_hints: Optional[List[str]] = None
+        available_hints: Optional[List[str]] = None,
+        graph_context: Optional[Dict] = None,
+        belief_state: Optional["BeliefState"] = None,
     ) -> TeachingPlan:
         """
         Создание плана обучения.
@@ -248,6 +257,10 @@ class PlannerAgent:
             profile: Профиль ученика от ProfilerAgent
             context: Контекст текущей сессии
             available_hints: Доступные подсказки из RAG
+            graph_context: Knowledge Forge graph context (from navigator)
+            belief_state: ToM-Tutor belief state (017). When provided with
+                confidence >= 0.5, Planner uses predicted_reactions to override
+                rule-based strategy selection.
 
         Returns:
             TeachingPlan с рекомендациями
@@ -271,6 +284,41 @@ class PlannerAgent:
         # Выбираем подсказки
         hints = self._select_hints(profile, available_hints or [])
 
+        # Enrich with Knowledge Forge graph context (if available)
+        prereqs_to_review = list(profile.topic_gaps) if profile.topic_gaps else []
+        if graph_context:
+            # Add missing prerequisites from graph gap diagnosis
+            student_data = graph_context.get("student", {})
+            if student_data.get("has_gaps"):
+                for prereq in student_data.get("prerequisites", []):
+                    if prereq.get("status") == "gap" and prereq["id"] not in prereqs_to_review:
+                        prereqs_to_review.append(prereq["id"])
+
+            # If graph shows misconceptions, bias toward CONCEPTUAL_REPAIR
+            misconceptions = graph_context.get("misconceptions", [])
+            if misconceptions and strategy != TeachingStrategy.CONCEPTUAL_REPAIR:
+                strategy = TeachingStrategy.CONCEPTUAL_REPAIR
+                primary_move = TeachingMove.RECTIFY
+                move_sequence = self._get_move_sequence(strategy, context)
+                logger.info(
+                    f"Strategy adjusted to CONCEPTUAL_REPAIR based on "
+                    f"{len(misconceptions)} misconceptions from knowledge graph"
+                )
+
+        # ToM-Tutor (017): override strategy based on predicted student reactions
+        if belief_state is not None and belief_state.is_usable(min_confidence=0.5):
+            tom_strategy = self._strategy_from_belief(belief_state, strategy)
+            if tom_strategy is not None and tom_strategy != strategy:
+                old_strategy = strategy
+                strategy = tom_strategy
+                primary_move = self._select_primary_move(profile, strategy, context)
+                move_sequence = self._get_move_sequence(strategy, context)
+                logger.info(
+                    f"tom.planner.strategy_override: "
+                    f"{old_strategy.value} -> {strategy.value} "
+                    f"(confidence={belief_state.confidence:.2f})"
+                )
+
         # Собираем план
         plan = TeachingPlan(
             strategy=strategy,
@@ -282,20 +330,113 @@ class PlannerAgent:
             hints_to_use=hints,
             max_hints_before_tell=self._calc_max_hints(profile, context),
             should_check_understanding=profile.understanding_score < 0.6,
-            prerequisites_to_review=profile.topic_gaps
+            prerequisites_to_review=prereqs_to_review,
         )
 
         logger.info(
-            f"План создан: strategy={strategy.value}, "
-            f"move={primary_move.value}, tone={tone}"
+            f"План создан: strategy={strategy.value}, move={primary_move.value}, tone={tone}"
         )
 
         return plan
 
-    def _select_strategy(
+    # ── ToM-Tutor integration (017) ──────────────────────────────
+
+    def _strategy_from_belief(
         self,
-        profile: StudentProfile,
-        context: SessionContext
+        belief: "BeliefState",
+        current_strategy: TeachingStrategy,
+    ) -> Optional[TeachingStrategy]:
+        """Выбор стратегии на основе predicted_reactions от ToM-агента.
+
+        Идея: BeliefState.predicted_reactions содержит прогноз LLM о том,
+        как студент отреагирует на каждую стратегию. Мы выбираем ту, что
+        описана наиболее благоприятно (ключевые слова: "поймёт", "увидит",
+        "пересмотрит", "откроет"), и избегаем неудачных ("застрянет",
+        "не сработает", "останется при своём").
+
+        Args:
+            belief: BeliefState с непустым predicted_reactions.
+            current_strategy: Текущий выбор планировщика (для bias/fallback).
+
+        Returns:
+            Предлагаемая стратегия или None (оставить текущую).
+        """
+        reactions = belief.predicted_reactions or {}
+        if not reactions:
+            return None
+
+        # Ключевые слова для оценки предсказанной реакции
+        positive_markers = (
+            "пойм",
+            "увид",
+            "пересмотр",
+            "открое",
+            "построит",
+            "свяж",
+            "найдёт",
+            "научится",
+            "станет понятн",
+            "рабоча",
+            "продуктивн",
+            "восстановит",
+            "даст понимани",
+        )
+        negative_markers = (
+            "застрянет",
+            "не сработает",
+            "останется при",
+            "запутает",
+            "усилит путаниц",
+            "отвлечёт",
+            "провалится",
+        )
+
+        # Map strategy name (lowercase) -> TeachingStrategy enum
+        name_to_strategy = {
+            "scaffolded": TeachingStrategy.SCAFFOLDED,
+            "scaffolding": TeachingStrategy.SCAFFOLDED,
+            "guided_discovery": TeachingStrategy.GUIDED_DISCOVERY,
+            "conceptual_repair": TeachingStrategy.CONCEPTUAL_REPAIR,
+            "conceptual": TeachingStrategy.CONCEPTUAL_REPAIR,
+            "encourage": TeachingStrategy.ENCOURAGEMENT,
+            "encouragement": TeachingStrategy.ENCOURAGEMENT,
+            "review": TeachingStrategy.REVIEW,
+            "direct": TeachingStrategy.DIRECT_INSTRUCTION,
+            "direct_instruction": TeachingStrategy.DIRECT_INSTRUCTION,
+            "error_correction": TeachingStrategy.ERROR_CORRECTION,
+        }
+
+        best_score = -999
+        best_strategy = None
+
+        for name, reaction in reactions.items():
+            if not isinstance(reaction, str):
+                continue
+            strategy = name_to_strategy.get(name.lower().strip())
+            if strategy is None:
+                continue
+
+            reaction_lower = reaction.lower()
+            score = 0
+            for marker in positive_markers:
+                if marker in reaction_lower:
+                    score += 2
+            for marker in negative_markers:
+                if marker in reaction_lower:
+                    score -= 2
+
+            if score > best_score:
+                best_score = score
+                best_strategy = strategy
+
+        # Только если есть strong signal (>= 2 = хотя бы один positive marker
+        # без negative) — возвращаем. Иначе None (не меняем решение планировщика).
+        if best_strategy is not None and best_score >= 2:
+            return best_strategy
+        return None
+
+    def _select_strategy(
+        self, profile: StudentProfile, context: SessionContext
     ) -> TeachingStrategy:
         """Выбор основной стратегии обучения с учётом когнитивной нагрузки."""
 
@@ -331,7 +472,9 @@ class PlannerAgent:
                     ErrorType.INCOMPLETE: TeachingStrategy.GUIDED_DISCOVERY,
                     ErrorType.NOTATION: TeachingStrategy.ERROR_CORRECTION,
                 }
-                base_strategy = error_strategies.get(main_error.error_type, TeachingStrategy.SCAFFOLDED)
+                base_strategy = error_strategies.get(
+                    main_error.error_type, TeachingStrategy.SCAFFOLDED
+                )
 
             # Корректируем стратегию на основе когнитивной нагрузки
             return self._adjust_strategy_for_cognitive_load(base_strategy, context)
@@ -340,9 +483,7 @@ class PlannerAgent:
         return TeachingStrategy.GUIDED_DISCOVERY
 
     def _check_cognitive_load_strategy(
-        self,
-        profile: StudentProfile,
-        context: SessionContext
+        self, profile: StudentProfile, context: SessionContext
     ) -> Optional[TeachingStrategy]:
         """
         Проверить, нужна ли специальная стратегия для когнитивной нагрузки.
@@ -374,9 +515,7 @@ class PlannerAgent:
         return None
 
     def _adjust_strategy_for_cognitive_load(
-        self,
-        strategy: TeachingStrategy,
-        context: SessionContext
+        self, strategy: TeachingStrategy, context: SessionContext
     ) -> TeachingStrategy:
         """
         Скорректировать стратегию на основе когнитивной нагрузки.
@@ -391,16 +530,15 @@ class PlannerAgent:
             }
             simplified = simplification_map.get(strategy, strategy)
             if simplified != strategy:
-                logger.debug(f"Simplified strategy due to cognitive load: {strategy.value} -> {simplified.value}")
+                logger.debug(
+                    f"Simplified strategy due to cognitive load: {strategy.value} -> {simplified.value}"
+                )
             return simplified
 
         return strategy
 
     def _select_primary_move(
-        self,
-        profile: StudentProfile,
-        strategy: TeachingStrategy,
-        context: SessionContext
+        self, profile: StudentProfile, strategy: TeachingStrategy, context: SessionContext
     ) -> TeachingMove:
         """Выбор основного педагогического хода."""
 
@@ -419,28 +557,21 @@ class PlannerAgent:
         return sequence[idx]
 
     def _get_move_sequence(
-        self,
-        strategy: TeachingStrategy,
-        context: SessionContext
+        self, strategy: TeachingStrategy, context: SessionContext
     ) -> List[TeachingMove]:
         """Получение последовательности ходов для стратегии."""
         base_sequence = self.MOVE_SEQUENCES.get(
-            strategy,
-            [TeachingMove.SCAFFOLDING, TeachingMove.HINT]
+            strategy, [TeachingMove.SCAFFOLDING, TeachingMove.HINT]
         )
 
         # Адаптируем под контекст
         if context.turn_number > 0:
             # Пропускаем уже сделанные ходы
-            return base_sequence[context.turn_number % len(base_sequence):]
+            return base_sequence[context.turn_number % len(base_sequence) :]
 
         return base_sequence
 
-    def _select_tone(
-        self,
-        profile: StudentProfile,
-        context: SessionContext
-    ) -> str:
+    def _select_tone(self, profile: StudentProfile, context: SessionContext) -> str:
         """Выбор тона общения."""
 
         if profile.needs_encouragement or context.student_frustrated:
@@ -451,11 +582,7 @@ class PlannerAgent:
 
         return self.TONE_RULES.get(profile.confidence_level, "neutral")
 
-    def _get_focus_areas(
-        self,
-        profile: StudentProfile,
-        context: SessionContext
-    ) -> List[str]:
+    def _get_focus_areas(self, profile: StudentProfile, context: SessionContext) -> List[str]:
         """Определение областей фокуса."""
         focus = []
 
@@ -471,11 +598,7 @@ class PlannerAgent:
 
         return focus
 
-    def _get_avoid_areas(
-        self,
-        profile: StudentProfile,
-        context: SessionContext
-    ) -> List[str]:
+    def _get_avoid_areas(self, profile: StudentProfile, context: SessionContext) -> List[str]:
         """Определение того, чего следует избегать."""
         avoid = []
 
@@ -493,11 +616,7 @@ class PlannerAgent:
 
         return avoid
 
-    def _select_hints(
-        self,
-        profile: StudentProfile,
-        available_hints: List[str]
-    ) -> List[str]:
+    def _select_hints(self, profile: StudentProfile, available_hints: List[str]) -> List[str]:
         """Выбор подходящих подсказок."""
         hints = []
 
@@ -511,11 +630,7 @@ class PlannerAgent:
 
         return hints[:3]  # Максимум 3 подсказки
 
-    def _calc_max_hints(
-        self,
-        profile: StudentProfile,
-        context: SessionContext
-    ) -> int:
+    def _calc_max_hints(self, profile: StudentProfile, context: SessionContext) -> int:
         """Расчёт максимального количества подсказок до tell."""
 
         base = 3
@@ -534,12 +649,7 @@ class PlannerAgent:
 
         return max(2, min(5, base))
 
-    def update_plan(
-        self,
-        plan: TeachingPlan,
-        new_response: str,
-        was_correct: bool
-    ) -> TeachingPlan:
+    def update_plan(self, plan: TeachingPlan, new_response: str, was_correct: bool) -> TeachingPlan:
         """
         Обновление плана на основе нового ответа.
 
@@ -569,7 +679,7 @@ class PlannerAgent:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    from src.agents.profiler import StudentProfile, StudentError, ErrorType, ConfidenceLevel
+    from src.agents.profiler import ConfidenceLevel, ErrorType, StudentError, StudentProfile
 
     print("\n=== Planner Agent Demo ===\n")
 
@@ -577,21 +687,19 @@ if __name__ == "__main__":
 
     # Тест 1: Концептуальная ошибка с низкой уверенностью
     profile = StudentProfile(
-        errors=[StudentError(
-            error_type=ErrorType.CONCEPTUAL,
-            description="Не понимает, что такое производная",
-            severity=0.7
-        )],
+        errors=[
+            StudentError(
+                error_type=ErrorType.CONCEPTUAL,
+                description="Не понимает, что такое производная",
+                severity=0.7,
+            )
+        ],
         confidence_level=ConfidenceLevel.LOW,
         understanding_score=0.3,
-        needs_encouragement=False
+        needs_encouragement=False,
     )
 
-    context = SessionContext(
-        topic="derivatives",
-        difficulty="medium",
-        turn_number=0
-    )
+    context = SessionContext(topic="derivatives", difficulty="medium", turn_number=0)
 
     plan = planner.create_plan(profile, context)
 
@@ -603,13 +711,15 @@ if __name__ == "__main__":
 
     # Тест 2: Заблуждение с высокой уверенностью
     profile = StudentProfile(
-        errors=[StudentError(
-            error_type=ErrorType.MISCONCEPTION,
-            description="Уверен, что (a+b)² = a² + b²",
-            severity=0.8
-        )],
+        errors=[
+            StudentError(
+                error_type=ErrorType.MISCONCEPTION,
+                description="Уверен, что (a+b)² = a² + b²",
+                severity=0.8,
+            )
+        ],
         confidence_level=ConfidenceLevel.HIGH,
-        understanding_score=0.4
+        understanding_score=0.4,
     )
 
     plan = planner.create_plan(profile, context)
@@ -624,14 +734,11 @@ if __name__ == "__main__":
         errors=[],
         confidence_level=ConfidenceLevel.LOW,
         needs_encouragement=True,
-        understanding_score=0.5
+        understanding_score=0.5,
     )
 
     context = SessionContext(
-        topic="quadratic_equations",
-        difficulty="hard",
-        turn_number=2,
-        student_frustrated=True
+        topic="quadratic_equations", difficulty="hard", turn_number=2, student_frustrated=True
     )
 
     plan = planner.create_plan(profile, context)

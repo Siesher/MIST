@@ -9,17 +9,17 @@
 - Cerebras API (для генерации данных)
 """
 
-from enum import Enum
-from typing import Optional, Dict, Any, Union, Protocol
-from dataclasses import dataclass, field
 import logging
-from pathlib import Path
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
 
 class ModelBackend(Enum):
     """Доступные бэкенды для запуска моделей."""
+
     OLLAMA = "ollama"
     HUGGINGFACE = "huggingface"
     CEREBRAS = "cerebras"
@@ -27,16 +27,18 @@ class ModelBackend(Enum):
 
 class ModelPurpose(Enum):
     """Назначение модели в системе."""
-    TUTOR = "tutor"           # Основной репетитор
-    DRAFT = "draft"           # Черновая модель для спекулятивного декодирования
-    TEACHER = "teacher"       # Модель-учитель для генерации данных
-    EMBEDDING = "embedding"   # Модель эмбеддингов для RAG
-    PROFILER = "profiler"     # Модель для диагностики ошибок
+
+    TUTOR = "tutor"  # Основной репетитор
+    DRAFT = "draft"  # Черновая модель для спекулятивного декодирования
+    TEACHER = "teacher"  # Модель-учитель для генерации данных
+    EMBEDDING = "embedding"  # Модель эмбеддингов для RAG
+    PROFILER = "profiler"  # Модель для диагностики ошибок
 
 
 @dataclass
 class ModelConfig:
     """Конфигурация модели."""
+
     name: str
     backend: ModelBackend
     purpose: ModelPurpose
@@ -72,17 +74,10 @@ class LLMClientProtocol(Protocol):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
-        **kwargs
-    ) -> str:
-        ...
+        **kwargs,
+    ) -> str: ...
 
-    def generate_stream(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
-    ):
-        ...
+    def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, **kwargs): ...
 
 
 # Предустановленные конфигурации моделей
@@ -90,24 +85,36 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
     # ============================================================
     # ОСНОВНЫЕ МОДЕЛИ ДЛЯ РЕПЕТИТОРА (RTX 2080 8GB VRAM)
     # ============================================================
-
-    # РЕКОМЕНДУЕМАЯ: GLM-STEM-42exp (REAP-pruned, 42 experts)
-    # - 33% меньше параметров, сохраняет STEM качество
-    # - GSM8K ~95%, оптимизирован для математики и программирования
-    # - Калибровка на STEM датасете (1490 примеров)
+    # РЕКОМЕНДУЕМАЯ: GSPO fine-tuned Qwen3.5-9B (Socratic tutor)
+    # - Triple GDPO reward (correctness + format + Socratic)
+    # - Socratic score 0.934, accuracy 87.9%
+    # - Q4_K_M quantized, fits entirely on RTX 2080 8GB
+    # - Thinking mode via RENDERER qwen3.5
+    "mits-tutor-9b-think": ModelConfig(
+        name="MITS Tutor 9B (GSPO fine-tuned) [RECOMMENDED]",
+        backend=ModelBackend.OLLAMA,
+        purpose=ModelPurpose.TUTOR,
+        ollama_model="mits-tutor-9b-think",
+        hf_model_path="Siesher/mits-qwen3-9b-gspo",
+        estimated_vram_gb=5.5,  # Q4_K_M, all layers on GPU
+        estimated_ram_gb=2.0,
+        max_tokens=2048,
+        temperature=1.0,  # Qwen3.5 thinking mode needs high temp
+        context_length=4096,
+    ),
+    # LEGACY: GLM-STEM-42exp (REAP-pruned, 42 experts)
     "glm-stem-42exp-tutor": ModelConfig(
-        name="GLM-STEM-42exp (REAP-pruned) [RECOMMENDED]",
+        name="GLM-STEM-42exp (REAP-pruned) [LEGACY]",
         backend=ModelBackend.OLLAMA,
         purpose=ModelPurpose.TUTOR,
         ollama_model="glm-stem-42exp",
         hf_model_path="Siesher/glm-stem-42exp-gguf",
-        estimated_vram_gb=5.5,  # 33% меньше чем original
+        estimated_vram_gb=5.5,
         estimated_ram_gb=6.0,
         max_tokens=2048,
-        temperature=0.2,  # GLM-optimized
+        temperature=0.2,
         context_length=4096,
     ),
-
     # FALLBACK: GLM-4.7-Flash (original 64 experts)
     # - GSM8K ~95-98%, AIME ~90%
     # - Partial offload: 25 GPU layers + 22 CPU MoE layers
@@ -119,12 +126,11 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         ollama_model="glm-4.7-flash",
         hf_model_path="unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF",
         estimated_vram_gb=7.2,  # 25 layers Q4_K_M
-        estimated_ram_gb=8.0,   # remaining layers + KV cache
+        estimated_ram_gb=8.0,  # remaining layers + KV cache
         max_tokens=2048,
         temperature=0.2,  # GLM-optimized, higher causes repetition
         context_length=4096,
     ),
-
     # FALLBACK: DeepSeek-R1-Distill-8B
     # - GSM8K 80-85%, strong reasoning (distilled from R1 671B)
     # - Fits entirely on GPU
@@ -140,7 +146,6 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         temperature=0.3,
         context_length=4096,
     ),
-
     # Альтернатива: Qwen3-8B-Instruct
     # - Лучший баланс STEM: MMLU 76.89, GPQA 63.3, Coding 67.65
     # - Отлично для математики, программирования, физики, химии
@@ -156,7 +161,6 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         max_tokens=2048,
         context_length=32768,
     ),
-
     # Альтернатива для math-only: Phi-4-mini-flash-reasoning
     # - 3.8B параметров, 92.45% Math-500
     # - Быстрее, но только математика
@@ -170,7 +174,6 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         max_tokens=2048,
         context_length=65536,
     ),
-
     # Легкая альтернатива: Qwen3-4B
     "qwen3-4b-tutor": ModelConfig(
         name="Qwen3-4B (Lightweight)",
@@ -182,11 +185,9 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         max_tokens=2048,
         context_length=32768,
     ),
-
     # ============================================================
     # МОДЕЛИ-УЧИТЕЛИ ДЛЯ ГЕНЕРАЦИИ ДАННЫХ
     # ============================================================
-
     # ЛУЧШАЯ: Nemotron-Cascade-8B-Thinking
     # - 90.5% AIME 2024, 83.2% AIME 2025 (сравнимо с DeepSeek-R1 671B!)
     # - Идеально для генерации обучающих диалогов
@@ -201,7 +202,6 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         max_tokens=4096,
         temperature=0.6,
     ),
-
     # Cerebras API - бесплатно, очень мощная модель
     "cerebras-qwen-235b": ModelConfig(
         name="Qwen-3-235B via Cerebras",
@@ -211,7 +211,6 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         estimated_vram_gb=0.0,  # API, не локально
         max_tokens=4096,
     ),
-
     # Fallback учитель
     "nemotron-30b-teacher": ModelConfig(
         name="Nemotron-3-Nano-30B (Teacher)",
@@ -222,11 +221,9 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         estimated_ram_gb=20.0,
         max_tokens=4096,
     ),
-
     # ============================================================
     # ЧЕРНОВЫЕ МОДЕЛИ (Speculative Decoding)
     # ============================================================
-
     "qwen-0.5b-draft": ModelConfig(
         name="Qwen2.5-0.5B (Draft)",
         backend=ModelBackend.OLLAMA,
@@ -236,11 +233,9 @@ MODEL_PRESETS: Dict[str, ModelConfig] = {
         estimated_vram_gb=0.5,
         max_tokens=512,
     ),
-
     # ============================================================
     # МОДЕЛИ ЭМБЕДДИНГОВ (RAG)
     # ============================================================
-
     "minilm-embedding": ModelConfig(
         name="MiniLM-L12 (Embedding)",
         backend=ModelBackend.HUGGINGFACE,
@@ -302,7 +297,7 @@ class ModelManager:
         purpose: ModelPurpose = ModelPurpose.TUTOR,
         preset: Optional[str] = None,
         backend: Optional[ModelBackend] = None,
-        force_reload: bool = False
+        force_reload: bool = False,
     ) -> LLMClientProtocol:
         """
         Получение модели для указанной цели.
@@ -349,7 +344,7 @@ class ModelManager:
     def _get_default_config(self, purpose: ModelPurpose) -> ModelConfig:
         """Получение конфигурации по умолчанию для назначения."""
         defaults = {
-            ModelPurpose.TUTOR: "glm-stem-42exp-tutor",  # REAP-pruned, STEM-оптимизирован
+            ModelPurpose.TUTOR: "mits-tutor-9b-think",  # GSPO fine-tuned Qwen3.5-9B
             ModelPurpose.DRAFT: "qwen-0.5b-draft",
             ModelPurpose.TEACHER: "nemotron-cascade-8b-teacher",  # 90.5% AIME
             ModelPurpose.EMBEDDING: "minilm-embedding",
@@ -379,7 +374,7 @@ class ModelManager:
             return LLMClient(
                 model=config.ollama_model,
                 temperature=config.temperature,
-                max_tokens=config.max_tokens
+                max_tokens=config.max_tokens,
             )
         except ImportError:
             logger.error("LLMClient не найден. Проверьте src/models/llm_client.py")
@@ -395,13 +390,10 @@ class ModelManager:
                 adapter_path=config.hf_adapter_path,
                 quantize=config.quantize,
                 quantize_bits=config.quantize_bits,
-                max_tokens=config.max_tokens
+                max_tokens=config.max_tokens,
             )
         except ImportError:
-            logger.warning(
-                "HuggingFaceClient не найден. "
-                "Fallback на Ollama."
-            )
+            logger.warning("HuggingFaceClient не найден. Fallback на Ollama.")
             return self._load_ollama_model(config)
 
     def _load_cerebras_model(self, config: ModelConfig) -> LLMClientProtocol:
@@ -409,10 +401,7 @@ class ModelManager:
         try:
             from src.models.cerebras_client import CerebrasClient
 
-            return CerebrasClient(
-                model=config.cerebras_model,
-                max_tokens=config.max_tokens
-            )
+            return CerebrasClient(model=config.cerebras_model, max_tokens=config.max_tokens)
         except ImportError:
             logger.warning(
                 "CerebrasClient не найден. "
@@ -429,6 +418,7 @@ class ModelManager:
             # Принудительная очистка GPU памяти
             try:
                 import torch
+
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except ImportError:
@@ -443,10 +433,7 @@ class ModelManager:
 
     def get_loaded_models(self) -> Dict[str, str]:
         """Получение списка загруженных моделей."""
-        return {
-            key: str(type(model).__name__)
-            for key, model in self._models.items()
-        }
+        return {key: str(type(model).__name__) for key, model in self._models.items()}
 
     def estimate_total_vram(self) -> float:
         """Оценка общего потребления VRAM."""
@@ -460,9 +447,7 @@ class ModelManager:
         return total
 
     def get_available_presets(
-        self,
-        purpose: Optional[ModelPurpose] = None,
-        max_vram_gb: Optional[float] = None
+        self, purpose: Optional[ModelPurpose] = None, max_vram_gb: Optional[float] = None
     ) -> Dict[str, ModelConfig]:
         """
         Получение доступных пресетов с фильтрацией.
@@ -493,8 +478,7 @@ def get_model_manager() -> ModelManager:
 
 
 def create_client(
-    purpose: ModelPurpose = ModelPurpose.TUTOR,
-    backend: Optional[ModelBackend] = None
+    purpose: ModelPurpose = ModelPurpose.TUTOR, backend: Optional[ModelBackend] = None
 ) -> LLMClientProtocol:
     """
     Фабричная функция для создания клиента модели.
@@ -529,10 +513,7 @@ if __name__ == "__main__":
         print(f"  {name}: {config.name} ({config.estimated_vram_gb}GB VRAM)")
 
     print("\nМодели для репетитора:")
-    tutor_presets = manager.get_available_presets(
-        purpose=ModelPurpose.TUTOR,
-        max_vram_gb=8.0
-    )
+    tutor_presets = manager.get_available_presets(purpose=ModelPurpose.TUTOR, max_vram_gb=8.0)
     for name, config in tutor_presets.items():
         print(f"  {name}: {config.name}")
 

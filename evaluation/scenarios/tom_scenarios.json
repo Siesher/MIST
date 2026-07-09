@@ -1,0 +1,300 @@
+{
+  "version": "2.0",
+  "description": "20 scenarios for ToM-Tutor A/B evaluation, grounded in real graph prereq chains. Each expected_root_gap is guaranteed to be in the unmastered chain reachable via diagnose_gap.",
+  "dimensions": {
+    "message_type": ["explicit_misconception", "open_question", "confused", "confident_wrong"],
+    "difficulty": ["entry", "intermediate", "advanced"],
+    "domain": "math"
+  },
+  "scenarios": [
+    {
+      "name": "product_rule_explicit",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:functions_basics:definition": 0.75,
+        "math:limits_intuition:definition": 0.7,
+        "math:limits_formal:definition": 0.65,
+        "math:limits_techniques:definition": 0.6
+      },
+      "target_concept": "math:derivatives_basic:definition",
+      "student_message": "Я взял производную от (x^2)(sin x) и получил (2x)(cos x) — правильно? Производная произведения равна произведению производных.",
+      "expected_root_gaps": ["math:derivatives_definition:definition", "math:limits_techniques:definition"],
+      "expected_misconception_keywords": ["произведен", "произведение"]
+    },
+    {
+      "name": "chain_rule_explicit",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:functions_basics:definition": 0.8,
+        "math:limits_techniques:definition": 0.7,
+        "math:derivatives_definition:definition": 0.7,
+        "math:derivatives_basic:definition": 0.6,
+        "math:product_rule:definition": 0.3
+      },
+      "target_concept": "math:chain_rule:definition",
+      "student_message": "Производная от sin(3x) будет cos(3x), правильно? Внутренняя функция не влияет.",
+      "expected_root_gaps": ["math:product_rule:definition", "math:derivatives_basic:definition"],
+      "expected_misconception_keywords": ["внутренн", "композици", "сложн"]
+    },
+    {
+      "name": "integral_constant_omission",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:derivatives_definition:definition": 0.7,
+        "math:derivatives_basic:definition": 0.3
+      },
+      "target_concept": "math:antiderivatives:definition",
+      "student_message": "Первообразная от 2x это x^2. И всё, больше ничего писать не надо.",
+      "expected_root_gaps": ["math:derivatives_basic:definition", "math:derivatives_definition:definition"],
+      "expected_misconception_keywords": ["константа", "постоянн"]
+    },
+    {
+      "name": "linear_sign_error",
+      "category": "explicit_misconception",
+      "difficulty": "entry",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:fractions:definition": 0.85,
+        "math:variables:definition": 0.3
+      },
+      "target_concept": "math:linear_equations:definition",
+      "student_message": "Я решаю 2x + 5 = 15. Перенёс 5 вправо, получил 2x = 15 + 5 = 20. Значит x = 10.",
+      "expected_root_gaps": ["math:variables:definition"],
+      "expected_misconception_keywords": ["знак", "перенос", "противоположн"]
+    },
+    {
+      "name": "fraction_confusion_at_percentages",
+      "category": "explicit_misconception",
+      "difficulty": "entry",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:fractions:definition": 0.3,
+        "math:decimals:definition": 0.75
+      },
+      "target_concept": "math:percentages:definition",
+      "student_message": "Сложил 1/2 + 1/3 и получил 2/5. Числитель плюс числитель, знаменатель плюс знаменатель.",
+      "expected_root_gaps": ["math:fractions:definition"],
+      "expected_misconception_keywords": ["знаменател", "общий", "равный"]
+    },
+    {
+      "name": "power_to_power_error",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:functions_basics:definition": 0.4
+      },
+      "target_concept": "math:exponential_functions:definition",
+      "student_message": "(x^2)^3 = x^5, потому что 2+3=5, правильно же?",
+      "expected_root_gaps": ["math:functions_basics:definition"],
+      "expected_misconception_keywords": ["степен", "умножа", "сложа"]
+    },
+    {
+      "name": "limits_intuition_confused",
+      "category": "confused",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:linear_equations:definition": 0.8,
+        "math:functions_basics:definition": 0.75,
+        "math:limits_intuition:definition": 0.3
+      },
+      "target_concept": "math:derivatives_definition:definition",
+      "student_message": "Не понимаю, что значит предел функции. Это какое-то значение, к которому функция приближается, но не достигает? Звучит противоречиво.",
+      "expected_root_gaps": ["math:limits_intuition:definition", "math:limits_formal:definition"],
+      "expected_misconception_keywords": ["предел", "приближ"]
+    },
+    {
+      "name": "what_is_function",
+      "category": "open_question",
+      "difficulty": "entry",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:functions_basics:definition": 0.3
+      },
+      "target_concept": "math:derivatives_basic:definition",
+      "student_message": "А что такое функция? Это просто формула с x, подставил число и получил другое число?",
+      "expected_root_gaps": ["math:functions_basics:definition"],
+      "expected_misconception_keywords": ["функц", "отображен", "зависимост"]
+    },
+    {
+      "name": "cold_start_variables",
+      "category": "open_question",
+      "difficulty": "entry",
+      "mastery": {},
+      "target_concept": "math:quadratic_equations:definition",
+      "student_message": "Мне говорят, что квадратные уравнения — это ax^2+bx+c=0, но я даже что такое переменная x не очень понимаю.",
+      "expected_root_gaps": ["math:arithmetic:definition", "math:variables:definition"],
+      "expected_misconception_keywords": ["переменн", "обозначен"]
+    },
+    {
+      "name": "trig_basic_confusion",
+      "category": "confused",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:fractions:definition": 0.4,
+        "math:quadratic_equations:definition": 0.75
+      },
+      "target_concept": "math:trig_basics:definition",
+      "student_message": "Синус и косинус — это какие-то цифры, но я не понимаю как они связаны с треугольниками.",
+      "expected_root_gaps": ["math:fractions:definition"],
+      "expected_misconception_keywords": ["треугольн", "отношен", "угол"]
+    },
+    {
+      "name": "confident_wrong_quadratic_with_gap",
+      "category": "confident_wrong",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:linear_equations:definition": 0.3
+      },
+      "target_concept": "math:quadratic_equations:definition",
+      "student_message": "Для x^2 - 5x + 6 = 0 корень x = 5 плюс-минус квадратный корень из (25-24). Я уверен что применил формулу.",
+      "expected_root_gaps": ["math:linear_equations:definition"],
+      "expected_misconception_keywords": ["дискриминант", "делит", "формула"]
+    },
+    {
+      "name": "confident_wrong_derivative",
+      "category": "confident_wrong",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:functions_basics:definition": 0.8,
+        "math:limits_techniques:definition": 0.7,
+        "math:derivatives_definition:definition": 0.3
+      },
+      "target_concept": "math:derivatives_basic:definition",
+      "student_message": "Производная от sqrt(x) это 1/sqrt(x). Уверен, просто применил формулу степени.",
+      "expected_root_gaps": ["math:derivatives_definition:definition"],
+      "expected_misconception_keywords": ["степен", "дробн", "половин"]
+    },
+    {
+      "name": "missing_factoring_prereq",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:linear_equations:definition": 0.8,
+        "math:quadratic_equations:definition": 0.4
+      },
+      "target_concept": "math:factoring:definition",
+      "student_message": "Не знаю как разложить x^2 - 5x + 6 на множители. Это же просто подставить в формулу.",
+      "expected_root_gaps": ["math:quadratic_equations:definition"],
+      "expected_misconception_keywords": ["множител", "разлож", "скобк"]
+    },
+    {
+      "name": "percentages_needs_fractions",
+      "category": "open_question",
+      "difficulty": "entry",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:fractions:definition": 0.3,
+        "math:decimals:definition": 0.3
+      },
+      "target_concept": "math:percentages:definition",
+      "student_message": "Я не понимаю как считать проценты. 25% от 200 — это 25 разделить на 200?",
+      "expected_root_gaps": ["math:fractions:definition", "math:decimals:definition"],
+      "expected_misconception_keywords": ["процент", "сотн", "дробн"]
+    },
+    {
+      "name": "logarithm_needs_exponential",
+      "category": "confused",
+      "difficulty": "advanced",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:functions_basics:definition": 0.8,
+        "math:exponential_functions:definition": 0.3
+      },
+      "target_concept": "math:logarithms:definition",
+      "student_message": "Логарифм log(8) равен 3? Я думаю основание всегда 2.",
+      "expected_root_gaps": ["math:exponential_functions:definition"],
+      "expected_misconception_keywords": ["основан", "десятичн"]
+    },
+    {
+      "name": "systems_needs_linear",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:linear_equations:definition": 0.3
+      },
+      "target_concept": "math:systems_of_equations:definition",
+      "student_message": "Решаю систему x+y=5, x-y=1. Сложил оба уравнения, получил 2x=6, x=3. Теперь y=x-1=2.",
+      "expected_root_gaps": ["math:linear_equations:definition"],
+      "expected_misconception_keywords": ["подстанов", "метод", "сложен"]
+    },
+    {
+      "name": "inverse_needs_functions_basics",
+      "category": "confused",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:arithmetic:definition": 0.9,
+        "math:variables:definition": 0.85,
+        "math:functions_basics:definition": 0.3
+      },
+      "target_concept": "math:function_transformations:definition",
+      "student_message": "Обратная функция f^-1(x) это 1/f(x), правильно? Минус один ведь степень.",
+      "expected_root_gaps": ["math:functions_basics:definition"],
+      "expected_misconception_keywords": ["обратн", "степен"]
+    },
+    {
+      "name": "implicit_diff_needs_chain",
+      "category": "confused",
+      "difficulty": "advanced",
+      "mastery": {
+        "math:derivatives_basic:definition": 0.75,
+        "math:product_rule:definition": 0.4,
+        "math:chain_rule:definition": 0.3
+      },
+      "target_concept": "math:implicit_differentiation:definition",
+      "student_message": "Как взять производную от y^2=x+1 по x? Тут же нет чистой функции y=f(x).",
+      "expected_root_gaps": ["math:chain_rule:definition", "math:product_rule:definition"],
+      "expected_misconception_keywords": ["неявн", "цепн", "композици"]
+    },
+    {
+      "name": "trig_identity_needs_basics",
+      "category": "explicit_misconception",
+      "difficulty": "intermediate",
+      "mastery": {
+        "math:variables:definition": 0.85,
+        "math:fractions:definition": 0.8,
+        "math:quadratic_equations:definition": 0.75,
+        "math:trig_basics:definition": 0.3
+      },
+      "target_concept": "math:trig_identities:definition",
+      "student_message": "sin(x)^2 + cos(x)^2 = x? Или это всегда единица, я забыл.",
+      "expected_root_gaps": ["math:trig_basics:definition"],
+      "expected_misconception_keywords": ["единица", "пифагор", "тождеств"]
+    },
+    {
+      "name": "recursion_needs_functions",
+      "category": "confused",
+      "difficulty": "intermediate",
+      "mastery": {
+        "programming:python_basics:definition": 0.8,
+        "programming:functions_prog:definition": 0.3
+      },
+      "target_concept": "programming:recursion:definition",
+      "student_message": "Функция вызывает сама себя — это же бесконечный цикл? Как она вообще может остановиться?",
+      "expected_root_gaps": ["programming:functions_prog:definition"],
+      "expected_misconception_keywords": ["базов", "услов", "остановк"]
+    }
+  ]
+}

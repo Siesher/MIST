@@ -1,0 +1,311 @@
+{
+  "cards": [
+    {
+      "topic": "integral_law_distribution",
+      "domain": "math",
+      "skill": "probability.cdf_properties",
+      "difficulty": "medium",
+      "prerequisites": [
+        "random_variables"
+      ],
+      "definition": "Интегральный закон распределения (ИЗР) случайной величины X — это функция F(x), определяющая вероятность того, что значения случайной величины будут меньше некоторого текущего значения x.",
+      "key_formulas": [
+        {
+          "name": "Определение ИЗР",
+          "latex": "F(x) = P(X < x)"
+        },
+        {
+          "name": "Вероятность попадания в интервал",
+          "latex": "P(\\alpha \\le X \\le \\beta) = F(\\beta) - F(\\alpha)"
+        }
+      ],
+      "worked_examples": [
+        {
+          "difficulty": "easy",
+          "problem": "Определить вероятность попадания случайной точки в интервал [\\alpha, \\beta] по известному закону распределения.",
+          "steps": [
+            "Идентифицировать непрерывную случайную величину X.",
+            "Записать интегральный закон распределения F(x).",
+            "Вычислить разность значений функции в концах интервала."
+          ],
+          "answer": "P(\\alpha \\le X \\le \\beta) = F(\\beta) - F(\\alpha)"
+        }
+      ],
+      "common_errors": [
+        {
+          "error": "Использование ИЗР для локального анализа",
+          "description": "По интегральному закону распределения трудно судить о характере распределения СВ в небольшой окрестности точки числовой оси.",
+          "correction": "Для наглядного представления характера распределения используется плотность распределения вероятности (ДЗР)."
+        }
+      ],
+      "tags": [
+        "probability",
+        "continuous_random_variable",
+        "distribution_function"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_integral_law_distribution_5055b3dabf0e"
+    },
+    {
+      "topic": "probability_density_function",
+      "domain": "math",
+      "skill": "probability.continuous_distribution",
+      "difficulty": "medium",
+      "prerequisites": [
+        "random_variables",
+        "cumulative_distribution_function",
+        "calculus_integration"
+      ],
+      "definition": "The differential law of distribution defines the probability density function $f(x)$ for a continuous random variable $X$. It relates the probability of $X$ falling within an interval to the derivative of the cumulative distribution function $F(x)$. The density function describes how probability is distributed over the domain of the variable.",
+      "key_formulas": [
+        {
+          "name": "Probability in interval",
+          "latex": "P(x \\le X \\le x+\\Delta x) = F(x+\\Delta x) - F(x)"
+        },
+        {
+          "name": "Definition of density function",
+          "latex": "f(x) = \\lim_{\\Delta x \\to 0} \\frac{F(x+\\Delta x) - F(x)}{\\Delta x} = F'(x)"
+        },
+        {
+          "name": "CDF from PDF",
+          "latex": "F(x) = \\int_{-\\infty}^{x} f(t) dt"
+        },
+        {
+          "name": "Probability on interval [alpha, beta]",
+          "latex": "P[\\alpha \\le X \\le \\beta] = \\int_{\\alpha}^{\\beta} f(x) dx = F(\\beta) - F(\\alpha)"
+        },
+        {
+          "name": "Normalization condition",
+          "latex": "\\int_{-\\infty}^{\\infty} f(x) dx = 1"
+        }
+      ],
+      "worked_examples": [],
+      "common_errors": [
+        {
+          "error": "Confusing density with probability",
+          "description": "Treating $f(x)$ as a probability value rather than a density. Note that $P(X=x) = 0$ for continuous variables.",
+          "correction": "Remember $f(x) \\ge 0$ and probabilities are calculated via integrals of $f(x)$."
+        },
+        {
+          "error": "Incorrect integration limits",
+          "description": "Using finite limits when calculating total probability or CDF without considering the domain boundaries.",
+          "correction": "Ensure integration for CDF starts from $-\\infty$ and PDF normalization integrates over the entire support."
+        }
+      ],
+      "tags": [
+        "probability",
+        "density_function",
+        "continuous_random_variable",
+        "calculus"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_probability_density_function_b989086c011c"
+    },
+    {
+      "topic": "properties_of_mathematical_expectation",
+      "domain": "math",
+      "skill": "probability.expectation_properties",
+      "difficulty": "medium",
+      "prerequisites": [
+        "random_variables_definition"
+      ],
+      "definition": "Mathematical expectation is a linear operator. It satisfies properties for constants, sums, and products of independent random variables.",
+      "key_formulas": [
+        {
+          "name": "Expectation of Constant",
+          "latex": "$M[C] = C$"
+        },
+        {
+          "name": "Constant Multiplier Property",
+          "latex": "$M[C \\cdot X] = C \\cdot M[X]$"
+        },
+        {
+          "name": "Expectation of Product (Independent)",
+          "latex": "$M[XY] = M[X] \\cdot M[Y]$ (if $X, Y$ independent)"
+        },
+        {
+          "name": "Linearity of Expectation",
+          "latex": "$M[X + Y] = M[X] + M[Y]$"
+        }
+      ],
+      "worked_examples": [],
+      "common_errors": [
+        {
+          "error": "Applying product rule to dependent variables",
+          "description": "Using $M[XY] = M[X]M[Y]$ when X and Y are not independent.",
+          "correction": "The formula holds only for independent random variables."
+        }
+      ],
+      "tags": [
+        "expectation",
+        "linearity",
+        "independence"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_properties_of_mathematical_expectation_19e7df7be1dc"
+    },
+    {
+      "topic": "variance_and_central_moments",
+      "domain": "math",
+      "skill": "probability.variance",
+      "difficulty": "medium",
+      "prerequisites": [
+        "properties_of_mathematical_expectation"
+      ],
+      "definition": "Central moment of order k is defined as $\\beta_k = M[(X - M[X])^k]$. The second central moment, known as Variance ($D[X]$), characterizes the spread or dispersion of values relative to the mean.",
+      "key_formulas": [
+        {
+          "name": "Central Moment Definition",
+          "latex": "$\\beta_k = M[(X - m)^k] = \\int_{-\\infty}^{\\infty} (x - m)^k f(x) dx$"
+        },
+        {
+          "name": "Variance Definition",
+          "latex": "$D[X] = M[(X - M[X])^2]$"
+        }
+      ],
+      "worked_examples": [],
+      "common_errors": [
+        {
+          "error": "Confusing Expectation with Variance",
+          "description": "Believing that equal means imply identical distributions.",
+          "correction": "Expectation does not capture spread; two variables can have the same mean but different variances."
+        }
+      ],
+      "tags": [
+        "variance",
+        "central_moments",
+        "dispersion"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_variance_and_central_moments_19e7df7be1dc"
+    },
+    {
+      "topic": "random_variables_variance_sd",
+      "domain": "math",
+      "skill": "probability.variance",
+      "difficulty": "medium",
+      "prerequisites": [
+        "random_variables_expectation"
+      ],
+      "definition": "Дисперсия (D) случайной величины X — это математическое ожидание квадрата отклонения от математического ожидания. Среднее квадратическое отклонение (СКО, σ) — это положительный корень из дисперсии.",
+      "key_formulas": [
+        {
+          "name": "Variance Definition",
+          "latex": "$D_X = M[(X - m_X)^2] = \\int_{-\\infty}^{\\infty} (x-m_X)^2 f(x) dx$"
+        },
+        {
+          "name": "Standard Deviation",
+          "latex": "$\\sigma_X = \\sqrt{D_X}$"
+        }
+      ],
+      "worked_examples": [],
+      "common_errors": [
+        {
+          "error": "Confusing dimensions",
+          "description": "Using variance D when a quantity with dimension of X is needed.",
+          "correction": "Use standard deviation \\sigma_X instead of D for quantities requiring the same dimension as X."
+        }
+      ],
+      "tags": [
+        "statistics",
+        "random_variables",
+        "dispersion"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_random_variables_variance_sd_717fe0b2f8ee"
+    },
+    {
+      "topic": "normal_distribution_gaussian",
+      "domain": "math",
+      "skill": "probability.normal",
+      "difficulty": "medium",
+      "prerequisites": [
+        "random_variables_variance_sd"
+      ],
+      "definition": "Нормальный закон распределения (закон Гаусса) — наиболее распространенный закон распределения случайной величины, полностью определяемый математическим ожиданием и дисперсией.",
+      "key_formulas": [
+        {
+          "name": "Gaussian PDF",
+          "latex": "$f(x) = \\frac{1}{\\sigma_X \\sqrt{2\\pi}} e^{-\\frac{(x-m_X)^2}{2\\sigma_X^2}}$"
+        }
+      ],
+      "worked_examples": [],
+      "common_errors": [
+        {
+          "error": "Incorrect PDF normalization",
+          "description": "Forgetting the factor \\frac{1}{\\sigma_X \\sqrt{2\\pi}}.",
+          "correction": "Ensure the coefficient matches the standard normal distribution formula."
+        }
+      ],
+      "tags": [
+        "statistics",
+        "gaussian",
+        "bell_curve"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_normal_distribution_gaussian_717fe0b2f8ee"
+    },
+    {
+      "topic": "stochastic_process_mean",
+      "domain": "math",
+      "skill": "probability.stochastic_processes.mean",
+      "difficulty": "medium",
+      "prerequisites": [
+        "random_variables",
+        "expectation"
+      ],
+      "definition": "Математическое ожидание случайной функции (СФ) X(t) представляет собой функцию m(t), равную математическому ожиданию случайных величин, соответствующих СФ при всех возможных значениях аргумента t.",
+      "key_formulas": [
+        {
+          "name": "Mean Function",
+          "latex": "$m_X(t) = E[X(t)]$"
+        },
+        {
+          "name": "Confidence Interval (Normal)",
+          "latex": "$m(t) \\pm 3\\sigma(t)$"
+        }
+      ],
+      "worked_examples": [],
+      "common_errors": [
+        {
+          "error": "Misinterpreting Normal Distribution Property",
+          "description": "Assuming the interval $m(t) \\pm 3\\sigma(t)$ covers approximately 99.7% probability for any distribution.",
+          "correction": "This approximation is valid specifically under a normal law of distribution (Gaussian process)."
+        },
+        {
+          "error": "Confusing Realization with Mean",
+          "description": "Mixing up a single trajectory X(t) with the ensemble average m(t).",
+          "correction": "Remember m(t) is an average over all possible realizations at time t."
+        }
+      ],
+      "tags": [
+        "stochastic_processes",
+        "expectation",
+        "normal_distribution"
+      ],
+      "source_reference": {
+        "type": "textbook",
+        "title": "TAU_tome2"
+      },
+      "id": "math_stochastic_process_mean_3d6778c74459"
+    }
+  ]
+}

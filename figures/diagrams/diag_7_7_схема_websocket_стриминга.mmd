@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant U as Пользователь
+    participant F as Frontend (Next.js)
+    participant W as WebSocket Handler
+    participant O as Orchestrator Service
+    participant A as Агенты (4 шт.)
+    participant L as LLM (Ollama)
+
+    U->>F: Ввод сообщения
+    F->>F: addMessage (Zustand)
+    F->>W: WS: {"type":"message","content":"..."}
+    W->>O: process_message_stream()
+    O->>O: Загрузка сессии из DB
+    O->>A: process_turn(context, input)
+
+    Note over A: Profiler → Planner → Tutor
+
+    A->>L: generate_stream(prompt)
+
+    loop Токены (streaming)
+        L-->>A: token
+        A-->>O: yield token
+        O-->>W: AsyncGenerator
+        W-->>F: WS: {"type":"token","content":"...","is_thinking":bool}
+        F-->>F: appendStreamingContent()
+        F-->>U: Отображение в реальном времени
+    end
+
+    A->>A: Verifier.verify()
+    A-->>O: TurnResult
+    O->>O: Сохранение в DB
+    O-->>W: response_complete
+    W-->>F: WS: {"type":"response_complete","response":{...}}
+    F-->>F: addMessage (final)
+    F-->>U: Полный ответ

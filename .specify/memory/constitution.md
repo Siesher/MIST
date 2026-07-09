@@ -151,7 +151,7 @@ Incomplete discipline support misleads students about system capabilities.
 
 ### Documentation
 
-- Model selection rationale MUST be documented in `docs/MODEL_SELECTION.md`
+- Model selection rationale MUST be documented in `docs/architecture/MODEL_SELECTION.md`
 - API changes MUST update docstrings and type hints
 - New features MUST update `README.md` capabilities section
 

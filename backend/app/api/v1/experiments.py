@@ -1,18 +1,24 @@
 """Experiment API endpoints for A/B testing."""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.api.v1.auth import get_current_user
 from backend.app.models.database import get_db
 from backend.app.services.experiment_service import get_experiment_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/experiments", tags=["experiments"])
+# Research-инфраструктура (создание экспериментов, enrollment, метрики групп):
+# анонимный доступ закрыт целиком.
+router = APIRouter(
+    prefix="/experiments",
+    tags=["experiments"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 class CreateExperimentRequest(BaseModel):
@@ -38,7 +44,11 @@ async def create_experiment(req: CreateExperimentRequest, db: AsyncSession = Dep
     """Create a new A/B experiment."""
     service = await get_experiment_service()
     experiment = await service.create_experiment(
-        db, req.name, req.description, req.control_mode, req.treatment_mode,
+        db,
+        req.name,
+        req.description,
+        req.control_mode,
+        req.treatment_mode,
     )
     return {
         "experiment_id": experiment.id,
@@ -105,7 +115,7 @@ async def get_results(experiment_id: str, db: AsyncSession = Depends(get_db)):
     analysis = None
     if len(control_pre) >= 2 and len(treatment_pre) >= 2:
         from evaluation.experiment_analysis import analyze_experiment, format_report
-        from dataclasses import asdict
+
         stats = analyze_experiment(control_pre, control_post, treatment_pre, treatment_post)
         analysis = {
             "t_statistic": stats.t_statistic,

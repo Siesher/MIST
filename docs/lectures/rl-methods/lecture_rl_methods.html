@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Современные методы RL для LLM</title>
+<meta name="viewport" content="width=1280, initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/theme/black.min.css" id="theme">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #f59e0b;
+    --accent2: #38bdf8;
+    --accent3: #a78bfa;
+    --good: #34d399;
+    --bad: #f87171;
+    --pink: #ec4899;
+    --bg: #050816;
+    --bg2: #0b1230;
+    --fg: #e5e7eb;
+    --muted: #94a3b8;
+  }
+  html, body { background: var(--bg); }
+  .reveal { font-family: 'Inter', system-ui, sans-serif; color: var(--fg); }
+  .reveal .slides { text-align: left; }
+
+  /* COMPACT layout — fits 1600×900 */
+  .reveal section {
+    background: radial-gradient(ellipse at top left, #1a1a3e 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, #1e1b4b 0%, transparent 50%),
+                linear-gradient(180deg, #050816 0%, #0b1230 100%);
+    padding: 28px 44px !important;
+    height: 100% !important;
+    box-sizing: border-box;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow: hidden !important;          /* safety net — никаких обрезаний */
+  }
+  .reveal section.center { justify-content: center; }
+  .reveal section > * { min-width: 0; min-height: 0; }   /* для flex/grid */
+
+  .reveal h1, .reveal h2, .reveal h3 { font-weight: 800; color: #fff; text-transform: none; letter-spacing: -0.02em; margin: 0; }
+  .reveal h1 { font-size: 2.4em; }
+  .reveal h2 { font-size: 1.4em; margin-bottom: 0.4em; line-height: 1.15; }
+  .reveal h3 { font-size: 0.95em; color: var(--accent2); font-weight: 600; margin-bottom: 0.25em; }
+  .reveal h4 { font-size: 0.8em; color: var(--accent); font-weight: 600; margin: 0.15em 0; }
+
+  .reveal p, .reveal li { font-size: 0.66em; line-height: 1.4; margin: 0.18em 0; }
+  .reveal ul, .reveal ol { margin: 0.2em 0 0.2em 1em; padding: 0; }
+  .reveal li { margin: 0.15em 0; }
+
+  .reveal em { color: var(--accent); font-style: normal; font-weight: 700; }
+  .reveal strong { color: var(--accent2); }
+  .reveal code { background: rgba(56,189,248,0.1); color: var(--accent2); padding: 1px 5px;
+                 border-radius: 3px; font-size: 0.88em; font-family: 'JetBrains Mono', monospace; }
+
+  /* Tables compact */
+  .reveal table { font-size: 0.62em; margin: 0.3em 0; width: 100%; border-collapse: collapse; }
+  .reveal table th { background: rgba(56,189,248,0.1); color: var(--accent2);
+                     border-bottom: 2px solid var(--accent2); padding: 6px 10px; }
+  .reveal table td { border-bottom: 1px solid rgba(56,189,248,0.1); padding: 6px 10px; vertical-align: top; }
+
+  .grad-title {
+    background: linear-gradient(135deg, var(--accent2) 0%, var(--accent3) 50%, var(--pink) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Title slide */
+  .title-slide { text-align: center; }
+  .title-slide h1 { font-size: 2.6em; margin-bottom: 0.2em; line-height: 1.1; }
+  .title-slide .sub {
+    font-size: 0.95em; color: var(--accent2); margin-top: 0.4em;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+  }
+
+  /* Pulsing dot */
+  @keyframes pulse {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50%     { transform: scale(1.3); opacity: 0.6; }
+  }
+  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+               background: var(--accent); animation: pulse 2s ease-in-out infinite; margin-right: 6px; }
+
+  /* Grids */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+
+  .card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+  .card h3 { margin: 0 0 4px 0; }
+  .card p { font-size: 0.68em; margin: 0; color: var(--muted); }
+  .card .icon { font-size: 1.4em; margin-bottom: 2px; }
+
+  /* Method card with color stripe */
+  .m-card { border-left: 3px solid; }
+  .m-ppo  { border-color: var(--bad);    }
+  .m-grpo { border-color: var(--accent); }
+  .m-dpo  { border-color: var(--accent3);}
+  .m-kto  { border-color: var(--good);   }
+  .m-gspo { border-color: var(--accent2);}
+  .m-dapo { border-color: #fb7185; }
+  .m-light{ border-color: #67e8f9; }
+  .m-ipo  { border-color: #c084fc; }
+  .m-orpo { border-color: #f472b6; }
+  .m-rlaif{ border-color: #facc15; }
+
+  .tag {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.55em;
+    padding: 2px 7px; border-radius: 999px; margin-right: 4px; margin-top: 2px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  }
+  .tag.good { color: var(--good);    border-color: rgba(52,211,153,0.5); }
+  .tag.bad  { color: var(--bad);     border-color: rgba(248,113,113,0.5); }
+  .tag.b    { color: var(--accent2); border-color: rgba(56,189,248,0.5);  }
+  .tag.a    { color: var(--accent);  border-color: rgba(245,158,11,0.5);  }
+  .tag.p    { color: var(--accent3); border-color: rgba(167,139,250,0.5); }
+
+  /* Formula box */
+  .formula {
+    background: rgba(56,189,248,0.05);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-left: 3px solid var(--accent2);
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin: 6px 0;
+    text-align: center;
+    font-size: 0.85em;
+  }
+  .formula.warn { border-left-color: var(--accent); border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.05); }
+  .formula.tiny { font-size: 0.75em; padding: 6px 10px; }
+
+  .accent  { color: var(--accent); }
+  .accent2 { color: var(--accent2); }
+  .accent3 { color: var(--accent3); }
+  .good    { color: var(--good); }
+  .bad     { color: var(--bad); }
+  .muted   { color: var(--muted); }
+  .small   { font-size: 0.62em; color: var(--muted); }
+  .mono    { font-family: 'JetBrains Mono', monospace; }
+
+  /* Compact header for method slides — single line, no wrap */
+  .method-head {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 6px; margin-bottom: 6px; gap: 12px;
+  }
+  .method-head h2 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .method-head .subtitle { font-weight: 500; color: var(--muted); font-size: 0.65em; margin-left: 6px; }
+  .method-head .meta { font-family: 'JetBrains Mono', monospace; font-size: 0.55em; color: var(--muted);
+                       white-space: nowrap; flex-shrink: 0; }
+
+  /* mini pipeline */
+  .pipe { display: flex; gap: 4px; align-items: stretch; }
+  .pipe-step {
+    flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px;
+    border-top: 3px solid; min-width: 0;
+  }
+  .pipe-step h4 { margin: 0 0 2px 0; font-size: 0.85em; color: #fff; }
+  .pipe-step .stage-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.55em; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .pipe-step ul { font-size: 0.62em; margin: 4px 0 0 12px; padding: 0; }
+  .pipe-step.s1 { border-color: var(--accent); }
+  .pipe-step.s2 { border-color: var(--good); }
+  .pipe-step.s3 { border-color: var(--accent3); }
+  .pipe-step.s4 { border-color: var(--accent2); }
+  .pipe-arrow { align-self: center; font-size: 1.1em; color: var(--accent2);
+                animation: slide-r 2s ease-in-out infinite; }
+  @keyframes slide-r { 0%,100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px;
+    border-radius: 999px; background: rgba(52,211,153,0.1); border: 1px solid var(--good);
+    font-size: 0.55em; font-family: 'JetBrains Mono', monospace; color: var(--good);
+  }
+
+  .row { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; }
+  .num-bullet {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent3));
+    color: #fff; font-weight: 700; font-size: 0.7em; flex-shrink: 0;
+  }
+
+  .stats { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+  .stat { text-align: center; }
+  .stat .v { font-size: 1.7em; font-weight: 800; line-height: 1;
+             background: linear-gradient(135deg, var(--accent2), var(--accent3));
+             -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat .l { font-size: 0.6em; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* MITS callout — small blue bar at the bottom */
+  .mits-note {
+    margin-top: auto; padding: 6px 12px;
+    border-radius: 8px; background: rgba(56,189,248,0.06);
+    border-left: 3px solid var(--accent2); font-size: 0.62em; color: var(--muted);
+  }
+  .mits-note strong { color: var(--accent2); }
+
+  /* SVG container — bounded height so slides don't overflow */
+  .svg-frame { display: flex; justify-content: center; align-items: center; }
+  .svg-frame svg { max-height: 240px; width: auto; }
+
+  /* fragment helpers */
+  .reveal .fragment.fade-in-then-out.visible:not(.current-fragment) { display: none !important; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ============ 1. ТИТУЛ ============ -->
+<section class="center" data-transition="zoom"
+         data-background-gradient="radial-gradient(ellipse at center, #1e1b4b 0%, #050816 70%)">
+  <div class="title-slide">
+    <h1 class="grad-title">Современные методы RL<br>для языковых моделей</h1>
+    <p class="sub">PPO · GRPO · GSPO · DAPO · DPO · IPO · SimPO · ORPO · KTO · RLAIF · Iterative DPO</p>
+    <div class="stats">
+      <div class="stat"><div class="v">~12</div><div class="l">методов</div></div>
+      <div class="stat"><div class="v">15</div><div class="l">слайдов</div></div>
+      <div class="stat"><div class="v">~50</div><div class="l">минут</div></div>
+      <div class="stat"><div class="v">1 идея</div><div class="l">KL-регуляризация</div></div>
+    </div>
+    <p style="margin-top: 1.4em;"><span class="live-badge"><span class="pulse-dot"></span>Обзорная лекция · 2026</span></p>
+  </div>
+</section>
+
+<!-- ============ 2. ЗАЧЕМ RL ДЛЯ LLM ============ -->
+<section data-transition="slide">
+  <h2>Зачем LLM нужен RL <span class="small" style="font-weight: 400;">— что не умеет SFT</span></h2>
+  <div class="grid-3">
+    <div class="card fragment fade-up">
+      <div class="icon">📊</div>
+      <h3>Нет ранжирования</h3>
+      <p>SFT учит «среднему» примеру. Все хорошие ответы равноценны, модель не знает, что один лучше другого.</p>
+    </div>
+    <div class="card fragment fade-up">
+      <div class="icon">🌀</div>
+      <h3>Distribution shift</h3>
+      <p>На инференсе модель попадает в собственные сэмплы — состояния, которых не было в обучении. Ошибки накапливаются.</p>
+    </div>
+    <div class="card fragment fade-up">
+      <div class="icon">🚫</div>
+      <h3>Не учит «нет»</h3>
+      <p>SFT не умеет учить тому, что делать <em>не</em> надо: давать спойлер, придумывать факты, грубить, длинить ответ.</p>
+    </div>
+  </div>
+  <h3 style="margin-top: 12px;" class="fragment fade-in">Что добавляет RL</h3>
+  <div class="grid-3 fragment fade-up">
+    <div class="card m-card m-grpo">
+      <h4>Программную награду</h4>
+      <p>Верификатор (SymPy, юнит-тесты, formatter), не нужна разметка</p>
+    </div>
+    <div class="card m-card m-dpo">
+      <h4>Сигнал предпочтений</h4>
+      <p>«A лучше B» от человека или LLM-судьи</p>
+    </div>
+    <div class="card m-card m-kto">
+      <h4>Бинарный фидбэк</h4>
+      <p>Лайк/дизлайк, понятно/непонятно — то, что копится в проде</p>
+    </div>
+  </div>
+  <p class="mits-note"><strong>Иллюстрация — MITS</strong> (Mathematics Intelligent Tutoring System): сократический стиль, верифицируемая правильность, бинарные реакции студентов. Будем возвращаться по ходу лекции.</p>
+</section>
+
+<!-- ============ 3. УНИВЕРСАЛЬНАЯ ЗАДАЧА ============ -->
+<section data-transition="convex">
+  <h2>Все методы решают <span class="grad-title">одну задачу</span></h2>
+  <div class="formula" style="font-size: 1.05em; padding: 14px 22px;">
+    \[ \max_{\pi_\theta}\; \mathbb{E}_{x,\,y\sim\pi_\theta}\big[\,r(x,y)\,\big] \;-\; \beta\,\mathrm{KL}\big[\pi_\theta\,\|\,\pi_{\text{ref}}\big] \]
+  </div>
+  <div class="grid-3" style="margin-top: 6px;">
+    <div class="card"><h4 class="accent">r(x,y)</h4><p>Выученная (RM), программная (SymPy/тесты) или неявная награда</p></div>
+    <div class="card"><h4 class="accent2">π_ref</h4><p>Якорь — обычно SFT-чекпоинт</p></div>
+    <div class="card"><h4 class="accent3">β · KL</h4><p>Регулятор, не даёт уехать от референса</p></div>
+  </div>
+  <p class="small" style="margin-top: 6px;">Аналитический оптимум: \(\pi^*(y|x) \propto \pi_{\text{ref}}(y|x)\,e^{r(x,y)/\beta}\) — отсюда выводятся DPO и KTO.</p>
+  <h3 style="margin-top: 8px;">Источники сигнала задают семейство</h3>
+  <table style="margin-top: 4px;">
+    <thead><tr><th>Сигнал</th><th>Семейство</th><th>Примеры методов</th></tr></thead>
+    <tbody>
+      <tr><td>Программная награда</td><td>on-policy RL</td><td>PPO, GRPO, GSPO, DAPO, RLOO, ReMax</td></tr>
+      <tr><td>Пары y_w ≻ y_l</td><td>offline contrastive</td><td>DPO, IPO, SimPO, CPO, ORPO, R-DPO</td></tr>
+      <tr><td>Бинарные метки</td><td>offline prospect</td><td>KTO, NPO</td></tr>
+      <tr><td>LLM-судья / итерации</td><td>iterative / AI-feedback</td><td>RLAIF, Constitutional AI, Self-Rewarding, Iter-DPO</td></tr>
+    </tbody>
+  </table>
+  <p class="small" style="margin-top: 6px;">Для пар работает <strong>Bradley–Terry</strong>: \(P(y_w \succ y_l|x) = \sigma(r^*_w - r^*_l)\). DPO замечает — можно решать напрямую, выразив \(r^*\) через политики.</p>
+</section>
+
+<!-- ============ 4. КАРТА СЕМЕЙСТВ ============ -->
+<section data-transition="slide">
+  <h2>Карта семейств</h2>
+  <div class="grid-2" style="margin-bottom: 8px;">
+    <div>
+      <h3 class="accent">🔁 Online RL (нужны сэмплы и награда)</h3>
+      <div class="grid-2">
+        <div class="card m-card m-ppo fragment fade-up">
+          <h4>PPO</h4><span class="tag bad">4 модели</span><span class="tag b">2017</span>
+          <p>Классика RLHF. Critic + clipping + RM</p>
+        </div>
+        <div class="card m-card m-grpo fragment fade-up">
+          <h4>GRPO</h4><span class="tag good">без critic</span><span class="tag b">2024</span>
+          <p>Группа сэмплов как baseline</p>
+        </div>
+        <div class="card m-card m-gspo fragment fade-up">
+          <h4>GSPO</h4><span class="tag good">seq-level</span><span class="tag b">2025</span>
+          <p>Один ratio на всю последовательность</p>
+        </div>
+        <div class="card m-card m-dapo fragment fade-up">
+          <h4>DAPO / RLOO / ReMax</h4><span class="tag good">light</span>
+          <p>Лёгкие альтернативы PPO без critic</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3 class="accent3">📋 Offline preference (на парах/метках)</h3>
+      <div class="grid-2">
+        <div class="card m-card m-dpo fragment fade-up">
+          <h4>DPO</h4><span class="tag good">2 модели</span><span class="tag p">2023</span>
+          <p>Прямой контрастный лосс на парах</p>
+        </div>
+        <div class="card m-card m-ipo fragment fade-up">
+          <h4>IPO / SimPO / CPO</h4><span class="tag p">DPO++</span>
+          <p>Length-norm, robust, без overfit</p>
+        </div>
+        <div class="card m-card m-orpo fragment fade-up">
+          <h4>ORPO</h4><span class="tag good">без π_ref</span>
+          <p>SFT + odds-ratio в одном шаге</p>
+        </div>
+        <div class="card m-card m-kto fragment fade-up">
+          <h4>KTO / NPO</h4><span class="tag a">без пар</span>
+          <p>Канеман–Тверски, бинарные метки</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card m-card m-rlaif fragment fade-up" style="margin-top: 4px;">
+    <h4>🔄 Iterative / AI-feedback</h4>
+    <p><strong>RLAIF</strong> · <strong>Constitutional AI</strong> · <strong>Self-Rewarding LM</strong> · <strong>Iterative DPO</strong>
+    — закрывают off-policy gap и заменяют человеческую разметку LLM-судьёй.</p>
+  </div>
+</section>
+
+<!-- ============ 5. PPO ============ -->
+<section data-transition="slide">
+  <div class="method-head">
+    <h2><span class="m-card m-ppo" style="padding: 0 6px;">🏛️ PPO</span> <span class="subtitle">Proximal Policy Optimization</span></h2>
+    <span class="meta">Schulman 2017 · OpenAI · 1707.06347</span>
+  </div>
+  <div class="grid-2">
+    <div>
+      <h3>Идея</h3>
+      <p>Малый шаг в политике: clip importance ratio, чтобы не уйти слишком далеко от старой версии.</p>
+      <div class="formula warn tiny">
+        \[ L^{\text{CLIP}} = \mathbb{E}_t[\min(r_t \hat A_t, \mathrm{clip}(r_t, 1{-}\varepsilon, 1{+}\varepsilon)\hat A_t)] \]
+      </div>
+      <p class="small">\(r_t = \pi_\theta(a_t|s_t)/\pi_{\theta_{\text{old}}}\), \(\hat A_t\) — GAE через value-сеть.</p>
+
+      <h3 style="margin-top: 6px;">Pipeline RLHF</h3>
+      <ol style="font-size: 0.78em;">
+        <li>SFT → стартовая π</li>
+        <li>Reward-модель учится по Bradley–Terry</li>
+        <li>PPO + KL-штраф к π_ref</li>
+      </ol>
+    </div>
+    <div>
+      <h3>Что в памяти</h3>
+      <div class="svg-frame">
+        <svg viewBox="0 0 380 220" width="100%">
+          <rect x="6" y="6" width="368" height="208" rx="10" fill="rgba(255,255,255,0.03)" stroke="#334155" stroke-dasharray="5 4"/>
+          <text x="14" y="22" fill="#94a3b8" font-size="11" font-family="JetBrains Mono">VRAM</text>
+          <g class="fragment fade-in" data-fragment-index="1">
+            <rect x="22" y="36" width="158" height="76" rx="8" fill="#0c4a6e" stroke="#38bdf8"/>
+            <text x="101" y="73" text-anchor="middle" fill="#fff" font-weight="700" font-size="13">π_θ policy</text>
+            <text x="101" y="90" text-anchor="middle" fill="#94a3b8" font-size="10">trainable</text>
+          </g>
+          <g class="fragment fade-in" data-fragment-index="2">
+            <rect x="200" y="36" width="158" height="76" rx="8" fill="#1e293b" stroke="#38bdf8"/>
+            <text x="279" y="73" text-anchor="middle" fill="#38bdf8" font-weight="700" font-size="13">π_ref</text>
+            <text x="279" y="90" text-anchor="middle" fill="#94a3b8" font-size="10">frozen</text>
+          </g>
+          <g class="fragment fade-in" data-fragment-index="3">
+            <rect x="22" y="124" width="158" height="76" rx="8" fill="#7c2d12" stroke="#f59e0b"/>
+            <text x="101" y="161" text-anchor="middle" fill="#fff" font-weight="700" font-size="13">V_ψ critic</text>
+            <text x="101" y="178" text-anchor="middle" fill="#fde68a" font-size="10">trainable, шумит</text>
+          </g>
+          <g class="fragment fade-in" data-fragment-index="4">
+            <rect x="200" y="124" width="158" height="76" rx="8" fill="#1e293b" stroke="#f87171"/>
+            <text x="279" y="161" text-anchor="middle" fill="#f87171" font-weight="700" font-size="13">r_φ reward</text>
+            <text x="279" y="178" text-anchor="middle" fill="#94a3b8" font-size="10">frozen, узкое место</text>
+          </g>
+        </svg>
+      </div>
+      <p class="small accent fragment fade-in" style="text-align: center;">≈ 4× размер базовой модели в FP16</p>
+    </div>
+  </div>
+  <p class="mits-note"><strong>В MITS не используется</strong> — для 9B модели на A100 80&nbsp;ГБ это 36+&nbsp;ГБ VRAM с 4 моделями.</p>
+</section>
+
+<!-- ============ 6. GRPO ============ -->
+<section data-transition="slide">
+  <div class="method-head">
+    <h2><span class="m-card m-grpo" style="padding: 0 6px;">🎯 GRPO</span> <span class="subtitle">Group Relative Policy Optimization</span></h2>
+    <span class="meta">Shao 2024 · DeepSeek · 2402.03300</span>
+  </div>
+  <div class="grid-2">
+    <div>
+      <h3>Идея</h3>
+      <p>Для одного промпта \(q\) сэмплируем группу \(\{o_1,\dots,o_G\}\), берём награды \(r_i\), нормируем — это и есть baseline.</p>
+      <div class="formula tiny">
+        \[ \hat A_i = \frac{r_i - \mathrm{mean}(r_{1..G})}{\mathrm{std}(r_{1..G})} \]
+      </div>
+      <div class="formula warn tiny">
+        \[ L^{\text{GRPO}} = \tfrac{1}{G}\!\sum_i\!\tfrac{1}{|o_i|}\!\sum_t\!\min(\rho_{i,t}\hat A_i, \mathrm{clip}(\rho_{i,t})\hat A_i) - \beta\mathrm{KL} \]
+      </div>
+      <h3 style="margin-top: 4px;">Зачем</h3>
+      <ul>
+        <li><span class="good">3 модели в памяти</span> вместо 4 — без critic</li>
+        <li><span class="good">Программная награда</span>: SymPy, тесты, formatter</li>
+        <li><span class="good">Идеален для reasoning</span> — DeepSeek-Math, R1</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Группа как baseline</h3>
+      <div class="svg-frame">
+        <svg viewBox="0 0 380 220" width="100%">
+          <rect x="150" y="6" width="80" height="30" rx="6" fill="#1e293b" stroke="#a78bfa"/>
+          <text x="190" y="26" text-anchor="middle" fill="#a78bfa" font-weight="700" font-size="12">prompt q</text>
+          <line x1="190" y1="36" x2="50"  y2="64" stroke="#475569" stroke-dasharray="3 3"/>
+          <line x1="190" y1="36" x2="143" y2="64" stroke="#475569" stroke-dasharray="3 3"/>
+          <line x1="190" y1="36" x2="237" y2="64" stroke="#475569" stroke-dasharray="3 3"/>
+          <line x1="190" y1="36" x2="330" y2="64" stroke="#475569" stroke-dasharray="3 3"/>
+          <g class="fragment fade-up" data-fragment-index="1">
+            <rect x="14"  y="64" width="74" height="38" rx="6" fill="#0c4a6e" stroke="#38bdf8"/>
+            <text x="51"  y="80" text-anchor="middle" fill="#fff" font-size="11">o₁</text>
+            <text x="51"  y="95" text-anchor="middle" fill="#34d399" font-size="10" font-family="JetBrains Mono">r=1.0</text>
+          </g>
+          <g class="fragment fade-up" data-fragment-index="2">
+            <rect x="106" y="64" width="74" height="38" rx="6" fill="#0c4a6e" stroke="#38bdf8"/>
+            <text x="143" y="80" text-anchor="middle" fill="#fff" font-size="11">o₂</text>
+            <text x="143" y="95" text-anchor="middle" fill="#f87171" font-size="10" font-family="JetBrains Mono">r=0.0</text>
+          </g>
+          <g class="fragment fade-up" data-fragment-index="3">
+            <rect x="200" y="64" width="74" height="38" rx="6" fill="#0c4a6e" stroke="#38bdf8"/>
+            <text x="237" y="80" text-anchor="middle" fill="#fff" font-size="11">o₃</text>
+            <text x="237" y="95" text-anchor="middle" fill="#34d399" font-size="10" font-family="JetBrains Mono">r=1.0</text>
+          </g>
+          <g class="fragment fade-up" data-fragment-index="4">
+            <rect x="293" y="64" width="74" height="38" rx="6" fill="#0c4a6e" stroke="#38bdf8"/>
+            <text x="330" y="80" text-anchor="middle" fill="#fff" font-size="11">o₄</text>
+            <text x="330" y="95" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="JetBrains Mono">r=0.5</text>
+          </g>
+          <path d="M 190 110 L 190 130" stroke="#38bdf8" stroke-width="2" class="fragment fade-in" data-fragment-index="5"/>
+          <g class="fragment fade-up" data-fragment-index="5">
+            <rect x="14" y="138" width="354" height="50" rx="8" fill="rgba(56,189,248,0.08)" stroke="#38bdf8"/>
+            <text x="190" y="158" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="700">Advantage внутри группы</text>
+            <text x="190" y="178" text-anchor="middle" fill="#fff" font-size="11" font-family="JetBrains Mono">Â=+0.78  −1.30  +0.78  −0.26</text>
+          </g>
+          <text x="190" y="208" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700"
+                class="fragment fade-in" data-fragment-index="6">→ critic не нужен</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <p class="mits-note"><strong>В MITS:</strong> исходный вариант первой стадии — тройная награда <code>r = w_c·correct + w_f·format + w_s·socratic</code>, где correctness считает SymPy.</p>
+</section>
+
+<!-- ============ 7. GSPO + DAPO ============ -->
+<section data-transition="convex">
+  <div class="method-head">
+    <h2><span class="m-card m-gspo" style="padding: 0 6px;">📜 GSPO</span> + <span class="m-card m-dapo" style="padding: 0 6px;">⚙️ DAPO</span> <span class="subtitle">— улучшения GRPO</span></h2>
+    <span class="meta">Qwen 2025 · ByteDance 2025</span>
+  </div>
+  <div class="grid-2">
+    <div>
+      <h3>📜 GSPO — sequence-level ratio</h3>
+      <p>В GRPO importance ratio считается на каждом токене. На длинных reasoning один шумный токен убивает градиенты всей траектории.</p>
+      <div class="formula tiny">
+        \[ s_i(\theta) = \!\left(\frac{\pi_\theta(o_i|q)}{\pi_{\theta_{\text{old}}}(o_i|q)}\right)^{\!\!1/|o_i|} \]
+      </div>
+      <p>Один ratio и один clip <em>на всю последовательность</em>, нормированный по длине.</p>
+      <ul>
+        <li><span class="good">Стабильно на длинных reasoning</span> (1k+ токенов)</li>
+        <li>Используется при обучении Qwen3.5</li>
+      </ul>
+    </div>
+    <div>
+      <h3>⚙️ DAPO — Decoupled clip & Dynamic sampling</h3>
+      <p>Открытый «улучшенный GRPO» от ByteDance (2025), используется в Qwen2.5-Math, R1-варианты:</p>
+      <ul>
+        <li><span class="accent2">Asymmetric clip</span>: разные ε для +/− advantages</li>
+        <li><span class="accent2">Dynamic sampling</span>: отбрасываем группы, где все r одинаковы (нет градиента)</li>
+        <li><span class="accent2">Token-level loss</span>: усреднение по токенам, а не по сэмплам — длинные ответы не теряют вес</li>
+        <li><span class="accent2">Overlong filtering</span>: явный штраф за выход за бюджет</li>
+      </ul>
+      <p class="small">Бенч: лучше GRPO на AIME/MATH при том же compute.</p>
+    </div>
+  </div>
+  <p class="mits-note"><strong>В MITS:</strong> GSPO заменил исходный GRPO на стадии 1 — длинные сократические объяснения перестали разваливаться.</p>
+</section>
+
+<!-- ============ 8. LIGHTWEIGHT ON-POLICY ============ -->
+<section data-transition="slide">
+  <div class="method-head">
+    <h2>🪶 Лёгкие альтернативы PPO <span class="subtitle">— without critic</span></h2>
+    <span class="meta">REINFORCE++ · RLOO · ReMax</span>
+  </div>
+  <p>Все три отвечают на вопрос: «нужен ли вообще critic в RLHF?». Ответ — часто нет.</p>
+  <div class="grid-3">
+    <div class="card m-card m-light fragment fade-up">
+      <h4>REINFORCE++</h4>
+      <p>Расширение классики Williams 1992: KL-штраф на токен, нормирование reward,
+         clipping в стиле PPO. <strong>Без critic, без группы</strong>.</p>
+      <div class="formula tiny">∇L = E[(r − b) · ∇log π(y|x)]</div>
+      <p class="small">b — глобальный (или по батчу) baseline</p>
+    </div>
+    <div class="card m-card m-light fragment fade-up">
+      <h4>RLOO (Leave-One-Out)</h4>
+      <p>Семплируем k ответов; baseline для каждого — среднее <em>остальных</em> k−1.
+         Несмещённый и низкодисперсный без отдельной модели.</p>
+      <div class="formula tiny">b_i = (1/(k−1))·Σ_{j≠i} r_j</div>
+      <p class="small">Ahmadian 2024 — работает не хуже PPO в RLHF</p>
+    </div>
+    <div class="card m-card m-light fragment fade-up">
+      <h4>ReMax</h4>
+      <p>Baseline = награда от <em>жадной</em> генерации (argmax). Один лишний forward вместо целой value-сети.</p>
+      <div class="formula tiny">Â = r(y) − r(y_greedy)</div>
+      <p class="small">Li 2024 — на ~2× быстрее PPO, проще настраивать</p>
+    </div>
+  </div>
+  <h3 style="margin-top: 8px;">Когда брать вместо GRPO/PPO</h3>
+  <ul>
+    <li><strong>RLOO</strong> — когда уже сэмплируем группу для GRPO, но хочется ещё проще: меньше гиперпараметров</li>
+    <li><strong>ReMax</strong> — на маленьких моделях, где даже одна лишняя сеть в памяти больно</li>
+    <li><strong>REINFORCE++</strong> — когда нужно совсем минималистично, без сложных механизмов</li>
+  </ul>
+  <p class="mits-note"><strong>В MITS не нужны</strong> — GRPO/GSPO дают лучший сигнал на математике, но в общем RLHF без верификатора эти методы вытесняют PPO.</p>
+</section>
+
+<!-- ============ 9. DPO ============ -->
+<section data-transition="convex">
+  <div class="method-head">
+    <h2><span class="m-card m-dpo" style="padding: 0 6px;">⚖️ DPO</span> <span class="subtitle">Direct Preference Optimization</span></h2>
+    <span class="meta">Rafailov 2023 · NeurIPS · 2305.18290</span>
+  </div>
+  <div class="grid-2">
+    <div>
+      <h3>Главный трюк</h3>
+      <p>Из аналитического оптимума KL-задачи выражаем награду через политики:</p>
+      <div class="formula tiny">
+        \[ r^*(x,y) = \beta\log\frac{\pi^*(y|x)}{\pi_{\text{ref}}(y|x)} + \mathrm{const} \]
+      </div>
+      <p>Подставляем в Bradley–Terry — получаем прямой лосс <strong>без RL-цикла, без RM, без critic</strong>:</p>
+      <div class="formula warn tiny">
+        \[ L^{\text{DPO}} = -\log\sigma\!\big(\beta\,(\Delta_w - \Delta_l)\big) \]
+      </div>
+      <p class="small">где \(\Delta = \log[\pi_\theta(y|x)/\pi_{\text{ref}}(y|x)]\)</p>
+    </div>
+    <div>
+      <h3>Что получаем</h3>
+      <ul>
+        <li><span class="good">2 модели</span> (только π_θ и π_ref)</li>
+        <li><span class="good">Никакого онлайн-семплирования</span> — данные собраны заранее</li>
+        <li><span class="good">Лосс структурно прост</span> — учится как обычный supervised</li>
+        <li><span class="good">β=0.1–0.5</span> регулирует силу обновления</li>
+      </ul>
+      <p class="small" style="margin-top: 6px;">Слабые места — length bias, чувствительность к шуму, off-policy gap — лечит семейство DPO++ (следующий слайд).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10. DPO++ — IPO/SimPO/CPO ============ -->
+<section data-transition="slide">
+  <div class="method-head">
+    <h2>🧪 DPO++: <span class="grad-title">IPO · SimPO · CPO</span> <span class="subtitle">— фиксы и упрощения DPO</span></h2>
+    <span class="meta">2024</span>
+  </div>
+  <div class="grid-3">
+    <div class="card m-card m-ipo fragment fade-up">
+      <h4>IPO — Identity PO</h4>
+      <p class="small mono">Azar 2024</p>
+      <p>Лечит <em>over-fitting на детерминированных предпочтениях</em>: DPO бесконечно толкает Δ_w−Δ_l →∞ когда BT даёт 0/1.</p>
+      <div class="formula tiny">L = (Δ_w − Δ_l − 1/(2β))²</div>
+      <p>Quadratic loss вместо log-sigmoid. <strong>Робастнее</strong> при шумных или однородных парах.</p>
+    </div>
+    <div class="card m-card m-ipo fragment fade-up">
+      <h4>SimPO — Simple PO</h4>
+      <p class="small mono">Meng 2024</p>
+      <p><strong>Без π_ref!</strong> Используем length-normalized log-likelihood + margin γ:</p>
+      <div class="formula tiny">L = −log σ(β(s_w/|y_w| − s_l/|y_l|) − γ)</div>
+      <p>где s = log π_θ(y|x). Снимает length bias, экономит память (1 модель).</p>
+    </div>
+    <div class="card m-card m-ipo fragment fade-up">
+      <h4>CPO — Contrastive PO</h4>
+      <p class="small mono">Xu 2024 (NLLB-style MT)</p>
+      <p>DPO + <em>negative log-likelihood</em> на y_w. Учит выбору <strong>и</strong> качеству генерации одновременно.</p>
+      <div class="formula tiny">L = L_DPO + λ·NLL(y_w | x)</div>
+      <p>В МТ дал прирост BLEU/COMET без отдельной SFT-стадии.</p>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top: 8px;">
+    <div class="card m-card m-ipo fragment fade-up">
+      <h4>R-DPO — Length-regularized DPO</h4>
+      <p>Park 2024. DPO + явный штраф за длину: \(L_{\text{DPO}} + \alpha(|y_w|-|y_l|)\).
+         Простой фикс length bias без отказа от reference-модели.</p>
+    </div>
+    <div class="card m-card m-ipo fragment fade-up">
+      <h4>SLIC-HF — Sequence Likelihood Calibration</h4>
+      <p>Zhao 2023. Hinge-loss контраст на парах. Предшественник DPO,
+      использовался Google в Sparrow/Gemini-семействе.</p>
+    </div>
+  </div>
+  <p class="mits-note"><strong>Когда брать:</strong> SimPO — если нужно минимум памяти; IPO — если данные шумные; R-DPO — если ловите length bias.</p>
+</section>
+
+<!-- ============ 11. ORPO ============ -->
+<section data-transition="convex">
+  <div class="method-head">
+    <h2><span class="m-card m-orpo" style="padding: 0 6px;">🎼 ORPO</span> <span class="subtitle">Odds-Ratio Preference Optimization</span></h2>
+    <span class="meta">Hong 2024 · 2403.07691</span>
+  </div>
+  <div class="grid-2">
+    <div>
+      <h3>Идея — шаг к минимализму</h3>
+      <p>SFT и preference-tuning — два отдельных шага. ORPO совмещает их в один: SFT на \(y_w\) + слабый штраф за рост вероятности \(y_l\).</p>
+      <div class="formula warn tiny">
+        \[ L^{\text{ORPO}} = -\log\pi_\theta(y_w|x) - \lambda\log\sigma\!\big(\log \tfrac{\mathrm{odds}(y_w|x)}{\mathrm{odds}(y_l|x)}\big) \]
+      </div>
+      <p class="small">\(\mathrm{odds}(y|x) = \pi_\theta(y|x)/(1-\pi_\theta(y|x))\)</p>
+    </div>
+    <div>
+      <h3>Что меняет</h3>
+      <ul>
+        <li><span class="good">1 модель в памяти</span> — нет π_ref</li>
+        <li><span class="good">SFT + preference</span> за один проход</li>
+        <li><span class="good">Не нужна отдельная SFT-стадия</span> на больших корпусах</li>
+      </ul>
+      <h3 style="margin-top: 6px;">Когда выбирать</h3>
+      <ul>
+        <li>Стартуете с base-модели → за один шаг хотите «инструктированную» версию</li>
+        <li>Память ограничена, π_ref не влезает</li>
+        <li>Малый preference-датасет — supervised-часть стабилизирует</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 12. KTO + NPO ============ -->
+<section data-transition="slide">
+  <div class="method-head">
+    <h2><span class="m-card m-kto" style="padding: 0 6px;">🧠 KTO</span> + <span class="m-card m-kto" style="padding: 0 6px;">NPO</span> <span class="subtitle">— без пар, бинарь</span></h2>
+    <span class="meta">Ethayarajh 2024 · Zhang 2024</span>
+  </div>
+  <div class="grid-2">
+    <div>
+      <h3>🧠 KTO — теория перспектив</h3>
+      <p>Достаточно <em>бинарного</em> сигнала: desirable / undesirable. Применяем асимметричную полезность Канемана–Тверски:</p>
+      <div class="formula tiny">
+        \[ v(x,y) = \begin{cases} \lambda_D\sigma(r_\theta - z_{\text{ref}}), &amp; \text{desirable}\\ \lambda_U\sigma(z_{\text{ref}} - r_\theta), &amp; \text{undesirable}\end{cases} \]
+      </div>
+      <p class="small">\(r_\theta = \beta\log(\pi_\theta/\pi_{\text{ref}})\); \(\lambda_U &gt; \lambda_D\) — loss aversion.</p>
+      <ul>
+        <li><span class="good">Шум-устойчив</span>, работает с дисбалансом</li>
+        <li>Идеален для прод-сигналов: лайки, переспросы</li>
+      </ul>
+    </div>
+    <div>
+      <h3>🚫 NPO — Negative PO</h3>
+      <p class="small mono">Zhang 2024 · для unlearning</p>
+      <p>Только <em>негативные</em> примеры — то, что модель должна <strong>забыть</strong> (вредные, приватные, copyright-данные).</p>
+      <div class="formula tiny">L = E[− log σ(−β·log(π_θ(y_neg|x)/π_ref))]</div>
+      <p>Аналог DPO, где «победителя» нет — задача оттолкнуть модель только от y_l, не разрушив остальное.</p>
+      <ul>
+        <li><span class="accent2">Используется</span> в machine unlearning, GDPR-compliance</li>
+        <li>Сильнее gradient ascent, мягче full-retrain</li>
+      </ul>
+    </div>
+  </div>
+  <p class="mits-note"><strong>В MITS:</strong> KTO — стадия 2. Источники: 👍/👎, переспрос «не понял», закрытие сессии. NPO рассматривался для удаления приватных данных учеников.</p>
+</section>
+
+<!-- ============ 13. ITERATIVE / RLAIF ============ -->
+<section data-transition="convex">
+  <div class="method-head">
+    <h2><span class="m-card m-rlaif" style="padding: 0 6px;">🔄</span> Iterative DPO · Self-Rewarding · RLAIF <span class="subtitle">— закрываем off-policy gap</span></h2>
+    <span class="meta">Iterative · AI feedback</span>
+  </div>
+  <div class="grid-3">
+    <div class="card m-card m-rlaif fragment fade-up">
+      <h4>Iterative DPO</h4>
+      <p class="small mono">Xu 2023, Snorkel 2024</p>
+      <p>Стандартный DPO «застывает» — π_θ уезжает от π_ref, на котором собраны пары.</p>
+      <p><strong>Решение:</strong> цикл — обучили DPO → сэмплим новые ответы → внешний judge их ранжирует → новый DPO. Так каждые N эпох.</p>
+      <p>Snorkel-Mistral-PairRM-DPO бил GPT-4 на AlpacaEval именно через 3 итерации DPO.</p>
+    </div>
+    <div class="card m-card m-rlaif fragment fade-up">
+      <h4>Self-Rewarding LM</h4>
+      <p class="small mono">Yuan 2024 · Meta</p>
+      <p>Модель сама себе judge. На итерации t:</p>
+      <ol style="font-size: 0.6em; margin-left: 14px;">
+        <li>π_t генерит ответы на промпты</li>
+        <li>π_t же оценивает свои ответы (LLM-as-judge prompt)</li>
+        <li>Делаем DPO → π_{t+1}</li>
+      </ol>
+      <p>Llama-2-70B → 3 итерации → бьёт GPT-4 на AlpacaEval. Никакой человеческой разметки на итерациях.</p>
+    </div>
+    <div class="card m-card m-rlaif fragment fade-up">
+      <h4>RLAIF / Constitutional AI</h4>
+      <p class="small mono">Bai 2022 · Lee 2023</p>
+      <p>Заменяем человеческую разметку <em>сильной LLM</em> + конституцией (списком принципов).</p>
+      <p>Этап «red-teaming»: GPT-4/Claude генерит критику ответа по принципам, и эта критика — сигнал для DPO/PPO.</p>
+      <p>Использовалось в Anthropic Claude (Constitutional AI), Google Gemini (RLAIF).</p>
+    </div>
+  </div>
+  <h3 style="margin-top: 8px;">Общая мысль</h3>
+  <p>Все три метода — про <em>генерацию свежих данных</em> в петле, чтобы π_ref «двигался» вместе с π_θ. Без этого DPO упирается в потолок.</p>
+  <p class="mits-note"><strong>В MITS:</strong> в плане — итеративный DPO с LLM-judge на основе GPT-4o, чтобы преподаватели не размечали каждую итерацию.</p>
+</section>
+
+<!-- ============ 14. SOTA 2025-2026 ============ -->
+<section data-transition="slide">
+  <div class="method-head">
+    <h2>🆕 Что нового в <span class="grad-title">2025–2026</span> <span class="subtitle">— post-Qwen3 волна</span></h2>
+    <span class="meta">SSPO · CISPO · GMPO · VAPO · REBEL · GTPO</span>
+  </div>
+  <p class="small">Большинство этих методов — улучшения GSPO/GRPO: ищут оптимальный <em>уровень гранулярности</em> (токен / суб-предложение / последовательность) и более умное clipping.</p>
+  <div class="grid-3" style="margin-top: 6px;">
+    <div class="card m-card m-gspo">
+      <h4>SSPO — Sub-Sentence PO</h4>
+      <p class="small mono">arXiv:2511.04256 · 2025</p>
+      <p>Компромисс между GRPO (token) и GSPO (sequence): importance ratio считается на <em>предложениях</em>. Один шумный токен не убивает всю траекторию, но и не теряется тонкая зернистость.</p>
+      <p class="small">+adaptive clip по entropy. Бьёт и GRPO, и GSPO на Qwen2.5-Math.</p>
+    </div>
+    <div class="card m-card m-gspo">
+      <h4>GSPO-token</h4>
+      <p class="small mono">Zheng 2025 · в той же статье</p>
+      <p>Token-level вариант оригинального GSPO для multi-turn RL. Та же цель оптимизации, но advantages можно настраивать по токенам — нужен в диалоговых сценариях.</p>
+    </div>
+    <div class="card m-card m-light">
+      <h4>CISPO — Clipped Importance Sampling</h4>
+      <p class="small mono">2025</p>
+      <p>В PPO clipped токен полностью теряет градиент. CISPO даёт <em>мягкое</em> clipping: токен по-прежнему учит модель, но с ограниченным весом. Меньше «мертвых зон» в оптимизации.</p>
+    </div>
+    <div class="card m-card m-grpo">
+      <h4>GMPO — Group Mean PO</h4>
+      <p class="small mono">2025</p>
+      <p>Замена std-нормировки в GRPO на простое усреднение. Стабильнее на маленьких группах G=2-4, не ломается, когда награды одинаковы.</p>
+    </div>
+    <div class="card m-card m-dapo">
+      <h4>VAPO — Value-Augmented PO</h4>
+      <p class="small mono">Tencent 2025</p>
+      <p>Возвращает critic, но <em>лёгкий</em>: не предсказывает Q-значения, а служит вспомогательным сигналом для длинных reasoning. На AIME сильнее DAPO.</p>
+    </div>
+    <div class="card m-card m-rlaif">
+      <h4>REBEL · GTPO · λ-GRPO</h4>
+      <p class="small mono">2025-26</p>
+      <p><strong>REBEL</strong> — регрессия на разнице наград вместо importance ratio.
+      <strong>GTPO</strong> — добавляет gradient/entropy control в clipping.
+      <strong>λ-GRPO</strong> — обучаемые веса важности токенов.</p>
+    </div>
+  </div>
+  <p class="small" style="margin-top: 6px;"><strong>Тренд:</strong> все шевелится вокруг трёх вопросов — где clip-ить (token/subsentence/sequence), как отбирать примеры (dynamic sampling), и нужен ли critic вообще. «It Takes Two: Your GRPO Is Secretly DPO» (Oct 2025) — даже показано, что GRPO эквивалентен DPO в пределе.</p>
+</section>
+
+<!-- ============ 15. СРАВНИТЕЛЬНАЯ ТАБЛИЦА + ДЕРЕВО РЕШЕНИЙ ============ -->
+<section data-transition="slide">
+  <h2>Сводное сравнение</h2>
+  <table>
+    <thead>
+      <tr><th>Метод</th><th>Тип</th><th>Что нужно</th><th>Моделей</th><th>Сильно</th><th>Слабо</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="bad mono">PPO</span></td><td>on-policy</td><td>RM + пары</td><td>4</td><td>универсален</td><td>дорого, нестабильно</td></tr>
+      <tr><td><span class="accent mono">GRPO</span></td><td>on-policy</td><td>верификатор</td><td>3</td><td>math/code reasoning</td><td>token-level шум</td></tr>
+      <tr><td><span class="accent2 mono">GSPO</span></td><td>on-policy</td><td>верификатор</td><td>3</td><td>длинные reasoning</td><td>нужен верификатор</td></tr>
+      <tr><td><span class="mono" style="color:#fb7185;">DAPO</span></td><td>on-policy</td><td>верификатор</td><td>3</td><td>SOTA на AIME/MATH</td><td>сложнее настраивать</td></tr>
+      <tr><td><span class="mono" style="color:#67e8f9;">RLOO/ReMax</span></td><td>on-policy</td><td>RM</td><td>2-3</td><td>проще PPO, не хуже</td><td>требует RM</td></tr>
+      <tr><td><span class="accent3 mono">DPO</span></td><td>offline</td><td>пары</td><td>2</td><td>дёшево, на стиль</td><td>length bias, шум</td></tr>
+      <tr><td><span class="mono" style="color:#c084fc;">IPO</span></td><td>offline</td><td>пары</td><td>2</td><td>робаст к шуму</td><td>—</td></tr>
+      <tr><td><span class="mono" style="color:#c084fc;">SimPO</span></td><td>offline</td><td>пары</td><td><strong>1</strong></td><td>без π_ref, без length bias</td><td>осторожно с margin γ</td></tr>
+      <tr><td><span class="mono" style="color:#f472b6;">ORPO</span></td><td>offline</td><td>пары + SFT</td><td><strong>1</strong></td><td>SFT+pref за один шаг</td><td>—</td></tr>
+      <tr><td><span class="good mono">KTO</span></td><td>offline</td><td>бинарь</td><td>2</td><td>не нужны пары</td><td>не учит ранжирование</td></tr>
+      <tr><td><span class="mono" style="color:#facc15;">RLAIF / Iter-DPO</span></td><td>iterative</td><td>LLM-judge</td><td>2-3 + judge</td><td>без человеч. разметки</td><td>зависит от judge</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid-3" style="margin-top: 8px;">
+    <div class="card fragment fade-up"><h4 class="accent2">Есть верификатор?</h4>
+      <p>длинные reasoning → <strong>GSPO/DAPO</strong>; короткие — <strong>GRPO</strong>; без critic — <strong>RLOO</strong></p></div>
+    <div class="card fragment fade-up"><h4 class="accent3">Есть пары?</h4>
+      <p>чистые → <strong>DPO/CPO</strong>; шумные → <strong>IPO</strong>; мало памяти → <strong>SimPO/ORPO</strong></p></div>
+    <div class="card fragment fade-up"><h4 class="good">Только бинарь / только negative?</h4>
+      <p><strong>KTO</strong> для лайков; <strong>NPO</strong> для unlearning; <strong>RLAIF</strong> если разметку даёт LLM</p></div>
+  </div>
+</section>
+
+<!-- ============ 15. РЕЗЮМЕ ============ -->
+<section class="center" data-transition="zoom"
+         data-background-gradient="radial-gradient(ellipse at center, #1e1b4b 0%, #050816 70%)">
+  <div class="title-slide">
+    <h1 class="grad-title" style="font-size: 2.3em;">Резюме</h1>
+    <div style="text-align: left; max-width: 1050px; margin: 16px auto 0;">
+      <div class="row fragment fade-up">
+        <span class="num-bullet">1</span>
+        <p>Все методы — варианты <em>KL-регуляризованной максимизации</em>. Различаются формой награды и способом её включения в лосс.</p>
+      </div>
+      <div class="row fragment fade-up">
+        <span class="num-bullet">2</span>
+        <p><span class="bad">PPO</span> уходит в прошлое: <span class="accent">GRPO</span>, <span class="accent2">GSPO</span>, <span style="color:#fb7185;">DAPO</span>, <span style="color:#67e8f9;">RLOO/ReMax</span> делают то же дешевле.</p>
+      </div>
+      <div class="row fragment fade-up">
+        <span class="num-bullet">3</span>
+        <p><span class="accent3">DPO</span> породил семейство: <span style="color:#c084fc;">IPO/SimPO/CPO/R-DPO</span> чинят его слабые места.</p>
+      </div>
+      <div class="row fragment fade-up">
+        <span class="num-bullet">4</span>
+        <p><span class="good">KTO</span> — единственный, кому достаточно бинарного сигнала; <span style="color:#f472b6;">ORPO</span> объединяет SFT и preference-tuning.</p>
+      </div>
+      <div class="row fragment fade-up">
+        <span class="num-bullet">5</span>
+        <p><span style="color:#facc15;">Iterative DPO / Self-Rewarding / RLAIF</span> закрывают off-policy gap и заменяют человеческую разметку.</p>
+      </div>
+      <div class="row fragment fade-up">
+        <span class="num-bullet">6</span>
+        <p>На практике методы <em>складываются в пайплайн</em>: программная награда → пары → бинарь → итерации с LLM-judge.</p>
+      </div>
+    </div>
+    <p style="margin-top: 1.4em;"><span class="live-badge"><span class="pulse-dot"></span>Вопросы?</span></p>
+  </div>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/plugin/notes/notes.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true, slideNumber: 'c/t', transition: 'slide',
+    transitionSpeed: 'default', backgroundTransition: 'fade',
+    autoAnimate: true, autoAnimateDuration: 0.5,
+    controls: true, progress: true,
+    width: 1600, height: 900, margin: 0.02,
+    minScale: 0.2, maxScale: 2.0,
+    plugins: [ RevealNotes ]
+  });
+  function renderMath() {
+    if (typeof renderMathInElement !== 'function') { setTimeout(renderMath, 100); return; }
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '$',  right: '$',  display: false },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      throwOnError: false
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMath);
+  } else { renderMath(); }
+</script>
+</body>
+</html>
+   ],
+      throwOnError: false
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMath);
+  } else { renderMath(); }
+</script>
+</body>
+</html>

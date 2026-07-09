@@ -1,0 +1,26 @@
+FROM C:\Work\MITS\training\models\mits-gspo.q4km.gguf
+
+# No-thinking variant — see Modelfile.eval-base-nothink для rationale.
+RENDERER qwen3.5
+PARSER qwen3.5
+
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ .Content }}<|im_end|>
+{{ end }}{{- end }}<|im_start|>assistant
+"""
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.95
+PARAMETER top_k 20
+PARAMETER min_p 0
+PARAMETER presence_penalty 1.5
+PARAMETER num_ctx 8192
+PARAMETER num_predict 2048
+PARAMETER stop <|im_end|>
+PARAMETER stop <|endoftext|>
+
+SYSTEM """Ты — репетитор по STEM. Реши задачу пошагово и запиши финальный ответ в \\boxed{}."""

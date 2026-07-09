@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Mathematics Intelligent Tutoring System with Socratic Method"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     {name = "MITS Team"}
 ]
@@ -27,12 +27,13 @@ dependencies = [
     "transformers>=4.40.0",
     "accelerate>=0.27.0",
     "ollama>=0.3.0",
-    "langchain>=0.2.0",
-    "langgraph>=0.2.0",
-    "gradio>=4.0.0",
     "fastapi>=0.110.0",
     "uvicorn>=0.27.0",
     "sympy>=1.12",
+    # Требуется для sympy.parsing.latex.parse_latex (antlr-backend): без него
+    # TaskAnswerVerifier молча возвращает None на все задачи (verifier нефункционален).
+    # sympy 1.12–1.14 сгенерированы под antlr 4.11.x — держим совместимый диапазон.
+    "antlr4-python3-runtime>=4.11,<4.12",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
     "pydantic>=2.5.0",
@@ -42,6 +43,34 @@ dependencies = [
     "structlog>=24.1.0",
     "rich>=13.0.0",
     "python-dotenv>=1.0.0",
+    "ddgs>=9.14.4",
+    "pypdf>=6.12.2",
+    "pymupdf>=1.27.2.3",
+    "pdfplumber>=0.11",
+    "json5>=0.9",
+    # Backend runtime: раньше жили ТОЛЬКО в backend/requirements.txt, из-за чего
+    # `uv sync` (документированный способ установки) не давал импортируемый backend —
+    # sqlalchemy и весь auth-стек отсутствовали. Сводим в единый манифест (OSS: клон
+    # + `uv sync` = рабочая система). Сверено AST-сканом импортов против объявленного.
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20.0",
+    "alembic>=1.14.0",
+    "PyJWT>=2.10.0",
+    "argon2-cffi>=23.1.0",
+    "websockets>=13.1",
+    "jinja2>=3.1.4",
+    "requests>=2.31.0",
+    "httpx>=0.27.0",
+    "aiohttp>=3.9.0",
+    "psutil>=5.9.0",
+    "pynvml>=11.5.0",
+    "pillow>=10.0.0",
+    "huggingface-hub>=0.20.0",
+    "scipy>=1.11.0",
+    "networkx>=3.2.0",
+    "matplotlib>=3.8.0",
+    "python-multipart>=0.0.9",  # FastAPI form/UploadFile (ingest, vision) — иначе роутер падает на импорте
+    "python-docx>=1.1.0",  # генерация ВКР-docx (scripts/assemble_vkr, src/*)
 ]
 
 [project.optional-dependencies]
@@ -59,22 +88,24 @@ training = [
     "bitsandbytes>=0.42.0",
     "unsloth>=2024.1",
 ]
-
-[project.scripts]
-mits = "src.main:main"
-mits-ui = "interface.gradio_app:launch"
+# PDF report rendering. Needs native GTK libs (libgobject/pango/cairo): works
+# out-of-the-box on the Linux Docker image, but on Windows requires the GTK3
+# runtime — without it the export service degrades to HTML (handled gracefully).
+export = [
+    "weasyprint>=66",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
 
-[tool.black]
-line-length = 100
-target-version = ['py310', 'py311']
-
 [tool.ruff]
-line-length = 100
+line-length = 120
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
+markers = [
+    "live: test requires a running LLM stack (Ollama/llama-server); deselect with -m 'not live'",
+]

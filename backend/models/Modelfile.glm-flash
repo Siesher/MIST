@@ -1,0 +1,15 @@
+FROM ./GLM-4.7-Flash-Q4_K_M.gguf
+
+# Template for GLM-4.7
+TEMPLATE {{ .Prompt }}
+
+# Sampling (optimized for GLM-4.7-Flash)
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER top_k 20
+PARAMETER repeat_penalty 1.0
+
+# Hardware (RTX 2080 8GB + Ryzen 9 9950x)
+PARAMETER num_ctx 8192
+PARAMETER num_gpu 28
+PARAMETER num_batch 1024

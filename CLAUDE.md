@@ -1,8 +1,14 @@
-# MITS Development Guidelines
+﻿# MITS Development Guidelines
 
-Last updated: 2026-03-05
+Last updated: 2026-06-10
 
 ## Active Technologies
+- Python 3.11+ + Ollama (tool calling API), existing StudentMemory (BKT), existing LLMClient (016-knowledge-forge)
+- JSON file (`data/knowledge/forge.json`) for graph persistence, SQLite for student mastery (existing) (016-knowledge-forge)
+- Python 3.11+ + Ollama (JSON-mode inference via `LLMClient.generate()`), existing multi-agent pipeline, Knowledge Forge navigator (017-tom-tutor)
+- No new persistence — belief state lives in session memory only (ephemeral) (017-tom-tutor)
+- Python 3.11+ + numpy (random walk, vectorization), scipy.stats (Lévy distribution), existing Knowledge Forge / PersonalizedNavigator (018-path-slime)
+- In-memory only — алгоритм stateless, не персистит между вызовами (018-path-slime)
 
 ### Frontend
 - Next.js 14, TypeScript 5.x, Tailwind CSS, shadcn/ui, Zustand
@@ -11,9 +17,10 @@ Last updated: 2026-03-05
 - Python 3.11+, FastAPI, SQLAlchemy, SQLite, Alembic, JWT (PyJWT + Argon2)
 
 ### Core Logic
-- Python 3.11+, Ollama, ChromaDB, sentence-transformers, SymPy, pydantic, structlog
+- Python 3.11+, llama-server / llama-swap (:8090, OpenAI-compatible API, GGUF Q4_K_M) via `OpenAICompatLLMClient`; Ollama — legacy fallback (`LLM_BACKEND=ollama`)
+- ChromaDB, sentence-transformers, SymPy, pydantic, structlog
 
-### ML Training (Google Colab A100 80GB)
+### ML Training (RTX PRO 6000 Blackwell 96GB)
 - Unsloth, TRL (GRPOTrainer, KTOTrainer, DPOTrainer), PEFT, Transformers, bitsandbytes, datasets, sympy, chempy
 - Google Drive (checkpoints), HuggingFace Hub (datasets, adapters)
 
@@ -28,19 +35,29 @@ Last updated: 2026-03-05
 frontend/          # Next.js 14 UI
 backend/           # FastAPI backend
 src/               # Core Python agents + models
-training/          # ML pipeline scripts + configs + data
-notebooks/         # Colab training notebooks (GSPO, KTO, DPO)
-evaluation/        # Model evaluation reports + benchmarks
+training/
+  scripts/         # ML pipeline scripts (evaluate_stage.py, etc.)
+  data/            # Training data (~1.1GB JSONL)
+  Modelfile*       # Ollama model configs
+notebooks/         # Active Colab notebooks (GSPO, KTO, DPO)
+  archive/         # Legacy notebooks (GLM, Qwen3-4B, RAFT++)
+evaluation/        # Evaluation framework + reports + benchmarks
 data/              # Knowledge bases (RAG, skill graph, tasks)
-docs/              # Documentation
-specs/             # Feature specifications (001-014)
+docs/              # Documentation + research articles
+research/          # Research findings (findings_*.md)
+scripts/           # Utility scripts (DB init, Ollama, PDF ingestion)
+specs/             # Feature specifications (001-019)
+figures/           # Training visualizations (PDF + PNG + TeX)
 tests/             # Unit & integration tests
 ```
 
 ## Commands
 
+Запускать из КОРНЯ репозитория (`cd src` ломает pytest: пакет `src/logging/` затеняет stdlib `logging`):
+
 ```bash
-cd src; pytest; ruff check .
+pytest                          # testpaths=tests (pyproject.toml)
+uv run ruff check src backend scripts tests
 ```
 
 ## Code Style
@@ -62,13 +79,9 @@ Qwen3.5-9B → GSPO (triple reward) → KTO (Socratic alignment) → DPO (polish
 | DPO | dpo_polish_qwen3.5_9b.ipynb | Siesher/mits-qwen3-9b-final | Final alignment polish |
 
 ## Recent Changes
-- 016: Triple GDPO reward (correctness + format + Socratic), KTO replaces RAFT++
-- 015: Migrated to Qwen3.5-9B, A100 80GB bf16, 3-stage pipeline (removed AdaSTaR)
-- 014: Removed SFT from pipeline (Instruct model has dialogue abilities built-in)
-- 014: Added 4-stage RL pipeline (GSPO → RAFT++ → AdaSTaR → DPO)
-- 014: Added evaluation infrastructure (3678-problem benchmark, per-stage reports)
-- 013: Next.js 14 + FastAPI migration, JWT auth, session persistence
-- 013: ML training (QLoRA, DKT, RuBERT), analytics dashboard, Docker
+- 018-path-slime: Added Python 3.11+ + numpy (random walk, vectorization), scipy.stats (Lévy distribution), existing Knowledge Forge / PersonalizedNavigator
+- 017-tom-tutor: Added Python 3.11+ + Ollama (JSON-mode inference via `LLMClient.generate()`), existing multi-agent pipeline, Knowledge Forge navigator
+- 016-knowledge-forge: Added Python 3.11+ + Ollama (tool calling API), existing StudentMemory (BKT), existing LLMClient
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

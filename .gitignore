@@ -10,8 +10,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# root-only — Python build artifacts; НЕ блокирует frontend/src/lib/ (data-layer фронта)
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -50,20 +51,32 @@ data/training/*
 !data/training/.gitkeep
 training/calibration_data/*
 !training/calibration_data/.gitkeep
+# Per-student runtime data (memory files, dreaming reflections — regenerated at runtime)
+data/students/*
+!data/students/.gitkeep
 *.db
 *.sqlite
 
-# Models & Checkpoints
-models/
-!models/Modelfile.*
+# Models & Checkpoints (root-only — не блокирует src/models/)
+/models/
+!/models/Modelfile.*
+data/models/
 checkpoints/
 *.gguf
 *.bin
 *.safetensors
 
+# Archives (design_handoff.zip/7z generated from design_handoff/)
+*.7z
+*.zip
+!frontend/public/*.zip
+
 # Training data (large files)
 training/data/*.jsonl
 training/data/curriculum/
+# ...except eval benchmarks — small, version-controlled for reproducibility (Phase 0 honest re-eval)
+!training/data/eval_dataset.jsonl
+!training/data/eval_dataset.meta.json
 
 # Logs
 logs/
@@ -93,3 +106,82 @@ next-env.d.ts
 # Backend
 backend/.env
 backend/venv/
+
+# Evaluation outputs (generated, regeneratable)
+evaluation/reports/*.json
+evaluation/completions/*.jsonl
+evaluation/checkpoints/*.jsonl
+
+# Generated figures (regeneratable from scripts)
+figures/*.pdf
+figures/*.png
+figures/training_summary.tex
+
+# Model merge artifacts
+training/merged_*/
+
+# Claude session backups
+.claude/backups/
+
+# Knowledge cache files
+data/knowledge/textbooks/.cache_*
+
+# Ruff cache
+.ruff_cache/
+
+# External documents (not part of MITS)
+docs/Статья_GNN_*.docx
+
+# Document backups
+docs/*.bak
+
+# Metrics (consolidated into figures/)
+metrics/
+
+# W&B logs
+wandb/
+
+# Local model weights (large, downloaded separately)
+training/models/
+
+# Temporary Modelfile variants
+training/Modelfile.*-update
+/tools/
+
+# Cleanup additions 2026-04-22
+~$*
+# figures/readme/*.png tracked intentionally — embedded in README
+
+# Cleanup additions 2026-05-26 (продовое состояние)
+# Scratch / throwaway (любой _tmp_ префикс, MCP-скретч, .err-логи)
+_tmp_*
+_cleanup_*.py
+.playwright-mcp/
+*.log.err
+# Локальные настройки Claude (личные, не для репо)
+.claude/settings.local.json
+# Тяжёлые бинарники диплома/презентаций — хранятся локально, не раздувают git
+docs/diploma/assets/
+docs/diploma/*.pptx
+docs/diploma/*.pdf
+docs/diploma/*.png
+docs/diploma/*.html
+
+# Cleanup additions 2026-05-30 (продовый запуск + чистка)
+# Скретч-скриншоты в корне (верификация UI/слайдов)
+/_verify_slide1.png
+/guided-viz-success.png
+/i18n-before-ru.png
+/render_check.png
+/Снимок экрана*.png
+# Учебник-скан для бенчмарка (копирайт, не часть репо)
+/Теория вероятности и статистика.pdf
+# Локальные Claude-бэкапы во фронте
+frontend/.claude/
+# Скретч-дампы ruff (regeneratable отчёты линтера)
+/_ruff_full.txt
+/_ruff_warn.txt
+# Рабочие папки презентаций/дизайна (черновики, в приложение не подключены)
+/new_design/
+/new_presentation/
+/presentation/

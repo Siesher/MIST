@@ -1,0 +1,63 @@
+flowchart TD
+    Input["Ввод ученика<br/>(текст, формула, изображение)"]
+
+    subgraph PROFILER["1. Профилировщик"]
+        P1["Анализ ответа"]
+        P2["Классификация ошибки<br/>conceptual | procedural |<br/>careless | notation | misconception"]
+        P3["Оценка уверенности<br/>low | medium | high | confused"]
+        P4["Когнитивная нагрузка<br/>CLT: low | optimal | high | overload"]
+        P5["Knowledge Tracing<br/>BKT (P(L)) + DKT (LSTM)"]
+        P1 --> P2 --> P3 --> P4 --> P5
+    end
+
+    subgraph PLANNER["2. Планировщик"]
+        PL1{"Стратегия?"}
+        PL2["GUIDED_DISCOVERY<br/>Наводящие вопросы"]
+        PL3["SCAFFOLDED<br/>Декомпозиция задачи"]
+        PL4["ERROR_CORRECTION<br/>Исправление ошибок"]
+        PL5["CONCEPTUAL_REPAIR<br/>Устранение заблуждения"]
+        PL6["ENCOURAGEMENT<br/>Мотивация"]
+        PL7["COGNITIVE_OFFLOAD<br/>Упрощение"]
+        PL8["DIRECT_INSTRUCTION<br/>Прямое объяснение"]
+        PL1 -->|"понимание > 0.7"| PL2
+        PL1 -->|"процедурная ошибка"| PL3
+        PL1 -->|"ошибки > 2"| PL4
+        PL1 -->|"заблуждение"| PL5
+        PL1 -->|"уверенность low"| PL6
+        PL1 -->|"нагрузка high"| PL7
+        PL1 -->|"подсказок >= 3"| PL8
+    end
+
+    subgraph TUTOR["3. Тьютор"]
+        T1["Сборка промпта<br/>system + plan + history + RAG"]
+        T2["LLM генерация<br/>Qwen3.5-9B (thinking mode)"]
+        T3["Парсинг ответа<br/>&lt;think&gt;...&lt;/think&gt; + content"]
+        T4["Форматирование<br/>LaTeX, структура, move_type"]
+        T1 --> T2 --> T3 --> T4
+    end
+
+    subgraph VERIFIER["4. Верификатор"]
+        V1["Утечка ответа?"]
+        V2["Сократический метод?"]
+        V3["LaTeX корректен?"]
+        V4["Русский язык?"]
+        V5["Длина адекватна?"]
+        V6{"Качество ≥ 0.7?"}
+        V7["Пропустить"]
+        V8["Запросить<br/>переформулировку"]
+        V1 --> V2 --> V3 --> V4 --> V5 --> V6
+        V6 -->|Да| V7
+        V6 -->|Нет| V8
+    end
+
+    Input --> PROFILER
+    PROFILER -->|StudentProfile| PLANNER
+    PLANNER -->|TeachingPlan| TUTOR
+    TUTOR -->|TutorResponse| VERIFIER
+    VERIFIER --> Output["Ответ ученику<br/>(streaming)"]
+    V8 -.->|retry| TUTOR
+
+    style PROFILER fill:#e3f2fd
+    style PLANNER fill:#e8f5e9
+    style TUTOR fill:#fff3e0
+    style VERIFIER fill:#fce4ec

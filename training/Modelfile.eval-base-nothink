@@ -1,0 +1,32 @@
+FROM C:\Work\MITS\training\models\mits-base.q4km.gguf
+
+# No-thinking variant for adaptive routing.
+# REMOVES <think> injection from end of TEMPLATE → model goes direct to answer phase.
+# Used когда thinking depth не критична (easy/medium STEM problems).
+# 2-3x faster than full thinking variant; saves 4-6K tokens per sample.
+#
+# RENDERER + PARSER stay — model can still use thinking_xml structure if it chooses,
+# but без template hint модель by default не enters thinking mode.
+RENDERER qwen3.5
+PARSER qwen3.5
+
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ .Content }}<|im_end|>
+{{ end }}{{- end }}<|im_start|>assistant
+"""
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.95
+PARAMETER top_k 20
+PARAMETER min_p 0
+PARAMETER presence_penalty 1.5
+PARAMETER num_ctx 8192
+PARAMETER num_predict 2048
+PARAMETER stop <|im_end|>
+PARAMETER stop <|endoftext|>
+
+SYSTEM """Ты — репетитор по STEM. Реши задачу пошагово и запиши финальный ответ в \\boxed{}."""

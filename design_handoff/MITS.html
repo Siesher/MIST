@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MITS — Math Intelligent Tutoring System</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<!-- KaTeX for math formulas -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+<link rel="stylesheet" href="styles.css?v=9" />
+
+<!-- React -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="scene crt"></div>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#05050a"/>
+  <polygon points="100,40 160,75 160,145 100,180 40,145 40,75" stroke="#b026ff" stroke-width="3" fill="none"/>
+  <polygon points="100,60 140,135 60,135" stroke="#b026ff" stroke-width="2" fill="rgba(176,38,255,0.15)"/>
+  <circle cx="100" cy="115" r="9" fill="#f5e60a"/>
+  <text x="100" y="40" text-anchor="middle" font-family="monospace" font-size="9" fill="#f5e60a" letter-spacing="3">MITS</text>
+</svg>
+</template>
+
+<script type="text/babel" src="i18n.jsx"></script>
+<script type="text/babel" src="primitives.jsx"></script>
+<script type="text/babel" src="chat.jsx"></script>
+<script type="text/babel" src="graph.jsx"></script>
+<script type="text/babel" src="views.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "terminal",
+  "glow": 18,
+  "scanlines": 0,
+  "glitch": true,
+  "particles": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const { lang, setLang, t } = useI18n();
+  const [authed, setAuthed] = React.useState(() => localStorage.getItem('mits_authed') === '1');
+  const [view, setView] = React.useState(() => localStorage.getItem('mits_view') || 'chat');
+  const [tweaks, setTweaks] = React.useState(TWEAK_DEFAULTS);
+  const [tweaksVisible, setTweaksVisible] = React.useState(false);
+
+  React.useEffect(() => { localStorage.setItem('mits_view', view); }, [view]);
+  React.useEffect(() => { localStorage.setItem('mits_authed', authed ? '1' : '0'); }, [authed]);
+
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--glow-size', tweaks.glow + 'px');
+    document.documentElement.style.setProperty('--scanline-opacity', tweaks.scanlines);
+    document.documentElement.dataset.theme = tweaks.theme;
+    document.documentElement.dataset.glitch = tweaks.glitch ? 'on' : 'off';
+  }, [tweaks]);
+
+  // Edit-mode protocol
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksVisible(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksVisible(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  if (!authed) {
+    return <AuthScreen t={t} lang={lang} setLang={setLang} onLogin={() => setAuthed(true)} />;
+  }
+
+  const labelMap = { chat: 'dialogue', graph: 'knowledge-map', tasks: 'task-bank', sources: 'sources', profile: 'profile' };
+
+  return (
+    <>
+      <Particles enabled={tweaks.particles} />
+      <div style={{ position: 'relative', zIndex: 2, height: '100vh', display: 'flex', flexDirection: 'column' }} className="crt">
+        <StatusBar t={t} lang={lang} setLang={setLang} view={labelMap[view] || view} theme={tweaks.theme} setTheme={(v)=>setTweaks(p=>({...p,theme:v}))} />
+        <div className="row flex-1" style={{ minHeight: 0 }}>
+          <Sidebar t={t} view={view} setView={setView} onLogout={() => setAuthed(false)} />
+          <main className="flex-1 col" style={{ minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative' }}
+            data-screen-label={view}>
+            {view === 'chat'    && <ChatView t={t} lang={lang} />}
+            {view === 'graph'   && <KnowledgeGraph t={t} lang={lang} />}
+            {view === 'tasks'   && <TasksView t={t} lang={lang} />}
+            {view === 'sources' && <SourcesView t={t} lang={lang} />}
+            {view === 'profile' && <ProfileView t={t} lang={lang} />}
+          </main>
+        </div>
+      </div>
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} visible={tweaksVisible} onClose={() => setTweaksVisible(false)} />
+    </>
+  );
+}
+
+const waitKatex = () => {
+  if (window.katex) {
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  } else {
+    setTimeout(waitKatex, 50);
+  }
+};
+waitKatex();
+</script>
+</body>
+</html>

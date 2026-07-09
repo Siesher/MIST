@@ -5,8 +5,8 @@ Defines the ModelConfiguration dataclass for representing
 LLM model settings with hardware and sampling parameters.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, Literal
+from dataclasses import dataclass
+from typing import Literal, Optional
 
 
 @dataclass
@@ -18,8 +18,10 @@ class ModelConfiguration:
     display_name: str
 
     # Model source
-    backend: Literal["ollama", "llama.cpp"] = "ollama"
+    backend: Literal["ollama", "llama.cpp", "huggingface"] = "ollama"
     ollama_model: Optional[str] = None
+    hf_model_path: Optional[str] = None
+    hf_adapter_path: Optional[str] = None
     gguf_repo: Optional[str] = None
     gguf_file: Optional[str] = None
 
@@ -39,9 +41,14 @@ class ModelConfiguration:
     repetition_penalty: float = 1.0
     max_tokens: int = 2048
 
-    # KV cache quantization
+    # KV cache quantization (Ollama/llama.cpp)
     kv_cache_k_type: str = "q8_0"
     kv_cache_v_type: str = "q4_0"
+
+    # TurboQuant KV cache compression (HuggingFace backend)
+    turbo_quant_enabled: bool = False
+    turbo_quant_key_bits: int = 3
+    turbo_quant_value_bits: int = 3
 
     # Feature flags
     supports_thinking: bool = True
@@ -129,6 +136,86 @@ MODEL_CONFIGS = {
         temperature=0.7,
         is_moe=False,
     ),
+    # ── GSPO fine-tuned Qwen3.5-9B (primary tutor model) ──
+    "mits-tutor-9b-think": ModelConfiguration(
+        name="mits-tutor-9b-think",
+        display_name="MITS Tutor 9B (GSPO fine-tuned, Q4_K_M)",
+        backend="ollama",
+        ollama_model="mits-tutor-9b-think",
+        hf_model_path="Siesher/mits-qwen3-9b-gspo",
+        gpu_layers=99,
+        context_length=4096,
+        estimated_vram_gb=5.5,
+        estimated_ram_gb=2.0,
+        temperature=1.0,
+        top_p=0.95,
+        top_k=20,
+        repetition_penalty=1.0,
+        is_moe=False,
+        supports_thinking=True,
+    ),
+    # ── HuggingFace backend with TurboQuant KV cache compression ──
+    # Siesher/mits-qwen3-9b-kto — это MERGED full model (safetensors), не LoRA.
+    # Первый запуск скачает ~17 GB (один раз), потом использует HF cache.
+    "qwen3.5-9b-turbo": ModelConfiguration(
+        name="qwen3.5-9b-turbo",
+        display_name="Qwen3.5-9B-KTO (merged) + TurboQuant (3-bit KV, 32K ctx)",
+        backend="huggingface",
+        hf_model_path="Siesher/mits-qwen3-9b-kto",  # merged KTO full model
+        hf_adapter_path=None,
+        gpu_layers=99,
+        context_length=32768,
+        estimated_vram_gb=8.0,
+        estimated_ram_gb=2.0,
+        temperature=1.0,
+        top_p=0.95,
+        top_k=20,
+        repetition_penalty=1.0,
+        is_moe=False,
+        turbo_quant_enabled=True,
+        turbo_quant_key_bits=3,
+        turbo_quant_value_bits=3,
+    ),
+    "qwen3.5-9b-turbo-no-adapter": ModelConfiguration(
+        name="qwen3.5-9b-turbo-no-adapter",
+        display_name="Qwen3.5-9B base + TurboQuant (без fine-tune, для сравнения)",
+        backend="huggingface",
+        hf_model_path="Qwen/Qwen3.5-9B",
+        hf_adapter_path=None,
+        gpu_layers=99,
+        context_length=32768,
+        estimated_vram_gb=8.0,
+        estimated_ram_gb=2.0,
+        temperature=0.7,
+        top_p=0.95,
+        top_k=20,
+        repetition_penalty=1.0,
+        is_moe=False,
+        turbo_quant_enabled=True,
+        turbo_quant_key_bits=3,
+        turbo_quant_value_bits=3,
+    ),
+    "qwen3.5-9b-turbo-2.5bit": ModelConfiguration(
+        name="qwen3.5-9b-turbo-2.5bit",
+        display_name="Qwen3.5-9B-KTO + TurboQuant 2-bit (64K ctx, макс.компрессия)",
+        backend="huggingface",
+        hf_model_path="Qwen/Qwen3.5-9B",
+        hf_adapter_path="Siesher/mits-qwen3-9b-kto",
+        gpu_layers=99,
+        context_length=65536,
+        estimated_vram_gb=7.5,
+        estimated_ram_gb=2.0,
+        temperature=1.0,
+        top_p=0.95,
+        top_k=20,
+        repetition_penalty=1.0,
+        is_moe=False,
+        # TurboQuant 2-bit per paper Section 4.3:
+        # 32 outlier channels at 3 bits + 96 regular at 2 bits → 2.25 effective
+        turbo_quant_enabled=True,
+        turbo_quant_key_bits=2,
+        turbo_quant_value_bits=2,
+    ),
 }
 
 
@@ -144,7 +231,4 @@ def get_available_models() -> list[str]:
 
 def get_models_for_vram(max_vram_gb: float) -> list[ModelConfiguration]:
     """Get models that fit within VRAM constraint."""
-    return [
-        config for config in MODEL_CONFIGS.values()
-        if config.estimated_vram_gb <= max_vram_gb
-    ]
+    return [config for config in MODEL_CONFIGS.values() if config.estimated_vram_gb <= max_vram_gb]

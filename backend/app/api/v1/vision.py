@@ -1,21 +1,24 @@
 """Vision API endpoints for handwritten solution recognition."""
 
-import base64
 import logging
 import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+
+from backend.app.api.v1.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/vision", tags=["vision"])
+# OCR гоняет VLM (дорого) — весь роутер только для авторизованных.
+router = APIRouter(prefix="/vision", tags=["vision"], dependencies=[Depends(get_current_user)])
 
 
 class RecognizeResponse(BaseModel):
     """Response from OCR recognition."""
+
     steps: list
     raw_latex: str
     confidence: str
@@ -24,12 +27,14 @@ class RecognizeResponse(BaseModel):
 
 class VerifyRequest(BaseModel):
     """Request to verify a solution."""
+
     steps_latex: list[str]
     expected_answer: Optional[str] = None
 
 
 class VerifyResponse(BaseModel):
     """Response from solution verification."""
+
     is_correct: bool
     first_error_step: Optional[int] = None
     feedback: str
@@ -64,8 +69,8 @@ async def recognize_handwritten(
         tmp_path = tmp.name
 
     try:
-        from src.models.vision_analyzer import VisionAnalyzer
         from src.config import get_settings
+        from src.models.vision_analyzer import VisionAnalyzer
 
         settings = get_settings()
         analyzer = VisionAnalyzer(vision_model=settings.VISION_MODEL)
@@ -79,13 +84,15 @@ async def recognize_handwritten(
         steps_data = []
         raw_parts = []
         for step in result.steps:
-            steps_data.append({
-                "step_number": step.step_number,
-                "latex": step.recognized_latex,
-                "confidence": step.confidence.value,
-                "is_correct": step.is_correct,
-                "error": step.error_description,
-            })
+            steps_data.append(
+                {
+                    "step_number": step.step_number,
+                    "latex": step.recognized_latex,
+                    "confidence": step.confidence.value,
+                    "is_correct": step.is_correct,
+                    "error": step.error_description,
+                }
+            )
             raw_parts.append(step.recognized_latex)
 
         return RecognizeResponse(
@@ -117,13 +124,15 @@ async def verify_solution(req: VerifyRequest):
 
         steps_data = []
         for step in result.steps:
-            steps_data.append({
-                "step_number": step.step_number,
-                "latex": step.latex,
-                "is_valid": step.is_valid_expr,
-                "is_correct_transition": step.is_correct_transition,
-                "error": step.error_description,
-            })
+            steps_data.append(
+                {
+                    "step_number": step.step_number,
+                    "latex": step.latex,
+                    "is_valid": step.is_valid_expr,
+                    "is_correct_transition": step.is_correct_transition,
+                    "error": step.error_description,
+                }
+            )
 
         return VerifyResponse(
             is_correct=result.is_correct,

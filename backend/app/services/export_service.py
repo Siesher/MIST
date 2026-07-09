@@ -4,12 +4,12 @@ Export service for generating PDF progress reports.
 Gathers student data, renders Jinja2 template, converts to PDF with WeasyPrint.
 """
 
-import io
 import base64
+import io
 import logging
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +42,7 @@ class ExportService:
         # Gather data from analytics service
         try:
             from backend.app.services.analytics_service import get_analytics_service
+
             analytics = await get_analytics_service()
 
             performance = await analytics.get_performance(db, user_id)
@@ -58,6 +59,7 @@ class ExportService:
         # Get recent sessions
         try:
             from backend.app.services.orchestrator_service import get_orchestrator_service
+
             orchestrator = await get_orchestrator_service()
             sessions_data = await orchestrator.list_sessions(db, page=1, limit=20, user_id=user_id)
             sessions = [
@@ -80,10 +82,12 @@ class ExportService:
             topic = item.get("topic", "")
             history = item.get("history", [])
             latest = history[-1]["mastery"] if history else 0
-            mastery_data.append({
-                "topic": topic,
-                "mastery": round(latest * 100),
-            })
+            mastery_data.append(
+                {
+                    "topic": topic,
+                    "mastery": round(latest * 100),
+                }
+            )
 
         # Prepare error data
         error_data = [
@@ -117,13 +121,16 @@ class ExportService:
         template = self._jinja_env.get_template("report.html")
         html_content = template.render(**context)
 
-        # Convert to PDF
+        # Convert to PDF (WeasyPrint needs native GTK libs; degrade to HTML if unavailable)
         try:
             from weasyprint import HTML
+
             pdf_bytes = HTML(string=html_content).write_pdf()
             return pdf_bytes
-        except ImportError:
-            logger.warning("WeasyPrint not installed, returning HTML as fallback")
+        except Exception as e:
+            # ImportError → package absent; OSError → installed but native libs
+            # (libgobject/pango/cairo) missing, e.g. Windows without the GTK runtime.
+            logger.warning(f"WeasyPrint unavailable ({type(e).__name__}: {e}); returning HTML fallback")
             return html_content.encode("utf-8")
 
     def _render_mastery_chart(self, mastery_data: List[Dict[str, Any]]) -> Optional[str]:
@@ -133,6 +140,7 @@ class ExportService:
 
         try:
             import matplotlib
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
 
@@ -147,8 +155,7 @@ class ExportService:
             ax.invert_yaxis()
 
             for bar, val in zip(bars, values):
-                ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
-                        f"{val}%", va="center", fontsize=9)
+                ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2, f"{val}%", va="center", fontsize=9)
 
             plt.tight_layout()
 

@@ -1,6 +1,6 @@
 # ML Research Agent Knowledge Base
 **Project**: MITS (Qwen3.5-9B GSPO/GRPO pipeline)
-**Last updated**: 2026-03-21
+**Last updated**: 2026-03-25
 
 ## TRL GRPOConfig: reward_weights
 
@@ -208,10 +208,17 @@ For MITS: standard inclusion is fine; DuP-PO is an enhancement worth implementin
 - LoRA less tolerant of large effective batch sizes: keep effective batch < 32 unique prompts/step
 - LR for LoRA ~10x higher than full fine-tuning (1/r scaling makes it rank-independent)
 
+**LoRA Safety Alignment (arXiv 2507.17075) -- KEY FINDING FOR STYLE/BEHAVIOR**:
+- r=1 is sufficient for safety/style behavior change in reasoning LLMs
+- "Safety behavior mediated by a single direction" -- behavior changes need minimal rank
+- r=1 best for behavior; full-rank risks interfering with existing reasoning weights
+- Implication: r=16 is MORE than sufficient for Socratic style alignment
+
 **Recommendation for 9B**: r=16 with lora_alpha=32
 - Lower rank = stronger regularizer = prevents policy drift (especially important with beta=0)
 - RL training more susceptible to forgetting than SFT
 - Increase to r=32 only if performance plateaus after 200+ steps
+- DO NOT use r=64: demonstrably underperforms r=16
 
 **BF16 collapse warning**: BF16 LoRA training collapses at ~600 steps. Use FP16 or mixed precision for LoRA weights.
 
@@ -244,6 +251,7 @@ If Socratic behavior degrades, increase to r=32 + add orthogonality regularizati
 2. **KL NaN bug**: `mask_truncated_completions=True` + high clipped_ratio = all completions masked = NaN KL (issue #3149)
 3. **VRAM growth over steps**: OOM after many steps in some configs (issue #3864)
 4. **gradient_accumulation_steps not counted**: In batch/num_generations divisibility check
+5. **TRL issue #3823**: GSPO loss incorrect with default `loss_type="bnpo"` when `importance_sampling_level="sequence"` and multi-step training. Check if using multi-step gradient accumulation with GSPO.
 
 **Mitigation**: Use standard TRL GRPOTrainer for training; use Unsloth only for model loading (Flash Attention, quantization).
 
@@ -399,20 +407,62 @@ succeed (trivial, no gradient) or all fail (no gradient). Keeps only the "teacha
 
 ---
 
-## Lion Optimizer for RL Fine-Tuning (2026-03-20)
+## Optimizer Choice for GRPO/RLHF (2026-03-25, UPDATED)
 
-**No RL papers use Lion**: All major RL papers (DeepSeek-R1, DAPO, VAPO, GRPO-LEAD) use AdamW.
+**Universal finding**: ZERO major RL papers use Lion. Every paper that discloses its optimizer uses AdamW.
 
-**Memory savings**: ~33% vs AdamW (no second moment). 8-bit Lion: another 4x reduction.
+### Verified optimizer choices in RL papers
 
-**LR calibration**: Lion optimal LR = 3-10x SMALLER than AdamW equivalent.
-Weight decay = 3-10x LARGER than AdamW equivalent.
+| Paper | Optimizer | Actor LR | Beta1/Beta2 | Weight Decay |
+|---|---|---|---|---|
+| DeepSeek-R1 (2501.12948) | AdamW | 3e-6 | Not disclosed | Not disclosed |
+| VAPO (2504.05118) | AdamW | 1e-6 | Not disclosed | Not disclosed |
+| Open-Reasoner-Zero (2503.24290) | AdamW | 1e-6 | 0.9/0.95 | 0.0 |
+| Kimi K2 (2507.20534) | Muon | Not disclosed | N/A | N/A |
 
-**Theoretical concern for RL**: Lion uses sign updates (all gradients clipped to unit magnitude).
-GRPO advantage-weighted gradients carry magnitude information about reward certainty.
-Sign updates discard this -- unclear interaction. Not validated in literature.
+### Why Lion is NOT recommended for GRPO (structural risks)
 
-**Safe fallback**: AdamW 8-bit (bitsandbytes) if Lion shows instability or reward decay.
+1. **Sign update discards advantage magnitude**: GRPO gradients are weighted by advantage A_i = (r - mean)/std. Lion's sign() collapses all magnitudes to +-lr. A high-advantage correct response and a barely-above-average one produce identical update steps. Reward signal magnitude is information -- discarding it is structurally wrong for policy gradient.
+
+2. **Sign function non-convergence in noisy settings**: RL gradients are 3-5x noisier than SFT gradients. Documented instability from sign discreteness (RLion paper, PMC12215452) applies more strongly.
+
+3. **LR recalibration required**: Lion needs 3-10x SMALLER lr than AdamW AND 10x LARGER weight decay. Standard RL LR (1e-6) would need to become 1e-7 to 3e-7 for Lion -- dangerously slow.
+
+4. **No empirical validation**: optimi.dev Lion docs note "negative results seem to be with problems outside of what was evaluated -- RL, feedforward networks, weird hybrid architectures." This is documented, not speculative.
+
+### Memory comparison for MITS (LoRA r=16, ~170M trainable params)
+
+| Optimizer | States per param | Optimizer VRAM (LoRA) | Full 9B FT |
+|---|---|---|---|
+| AdamW fp32 | 2 | 1.36 GB | 72 GB |
+| 8-bit AdamW | 2 (quantized) | 0.34 GB | 18 GB |
+| Lion / AdamS | 1 | 0.68 GB | 36 GB |
+
+**Conclusion for MITS**: LoRA r=16 means 1.36 GB optimizer states vs 80 GB VRAM. Memory is NOT the constraint. Do not change optimizer for memory reasons.
+
+### AdamS (arXiv 2505.16363, EMNLP 2025) -- best alternative
+
+**What**: Replaces second moment with squared momentum as normalizer. Eliminates m2 entirely.
+**GRPO validation**: YES -- tested on GRPO with Qwen2.5-3B and DeepSeek-R1-Distill-Llama-8B on Countdown task. Results match or exceed AdamW.
+**Memory**: Same as Lion (-50% optimizer states vs AdamW).
+**Hyperparameter compatibility**: Directly inherits AdamW lr, beta1, weight_decay -- zero recalibration.
+**Status**: EMNLP 2025 paper; not yet in TRL optim presets -- requires custom optimizer object.
+
+### AdamW hyperparameters for MITS GRPO
+
+```python
+GRPOConfig(
+    learning_rate=3e-6,       # Conservative, matches VAPO actor LR
+    optim="adamw_torch",
+    warmup_ratio=0.05,
+    weight_decay=0.01,
+    adam_beta1=0.9,
+    adam_beta2=0.95,          # DeepSeek / Open-Reasoner-Zero: 0.95, not 0.999
+    adam_epsilon=1e-8,
+)
+```
+
+Note: beta2=0.95 (not 0.999) reduces EMA window for second moment -- more responsive to non-stationary RL objectives.
 
 ---
 
@@ -489,3 +539,49 @@ This exacerbates the direct-answer training problem.
 - "Hidden Objective Biases" (arXiv:2601.05002): systematic gradient biases in group-based RL
 - DeepSeek-R1 (arXiv:2501.12948): cold-start SFT rationale, format prior necessity
 - MTL-LoRA (AAAI 2025): multi-task LoRA orthogonality requirements
+
+---
+
+## GSPO Training Failure Post-Mortem (2026-03-23)
+
+**Full analysis**: research/findings_gspo_failure_diagnosis_2026-03-23.md
+
+### Summary of verdict per failure cause
+
+| Cause | Verdict | Evidence |
+|---|---|---|
+| System prompt mismatch | CONFIRMED CRITICAL | Llama 2 Ghost Attention (2307.09288), InstructGPT (2203.02155) |
+| Reward weight imbalance | PARTIALLY CONFIRMED | MO-GRPO (2509.22047) variance theorem, GDPO (2601.05242) |
+| Beta=0.0 | CONFIRMED for tutor use case | DeepSeek-R1 uses 0.001, DAPO justification only for base-model math |
+| Rewards decreasing | CONFIRMED AS SYMPTOM | LLD death spiral (2512.04220), GTPO (2508.03772) |
+| LoRA r=16 too small | NOT CONFIRMED | r=1 sufficient for behavior (2507.17075), r=64 WORSE than r=16 (Tina) |
+| GRPO-specific issues | PARTIALLY RELEVANT | TRL issue #3823 (GSPO multi-step bug), group variance issue |
+
+### New papers discovered (2026-03-23)
+
+- **LLD Death Spiral** (arXiv 2512.04220): Mechanism for reward decrease in GRPO. Three phases: stagnation → steady decay → catastrophic collapse. Negative gradients from incorrect responses suppress correct response likelihood.
+- **GTPO** (arXiv 2508.03772): Policy collapse mechanism in GRPO -- entropy collapse in second half of training. GRPO performance drops sharply; GTPO fixes via gradient/entropy control.
+- **MO-GRPO** (arXiv 2509.22047): Multi-objective reward hacking. Theorem 1: advantage dominated by reward with highest variance, regardless of explicit weight. Proved empirically: readability dominated translation accuracy.
+- **Llama 2 Ghost Attention** (arXiv 2307.09288): System prompt must be included in every training rollout during RLHF to maintain instructional consistency. Zero-loss training on intermediate turns when synthetic data injected.
+- **"LoRA is All You Need for Safety Alignment"** (arXiv 2507.17075): r=1 optimal for style/behavior alignment. Behavior change mediated by single direction. Knowledge requires higher rank, behavior does not.
+- **TRL issue #3823**: GSPO loss computed incorrectly with default bnpo loss_type when using sequence-level IS + multi-step. Check TRL version.
+
+### Cold-start SFT necessity (DeepSeek-R1 evidence)
+
+DeepSeek-R1 Section 3.2: "without cold start, the model has no behavioral prior for the desired output format, and RL may not converge toward the target distribution." For Socratic style: Qwen3.5-9B Instruct has no trained prior for Socratic behavior. Run 200-300 SFT steps on dialogs.jsonl BEFORE GSPO.
+
+### GDPO weight threshold finding
+
+GDPO (arXiv 2601.05242): "reducing secondary weight to 0.25 has little impact on the primary objective." Threshold where secondary reward becomes effectively ignored: ~0.25. With GDPO normalization, 0.15 Socratic weight is slightly above this threshold but only marginally. Boost to 0.45 is well-justified.
+
+### Beta values across major papers
+
+| Paper | Beta | Context |
+|---|---|---|
+| DeepSeek-R1 Stage 1 | 0.001 | Math reasoning from base model |
+| DeepSeek-R1-Zero | 0.0 | Pure RL, suffers language mixing |
+| DAPO | 0.0 | Math from base model, explicitly justified |
+| GSPO | 0.0 | Math from base model, clipping as substitute |
+| TRL v0.15.2 default | 0.04 | Generic RLHF applications |
+| TRL v0.27+ default | 0.0 | Changed to follow DAPO/DeepSeek practice |
+| MITS recommendation | 0.04 | Socratic tutoring, instruction-following preservation |

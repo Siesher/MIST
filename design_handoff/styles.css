@@ -1,0 +1,813 @@
+/* =============================================================
+   MITS — Cyberpunk Terminal Design System (v2 — restrained)
+   ============================================================= */
+
+:root {
+  /* Core palette */
+  --bg-0: #07070d;
+  --bg-1: #0b0812;
+  --bg-2: #110c1c;
+  --bg-3: #1a1328;
+  --surface: #0d0a17;
+  --surface-hi: #141022;
+  --line: rgba(176, 38, 255, 0.12);
+  --line-hi: rgba(176, 38, 255, 0.28);
+
+  /* Neon (muted) */
+  --violet: #b58aff;
+  --violet-bright: #c89bff;
+  --violet-deep: #7a5aca;
+  --yellow: #f0d94a;
+  --yellow-soft: #faeb8a;
+  --magenta: #d470c2;
+  --cyan: #6fd4e0;
+
+  /* Text */
+  --text: #e0dcf0;
+  --text-dim: #8a83a6;
+  --text-muted: #58527a;
+  --text-ghost: #363148;
+
+  /* State */
+  --success: #6fe0a6;
+  --warn: #f0d94a;
+  --error: #e87093;
+
+  /* Fonts */
+  --font-mono: 'JetBrains Mono', 'Space Mono', 'SF Mono', ui-monospace, monospace;
+  --font-display: 'Space Grotesk', 'JetBrains Mono', system-ui, sans-serif;
+
+  /* Glow (restrained) */
+  --glow-size: 6px;
+  --glow-violet: 0 0 var(--glow-size) rgba(181, 138, 255, 0.35);
+  --glow-yellow: 0 0 var(--glow-size) rgba(240, 217, 74, 0.35);
+}
+
+* { box-sizing: border-box; }
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-0);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =========================================================
+   Global background — scan lines + subtle grid + vignette
+   ========================================================= */
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(181, 138, 255, 0.05), transparent 55%),
+    radial-gradient(ellipse at 85% 90%, rgba(240, 217, 74, 0.02), transparent 50%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+}
+.scene::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(181, 138, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(181, 138, 255, 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 85%);
+}
+.scene::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(181, 138, 255, 0.02) 2px,
+    rgba(181, 138, 255, 0.02) 3px
+  );
+  opacity: var(--scanline-opacity, 0.5);
+  pointer-events: none;
+}
+
+/* CRT flicker (very subtle) */
+@keyframes crtFlicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.98; }
+  72% { opacity: 0.995; }
+}
+.crt { animation: crtFlicker 4s infinite; }
+
+/* =========================================================
+   Typography helpers
+   ========================================================= */
+.mono { font-family: var(--font-mono); }
+.display { font-family: var(--font-display); letter-spacing: -0.01em; }
+.uppercase { text-transform: uppercase; letter-spacing: 0.16em; }
+.dim { color: var(--text-dim); }
+.muted { color: var(--text-muted); }
+.ghost { color: var(--text-ghost); }
+.v { color: var(--violet); }
+.y { color: var(--yellow); }
+.m { color: var(--magenta); }
+
+/* Neon text — subtle */
+.neon-v { color: var(--violet); }
+.neon-y { color: var(--yellow); }
+
+/* =========================================================
+   Chrome panels — sharp brutalist frames
+   ========================================================= */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  position: relative;
+}
+.panel-hi {
+  background: var(--surface-hi);
+  border: 1px solid var(--line-hi);
+}
+/* corner ticks */
+.cornered::before,
+.cornered::after,
+.cornered > .tl,
+.cornered > .br {
+  content: "";
+  position: absolute;
+  width: 10px; height: 10px;
+  border: 1px solid var(--violet);
+  pointer-events: none;
+}
+.cornered::before { top: -1px; left: -1px; border-right: none; border-bottom: none; border-color: var(--violet); opacity: 0.5; }
+.cornered::after  { top: -1px; right: -1px; border-left: none; border-bottom: none; border-color: var(--violet); opacity: 0.5; }
+.cornered > .tl   { bottom: -1px; left: -1px; border-right: none; border-top: none; border-color: var(--violet); opacity: 0.5; }
+.cornered > .br   { bottom: -1px; right: -1px; border-left: none; border-top: none; border-color: var(--violet); opacity: 0.5; }
+
+/* =========================================================
+   Buttons
+   ========================================================= */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line-hi);
+  cursor: pointer;
+  transition: all 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.btn:hover {
+  color: var(--violet);
+  border-color: var(--violet-deep);
+}
+.btn-primary {
+  background: var(--violet);
+  color: #0a0014;
+  border-color: var(--violet);
+}
+.btn-primary:hover {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: #0a0014;
+}
+.btn-ghost { border-color: transparent; color: var(--text-dim); }
+.btn-ghost:hover { color: var(--yellow); border-color: transparent; box-shadow: none; }
+
+/* =========================================================
+   Inputs
+   ========================================================= */
+.input {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 10px 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.input:focus {
+  border-color: var(--violet);
+}
+.input::placeholder { color: var(--text-ghost); }
+
+/* =========================================================
+   Caret / typing
+   ========================================================= */
+.caret::after {
+  content: "▊";
+  display: inline-block;
+  color: var(--yellow);
+  margin-left: 2px;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* =========================================================
+   Glitch text
+   ========================================================= */
+/* =========================================================
+   Glitch text — clone-free, non-overlapping
+   A subtle chromatic flicker on the text itself, no displaced siblings
+   ========================================================= */
+.glitch {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.glitch::before, .glitch::after { display: none !important; }
+
+[data-glitch="on"] .glitch {
+  animation: glitchFlick 6s infinite;
+}
+@keyframes glitchFlick {
+  0%, 92%, 100% { text-shadow: none; filter: none; }
+  93%    { text-shadow: -1px 0 rgba(207, 127, 184, 0.7), 1px 0 rgba(141, 212, 220, 0.5); filter: blur(0.2px); }
+  94%    { text-shadow: 2px 0 rgba(207, 127, 184, 0.8), -2px 0 rgba(141, 212, 220, 0.5); }
+  95%    { text-shadow: -1px 0 rgba(207, 127, 184, 0.6), 2px 0 rgba(141, 212, 220, 0.6); }
+  96%    { text-shadow: none; }
+  97%    { text-shadow: 1px 0 rgba(207, 127, 184, 0.5); }
+}
+
+/* =========================================================
+   Theme variants
+   ========================================================= */
+:root[data-theme="minimal"] {
+  --glow-size: 0px;
+  --scanline-opacity: 0;
+  --line: rgba(181, 138, 255, 0.1);
+  --line-hi: rgba(181, 138, 255, 0.22);
+}
+:root[data-theme="minimal"] .scene::after { display: none; }
+:root[data-theme="minimal"] .scene::before { opacity: 0.5; }
+:root[data-theme="minimal"] .glitch::before,
+:root[data-theme="minimal"] .glitch::after { display: none; }
+:root[data-theme="minimal"] .crt { animation: none; }
+:root[data-theme="minimal"] .scan-bar { display: none; }
+:root[data-theme="minimal"] .cornered::before,
+:root[data-theme="minimal"] .cornered::after,
+:root[data-theme="minimal"] .cornered > .tl,
+:root[data-theme="minimal"] .cornered > .br { display: none; }
+
+/* =========================================================
+   Theme variants — aggressive overrides so palette actually changes
+   ========================================================= */
+
+/* Force themed body backgrounds to shift the whole app */
+:root[data-theme="grimoire"] body,
+:root[data-theme="grimoire"] html { background: #0c0615; }
+:root[data-theme="grimoire"] .scene {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(201, 163, 255, 0.09), transparent 55%),
+    radial-gradient(ellipse at 85% 90%, rgba(255, 213, 128, 0.07), transparent 50%),
+    linear-gradient(180deg, #14081f 0%, #0c0615 100%);
+}
+
+:root[data-theme="neo"] body,
+:root[data-theme="neo"] html { background: #000; }
+:root[data-theme="neo"] .scene {
+  background: #000;
+}
+:root[data-theme="neo"] .scene::before {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+:root[data-theme="acid"] body,
+:root[data-theme="acid"] html { background: #08000f; }
+:root[data-theme="acid"] .scene {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(217, 77, 255, 0.14), transparent 55%),
+    radial-gradient(ellipse at 85% 90%, rgba(249, 255, 42, 0.08), transparent 50%),
+    linear-gradient(180deg, #0a0012 0%, #08000f 100%);
+}
+:root[data-theme="acid"] .scene::after {
+  background: repeating-linear-gradient(
+    to bottom, transparent 0, transparent 2px,
+    rgba(217, 77, 255, 0.06) 2px, rgba(217, 77, 255, 0.06) 3px
+  );
+  opacity: 1;
+}
+:root[data-theme="acid"] .neon-v {
+  text-shadow: 0 0 10px rgba(217, 77, 255, 0.8), 0 0 20px rgba(217, 77, 255, 0.5);
+}
+:root[data-theme="acid"] .neon-y {
+  text-shadow: 0 0 10px rgba(249, 255, 42, 0.8), 0 0 20px rgba(249, 255, 42, 0.4);
+}
+
+:root[data-theme="minimal"] body,
+:root[data-theme="minimal"] html { background: #0a0a0e; }
+:root[data-theme="minimal"] .scene {
+  background: linear-gradient(180deg, #0d0d12 0%, #0a0a0e 100%);
+}
+
+/* =========================================================
+   Force common hardcoded rgba()s to theme-swap via blend overlays
+   ========================================================= */
+:root[data-theme="grimoire"] main,
+:root[data-theme="grimoire"] aside,
+:root[data-theme="grimoire"] .panel {
+  filter: hue-rotate(-10deg) saturate(1.1);
+}
+:root[data-theme="neo"] main,
+:root[data-theme="neo"] aside,
+:root[data-theme="neo"] .panel {
+  filter: saturate(0) contrast(1.15);
+}
+:root[data-theme="neo"] .dot.g,
+:root[data-theme="neo"] .y,
+:root[data-theme="neo"] .neon-y { filter: none; color: #f0d94a !important; }
+:root[data-theme="acid"] main,
+:root[data-theme="acid"] aside {
+  filter: saturate(1.6) hue-rotate(10deg);
+}
+:root[data-theme="acid"] .btn-primary { background: #d94dff; }
+
+/* Grimoire — warm violet + gold */
+/* =========================================================
+   Grimoire — modern, refined (royal violet + warm champagne)
+   ========================================================= */
+:root[data-theme="grimoire"] {
+  --bg-0: #0a0612;
+  --bg-1: #0f0919;
+  --bg-2: #160d24;
+  --bg-3: #1d1230;
+  --surface: #120a1f;
+  --surface-hi: #1a1029;
+
+  --violet: #a583ff;
+  --violet-bright: #c4a9ff;
+  --violet-deep: #6b4fb8;
+
+  --yellow: #e8c668;        /* warm champagne, not yellow */
+  --yellow-soft: #f3dca3;
+  --magenta: #cf7fb8;
+  --cyan: #8dd4dc;
+
+  --text: #ece6fa;
+  --text-dim: #a394c2;
+  --text-muted: #6b5f89;
+  --text-ghost: #3d3454;
+
+  --line: rgba(165, 131, 255, 0.10);
+  --line-hi: rgba(165, 131, 255, 0.26);
+  --line-gold: rgba(232, 198, 104, 0.22);
+
+  --glow-size: 14px;
+  --glow-violet: 0 0 var(--glow-size) rgba(165, 131, 255, 0.35);
+  --glow-yellow: 0 0 var(--glow-size) rgba(232, 198, 104, 0.28);
+
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+}
+
+/* Ambient atmosphere — deeper, layered gradients */
+:root[data-theme="grimoire"] .scene {
+  background:
+    radial-gradient(ellipse 60% 45% at 15% 8%, rgba(165, 131, 255, 0.10), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 88% 92%, rgba(232, 198, 104, 0.05), transparent 65%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(107, 79, 184, 0.06), transparent 70%),
+    linear-gradient(175deg, #0f0919 0%, #0a0612 60%, #07040d 100%);
+}
+
+/* Softer, rarer grid */
+:root[data-theme="grimoire"] .scene::before {
+  background-image:
+    linear-gradient(to right, rgba(165, 131, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(165, 131, 255, 0.022) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 90%);
+}
+
+/* Thinner, less aggressive scan lines */
+:root[data-theme="grimoire"] .scene::after {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0, transparent 3px,
+    rgba(165, 131, 255, 0.012) 3px, rgba(165, 131, 255, 0.012) 4px
+  );
+  opacity: 0.6;
+}
+
+/* Glass / frosted panels */
+:root[data-theme="grimoire"] main,
+:root[data-theme="grimoire"] aside,
+:root[data-theme="grimoire"] .panel {
+  filter: none;                      /* remove old hue-rotate hack */
+  background: linear-gradient(180deg, rgba(26, 16, 41, 0.55), rgba(18, 10, 31, 0.75)) !important;
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border-color: rgba(165, 131, 255, 0.08) !important;
+}
+
+/* Sidebar gets a subtle inner glow at top */
+:root[data-theme="grimoire"] aside {
+  box-shadow:
+    inset 0 1px 0 rgba(196, 169, 255, 0.06),
+    inset -1px 0 0 rgba(165, 131, 255, 0.06);
+}
+
+/* Refined cornered brackets — thinner, champagne */
+:root[data-theme="grimoire"] .cornered::before,
+:root[data-theme="grimoire"] .cornered::after,
+:root[data-theme="grimoire"] .cornered > .tl,
+:root[data-theme="grimoire"] .cornered > .br {
+  border-color: rgba(232, 198, 104, 0.35) !important;
+  opacity: 0.55;
+}
+
+/* Chip / button refinements */
+:root[data-theme="grimoire"] .chip {
+  background: rgba(165, 131, 255, 0.06);
+  border-color: rgba(165, 131, 255, 0.18);
+  border-radius: 3px;
+  color: var(--text-dim);
+  backdrop-filter: blur(6px);
+}
+:root[data-theme="grimoire"] .chip.v {
+  background: linear-gradient(135deg, rgba(165, 131, 255, 0.14), rgba(107, 79, 184, 0.10));
+  border-color: rgba(165, 131, 255, 0.35);
+  color: var(--violet-bright);
+}
+:root[data-theme="grimoire"] .chip.on {
+  background: linear-gradient(135deg, rgba(232, 198, 104, 0.12), rgba(232, 198, 104, 0.04));
+  border-color: rgba(232, 198, 104, 0.40);
+  color: var(--yellow-soft);
+}
+
+/* Primary button — gradient + subtle inner highlight */
+:root[data-theme="grimoire"] .btn-primary,
+:root[data-theme="grimoire"] button[style*="background: var(--violet)"],
+:root[data-theme="grimoire"] button[style*="background:var(--violet)"] {
+  background: linear-gradient(135deg, #b896ff 0%, #8868d8 100%) !important;
+  border: 1px solid rgba(196, 169, 255, 0.4) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.15) inset,
+    0 0 20px rgba(165, 131, 255, 0.35),
+    0 8px 24px rgba(107, 79, 184, 0.3);
+  color: #fff !important;
+}
+
+/* Input refinement */
+:root[data-theme="grimoire"] input,
+:root[data-theme="grimoire"] textarea {
+  background: rgba(10, 6, 18, 0.6) !important;
+  border-color: rgba(165, 131, 255, 0.15) !important;
+  border-radius: 3px;
+}
+:root[data-theme="grimoire"] input:focus,
+:root[data-theme="grimoire"] textarea:focus {
+  border-color: rgba(165, 131, 255, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(165, 131, 255, 0.08);
+}
+
+/* Scrollbar */
+:root[data-theme="grimoire"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(165, 131, 255, 0.35), rgba(107, 79, 184, 0.3));
+  border-radius: 4px;
+}
+
+/* Neon text refinement — warmer, less shouty */
+:root[data-theme="grimoire"] .neon-v {
+  text-shadow: 0 0 12px rgba(165, 131, 255, 0.5), 0 0 30px rgba(165, 131, 255, 0.2);
+}
+:root[data-theme="grimoire"] .neon-y {
+  text-shadow: 0 0 12px rgba(232, 198, 104, 0.45), 0 0 28px rgba(232, 198, 104, 0.15);
+  color: var(--yellow) !important;
+}
+
+/* Sidebar active item — gradient pill */
+:root[data-theme="grimoire"] aside button[class*="active"],
+:root[data-theme="grimoire"] .nav-active {
+  background: linear-gradient(90deg, rgba(165, 131, 255, 0.18), rgba(165, 131, 255, 0.04)) !important;
+  border-left: 2px solid var(--violet) !important;
+}
+
+/* Dot / status indicators — softer glow */
+:root[data-theme="grimoire"] .dot {
+  box-shadow: 0 0 8px currentColor, 0 0 16px rgba(232, 198, 104, 0.2);
+}
+:root[data-theme="grimoire"] .dot.v {
+  background: var(--violet);
+  box-shadow: 0 0 8px var(--violet), 0 0 16px rgba(165, 131, 255, 0.25);
+}
+
+/* Subtle hairline separators become gradient */
+:root[data-theme="grimoire"] hr,
+:root[data-theme="grimoire"] .divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(165, 131, 255, 0.25), transparent);
+}
+
+/* Formula block — champagne accent bar */
+:root[data-theme="grimoire"] .formula-block {
+  background: linear-gradient(180deg, rgba(10, 6, 18, 0.6), rgba(15, 9, 25, 0.4));
+  border-left: 2px solid var(--yellow);
+  border-radius: 0 4px 4px 0;
+  box-shadow: inset 0 1px 0 rgba(232, 198, 104, 0.08);
+}
+
+/* =========================================================
+   Legacy grimoire block (kept for backwards compat — now no-op)
+   ========================================================= */
+:root[data-theme="grimoire-old"] {
+  /* deprecated */
+}
+
+/* Neo — high-contrast monochrome + one accent */
+:root[data-theme="neo"] {
+  --bg-0: #000000;
+  --bg-1: #050505;
+  --surface: #0a0a0a;
+  --surface-hi: #121212;
+  --violet: #c4c4c4;
+  --yellow: #f0d94a;
+  --magenta: #888;
+  --cyan: #888;
+  --text: #ffffff;
+  --text-dim: #888;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-hi: rgba(255, 255, 255, 0.3);
+  --glow-size: 0px;
+}
+:root[data-theme="neo"] .scene::after { display: none; }
+:root[data-theme="neo"] .scene::before { opacity: 0.3; }
+
+/* Acid — cyber overdrive, saturated */
+:root[data-theme="acid"] {
+  --violet: #d94dff;
+  --yellow: #f9ff2a;
+  --magenta: #ff3cc0;
+  --cyan: #3cf0ff;
+  --line: rgba(217, 77, 255, 0.2);
+  --line-hi: rgba(217, 77, 255, 0.45);
+  --glow-size: 14px;
+}
+
+/* =========================================================
+   Scrollbars
+   ========================================================= */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(176, 38, 255, 0.3); }
+::-webkit-scrollbar-thumb:hover { background: var(--violet); }
+
+/* =========================================================
+   Utility
+   ========================================================= */
+.row { display: flex; align-items: center; }
+.col { display: flex; flex-direction: column; }
+.gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-6 { gap: 24px; }
+.flex-1 { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.center { display: flex; align-items: center; justify-content: center; }
+
+/* Tag / chip */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(176, 38, 255, 0.06);
+}
+.chip.on { color: var(--yellow); border-color: rgba(245, 230, 10, 0.5); background: rgba(245, 230, 10, 0.06); }
+.chip.v  { color: var(--violet); border-color: var(--line-hi); background: rgba(176, 38, 255, 0.1); }
+
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+.dot.v { background: var(--violet); box-shadow: 0 0 8px var(--violet); }
+.dot.g { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+/* =========================================================
+   KaTeX polish
+   ========================================================= */
+.katex { color: var(--text) !important; }
+.katex .mord, .katex .mop { color: var(--text); }
+.formula-block {
+  background: rgba(0,0,0,0.4);
+  border-left: 2px solid var(--yellow);
+  padding: 14px 18px;
+  margin: 10px 0;
+  overflow-x: auto;
+  position: relative;
+}
+.formula-block::before {
+  content: "⟨ fx ⟩";
+  position: absolute; top: 4px; right: 8px;
+  font-size: 9px;
+  color: var(--yellow);
+  letter-spacing: 0.2em;
+  opacity: 0.6;
+}
+
+/* =========================================================
+   Animations
+   ========================================================= */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes pulse-v {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 38, 255, 0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(176, 38, 255, 0); }
+}
+.pulse-v { animation: pulse-v 1.8s infinite; }
+
+@keyframes scanMove {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+.scan-bar {
+  position: absolute;
+  left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to bottom, transparent, rgba(176, 38, 255, 0.08), transparent);
+  animation: scanMove 8s linear infinite;
+  pointer-events: none;
+}
+
+/* Logo mark — original MITS glyph */
+.mits-mark {
+  width: 28px; height: 28px;
+  position: relative;
+  display: inline-block;
+}
+.mits-mark svg { width: 100%; height: 100%; }
+
+/* Keyboard hint */
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: rgba(176, 38, 255, 0.08);
+  border: 1px solid var(--line);
+}
+
+/* =========================================================
+   Claude-desktop-inspired minimalist layer (applied on grimoire)
+   — soft edges, calm surfaces, sans-by-default, no scan/glitch
+   ========================================================= */
+:root[data-theme="grimoire"] {
+  --font-ui: 'Inter', 'Space Grotesk', -apple-system, system-ui, sans-serif;
+}
+:root[data-theme="grimoire"] body,
+:root[data-theme="grimoire"] html,
+:root[data-theme="grimoire"] #root,
+:root[data-theme="grimoire"] main,
+:root[data-theme="grimoire"] aside,
+:root[data-theme="grimoire"] .panel {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+/* keep monospace only for code, math, badges, terminals */
+:root[data-theme="grimoire"] code,
+:root[data-theme="grimoire"] pre,
+:root[data-theme="grimoire"] .mono,
+:root[data-theme="grimoire"] .chip,
+:root[data-theme="grimoire"] kbd,
+:root[data-theme="grimoire"] .uppercase {
+  font-family: var(--font-mono);
+}
+
+/* Kill all decorative treatments on the minimalist grimoire */
+:root[data-theme="grimoire"] .scene::after { display: none; }
+:root[data-theme="grimoire"] .scene::before { opacity: 0.5; }
+:root[data-theme="grimoire"] .crt { animation: none; }
+:root[data-theme="grimoire"] .scan-bar { display: none; }
+:root[data-theme="grimoire"][data-glitch="off"] .glitch::before,
+:root[data-theme="grimoire"][data-glitch="off"] .glitch::after { display: none !important; }
+
+/* Hide the decorative corner brackets entirely by default */
+:root[data-theme="grimoire"] .cornered::before,
+:root[data-theme="grimoire"] .cornered::after,
+:root[data-theme="grimoire"] .cornered > .tl,
+:root[data-theme="grimoire"] .cornered > .br { display: none; }
+
+/* Rounded, calmer panels */
+:root[data-theme="grimoire"] .panel {
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(26, 16, 41, 0.35), rgba(14, 8, 24, 0.45)) !important;
+  border: 1px solid rgba(165, 131, 255, 0.08) !important;
+}
+
+/* Refined inputs — rounded, soft focus */
+:root[data-theme="grimoire"] input,
+:root[data-theme="grimoire"] textarea,
+:root[data-theme="grimoire"] .input {
+  border-radius: 8px !important;
+  background: rgba(14, 8, 24, 0.5) !important;
+  border: 1px solid rgba(165, 131, 255, 0.12) !important;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+:root[data-theme="grimoire"] input:focus,
+:root[data-theme="grimoire"] textarea:focus,
+:root[data-theme="grimoire"] .input:focus {
+  border-color: rgba(165, 131, 255, 0.4) !important;
+  box-shadow: 0 0 0 3px rgba(165, 131, 255, 0.08) !important;
+  outline: none;
+}
+
+/* Buttons */
+:root[data-theme="grimoire"] .btn,
+:root[data-theme="grimoire"] button {
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  transition: background 140ms, color 140ms, border-color 140ms, transform 80ms;
+}
+:root[data-theme="grimoire"] .btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(165, 131, 255, 0.12);
+  color: var(--text-dim);
+}
+:root[data-theme="grimoire"] .btn-ghost:hover {
+  background: rgba(165, 131, 255, 0.06);
+  color: var(--text);
+  border-color: rgba(165, 131, 255, 0.25);
+}
+
+/* Chip pills */
+:root[data-theme="grimoire"] .chip {
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* Dot indicators — cleaner, less glow */
+:root[data-theme="grimoire"] .dot {
+  box-shadow: none;
+}
+
+/* Scrollbars — thinner, calmer */
+:root[data-theme="grimoire"] ::-webkit-scrollbar { width: 6px; height: 6px; }
+:root[data-theme="grimoire"] ::-webkit-scrollbar-thumb {
+  background: rgba(165, 131, 255, 0.15);
+  border-radius: 999px;
+}
+:root[data-theme="grimoire"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(165, 131, 255, 0.3);
+}
+
+/* Neon text — very faint halo, Claude Desktop style */
+:root[data-theme="grimoire"] .neon-v {
+  text-shadow: none;
+  color: var(--violet-bright);
+}
+:root[data-theme="grimoire"] .neon-y {
+  text-shadow: none;
+  color: var(--yellow) !important;
+}
+
+/* Formula block — flatter, calm */
+:root[data-theme="grimoire"] .formula-block {
+  border-radius: 8px;
+  background: rgba(14, 8, 24, 0.5);
+  border-left: 2px solid rgba(232, 198, 104, 0.5);
+  box-shadow: none;
+}
+
+/* Message bubbles — chat — soft rounded, no harsh borders */
+:root[data-theme="grimoire"] .msg-user {
+  background: linear-gradient(135deg, rgba(165, 131, 255, 0.14), rgba(165, 131, 255, 0.06)) !important;
+  border: 1px solid rgba(165, 131, 255, 0.18) !important;
+  border-radius: 14px 14px 4px 14px !important;
+}
+:root[data-theme="grimoire"] .msg-tutor {
+  background: rgba(14, 8, 24, 0.4) !important;
+  border: 1px solid rgba(165, 131, 255, 0.08) !important;
+  border-radius: 14px 14px 14px 4px !important;
+}
+
+/* Hide particles/scanlines on grimoire by default (tweakable) */
+:root[data-theme="grimoire"] canvas[data-role="particles"] { display: none; }
+
+/* Status bar — very quiet */
+:root[data-theme="grimoire"] [data-status-bar] {
+  background: rgba(10, 6, 18, 0.6) !important;
+  border-bottom: 1px solid rgba(165, 131, 255, 0.07) !important;
+}
+

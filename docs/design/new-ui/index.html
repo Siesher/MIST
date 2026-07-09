@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<title>MITS — Math Intelligent Tutoring System</title>
+<meta name="viewport" content="width=1600"/>
+<link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="styles-enhancements.css"/>
+<style>
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: #0E0A1A;
+    color: #E9DFFF;
+    font-family: 'Geist', system-ui, sans-serif;
+  }
+  #root { display: block; }
+
+  /* Override DC artboard chrome to feel more premium */
+  body { overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="chat-app-data.jsx"></script>
+<script type="text/babel" src="pages.jsx"></script>
+<script type="text/babel" src="enhancements.jsx"></script>
+<script type="text/babel" src="chat-app.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useEffect } = React;
+
+function App() {
+  // Magnetic hover effect — attaches to .magnetic elements globally.
+  useEffect(() => {
+    const handler = (e) => {
+      const el = e.target.closest('.magnetic');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const x = e.clientX - (r.left + r.width / 2);
+      const y = e.clientY - (r.top + r.height / 2);
+      el.style.transform = `translate(${x * 0.18}px, ${y * 0.18}px)`;
+    };
+    const leave = (e) => {
+      const el = e.target.closest('.magnetic');
+      if (el) el.style.transform = '';
+    };
+    document.addEventListener('mousemove', handler);
+    document.addEventListener('mouseleave', leave, true);
+    return () => {
+      document.removeEventListener('mousemove', handler);
+      document.removeEventListener('mouseleave', leave, true);
+    };
+  }, []);
+
+  return (
+    <DesignCanvas
+      title="MITS — Midnight развивается"
+      subtitle="Dark, refined · 7 страниц · ниже — светлые варианты как референс"
+    >
+      <DCSection id="midnight-set" title="— Midnight · dark, refined" defaultLayout="row">
+        <DCArtboard id="midnight-chat"     label="Chat"      width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="chat"/></DCArtboard>
+        <DCArtboard id="midnight-tasks"    label="Tasks"     width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="tasks"/></DCArtboard>
+        <DCArtboard id="midnight-graph"    label="Graph"     width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="graph"/></DCArtboard>
+        <DCArtboard id="midnight-dash"     label="Dashboard" width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="dashboard"/></DCArtboard>
+        <DCArtboard id="midnight-profile"  label="Profile"   width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="profile"/></DCArtboard>
+        <DCArtboard id="midnight-sources"  label="Sources"   width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="sources"/></DCArtboard>
+        <DCArtboard id="midnight-settings" label="Settings"  width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="settings"/></DCArtboard>
+      </DCSection>
+
+      <DCSection id="auth-set" title="— Auth · вход и регистрация" defaultLayout="row">
+        <DCArtboard id="midnight-auth"   label="Sign in (dark)"   width={1480} height={920}><ChatApp themeName="midnight" initialLang="ru" initialView="auth"/></DCArtboard>
+        <DCArtboard id="daylight-auth"   label="Sign in (light)"  width={1480} height={920}><ChatApp themeName="daylight" initialLang="ru" initialView="auth"/></DCArtboard>
+        <DCArtboard id="daylight-chat"   label="Chat (light)"     width={1480} height={920}><ChatApp themeName="daylight" initialLang="ru" initialView="chat"/></DCArtboard>
+        <DCArtboard id="daylight-dash"   label="Dashboard (light)" width={1480} height={920}><ChatApp themeName="daylight" initialLang="ru" initialView="dashboard"/></DCArtboard>
+      </DCSection>
+
+      <DCSection id="aurora-set" title="— Aurora (референс, light)" defaultLayout="row">
+        <DCArtboard id="aurora-chat"      label="Chat"      width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="chat"/></DCArtboard>
+        <DCArtboard id="aurora-tasks"     label="Tasks"     width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="tasks"/></DCArtboard>
+        <DCArtboard id="aurora-graph"     label="Graph"     width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="graph"/></DCArtboard>
+        <DCArtboard id="aurora-dash"      label="Dashboard" width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="dashboard"/></DCArtboard>
+        <DCArtboard id="aurora-profile"   label="Profile"   width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="profile"/></DCArtboard>
+        <DCArtboard id="aurora-sources"   label="Sources"   width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="sources"/></DCArtboard>
+        <DCArtboard id="aurora-settings"  label="Settings"  width={1480} height={920}><ChatApp themeName="aurora" initialLang="ru" initialView="settings"/></DCArtboard>
+      </DCSection>
+
+      <DCSection id="grimoire-set" title="— Grimoire (референс, editorial)" defaultLayout="row">
+        <DCArtboard id="grimoire-chat"     label="Chat"      width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="chat"/></DCArtboard>
+        <DCArtboard id="grimoire-tasks"    label="Tasks"     width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="tasks"/></DCArtboard>
+        <DCArtboard id="grimoire-graph"    label="Graph"     width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="graph"/></DCArtboard>
+        <DCArtboard id="grimoire-dash"     label="Dashboard" width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="dashboard"/></DCArtboard>
+        <DCArtboard id="grimoire-profile"  label="Profile"   width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="profile"/></DCArtboard>
+        <DCArtboard id="grimoire-sources"  label="Sources"   width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="sources"/></DCArtboard>
+        <DCArtboard id="grimoire-settings" label="Settings"  width={1480} height={920}><ChatApp themeName="grimoire" initialLang="ru" initialView="settings"/></DCArtboard>
+      </DCSection>
+
+      <DCSection id="midnight-set-old" title="— Midnight · предыдущая итерация (EN)" defaultLayout="row">
+        <DCArtboard id="midnight-chat-en"     label="Chat (en)"      width={1480} height={920}><ChatApp themeName="midnight" initialLang="en" initialView="chat"/></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

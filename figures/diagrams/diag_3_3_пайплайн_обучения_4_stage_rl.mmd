@@ -1,0 +1,63 @@
+flowchart LR
+    Base["Qwen3.5-9B<br/>Baseline"]
+
+    subgraph S1["Stage 1: GSPO"]
+        G1["Группы по 16 completions"]
+        G2["7 оптимизаций:<br/>Dr.GRPO, ReDit, GDPO,<br/>LEAD, Clip-Higher,<br/>Zero-Var Mask, Seq-IS"]
+        G3["Curriculum:<br/>easy → medium → hard"]
+        G1 --> G2 --> G3
+    end
+
+    subgraph S2["Stage 2: KTO"]
+        K1["Kahneman-Tversky<br/>Optimization"]
+        K2["Unpaired preferences<br/>desirable/undesirable"]
+        K3["Socratic alignment<br/>β=0.1"]
+        K1 --> K2 --> K3
+    end
+
+    subgraph S3["Stage 3: DPO"]
+        D1["Пары (chosen, rejected)<br/>из контрастов KTO"]
+        D2["Полировка формата<br/>и стиля"]
+        D3["β=0.1"]
+        D1 --> D2 --> D3
+    end
+
+    subgraph S4["Stage 4: V-STaR-DPO"]
+        V1["V-STaR generation<br/>N=4 траектории/задача"]
+        V2["Composite scorer<br/>correct×0.5 + PRM×0.3 + no-spoiler×0.2"]
+        V3["Within-task pairing<br/>best vs worst"]
+        V1 --> V2 --> V3
+    end
+
+    subgraph EVAL["Evaluation"]
+        E1["3678 задач<br/>MGSM + ruMMLU + custom"]
+        E2["5 доменов:<br/>math | physics | chemistry<br/>biology | cs"]
+        E3["SymPy + ChemPy<br/>верификация"]
+    end
+
+    subgraph DEPLOY["Деплой"]
+        DEP1["Merge LoRA"]
+        DEP2["Export GGUF<br/>Q4_K_M"]
+        DEP3["Ollama<br/>serve"]
+    end
+
+    Base --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> EVAL
+    S4 --> DEPLOY
+    DEP1 --> DEP2 --> DEP3
+
+    S1 -.->|checkpoint| HF1["HF: mits-qwen3-9b-gspo"]
+    S2 -.->|checkpoint| HF2["HF: mits-qwen3-9b-kto"]
+    S3 -.->|checkpoint| HF3["HF: mits-qwen3-9b-final"]
+    S4 -.->|checkpoint| HF4["HF: mits-qwen3-9b-vstar"]
+    EVAL -.->|reports| Reports["evaluation/reports/*.json"]
+
+    style S1 fill:#e3f2fd
+    style S2 fill:#e8f5e9
+    style S3 fill:#fce4ec
+    style S4 fill:#fff3e0
+    style EVAL fill:#f3e5f5
+    style DEPLOY fill:#e0f2f1

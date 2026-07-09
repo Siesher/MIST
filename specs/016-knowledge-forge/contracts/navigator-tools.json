@@ -1,0 +1,113 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "explore_concept",
+      "description": "Explore a concept in the knowledge graph. Returns the concept definition, content, difficulty, and all connected nodes (prerequisites, formulas, methods, examples, misconceptions) enriched with the student's mastery of each prerequisite. Use this to understand a topic before explaining it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "concept_id": {
+            "type": "string",
+            "description": "Knowledge graph node ID (e.g. 'math:derivative:definition')"
+          },
+          "student_id": {
+            "type": "string",
+            "description": "Student identifier for personalized mastery overlay"
+          }
+        },
+        "required": ["concept_id", "student_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "diagnose_gap",
+      "description": "Diagnose why a student failed at a concept. Traverses prerequisite edges backward to find unmastered fundamentals. Returns the root cause (deepest missing prerequisite), a review path, and related misconceptions. Use this when a student makes errors or struggles.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "concept_id": {
+            "type": "string",
+            "description": "The concept the student is struggling with"
+          },
+          "student_id": {
+            "type": "string",
+            "description": "Student identifier"
+          }
+        },
+        "required": ["concept_id", "student_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "suggest_next",
+      "description": "Suggest the best concept to teach the student next. Returns the concept from the learning frontier with the highest readiness score — prerequisites mostly mastered but the concept itself not yet learned. Use this to guide the learning sequence.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "student_id": {
+            "type": "string",
+            "description": "Student identifier"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Optional domain filter",
+            "enum": ["math", "physics", "cs", "chemistry", "biology"]
+          }
+        },
+        "required": ["student_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "find_learning_path",
+      "description": "Compute the optimal learning path from the student's current knowledge to a target concept. Returns an ordered list of concepts to study, skipping already-mastered ones. Use this when a student asks 'how do I get to topic X?'",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target_concept_id": {
+            "type": "string",
+            "description": "Target concept the student wants to learn"
+          },
+          "student_id": {
+            "type": "string",
+            "description": "Student identifier"
+          }
+        },
+        "required": ["target_concept_id", "student_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_learning_frontier",
+      "description": "Get concepts at the edge of the student's knowledge (Zone of Proximal Development). Returns up to N concepts where most prerequisites are mastered but the concept itself is not yet learned, sorted by readiness. Use this to see what the student is ready for.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "student_id": {
+            "type": "string",
+            "description": "Student identifier"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum concepts to return. Default: 5"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Optional domain filter",
+            "enum": ["math", "physics", "cs", "chemistry", "biology"]
+          }
+        },
+        "required": ["student_id"]
+      }
+    }
+  }
+]

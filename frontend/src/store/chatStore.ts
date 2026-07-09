@@ -9,6 +9,22 @@ interface StreamingMessage {
   thinkingContent: string;
 }
 
+interface StreamMetrics {
+  startedAt: number | null;           // ms timestamp when first token arrived
+  thinkingStartedAt: number | null;   // ms timestamp when thinking started
+  thinkingEndedAt: number | null;     // ms timestamp when thinking finished
+  thinkingTokens: number;             // tokens in thinking phase
+  responseTokens: number;             // tokens in response phase
+  firstTokenAt: number | null;        // time-to-first-token (from request send)
+  requestSentAt: number | null;       // when user sent request
+}
+
+interface SessionMetrics {
+  totalTokens: number;
+  latencies: number[];                // last N response durations in ms
+  lastLatency: number | null;
+}
+
 interface ChatState {
   // Sessions
   sessions: Session[];
@@ -19,6 +35,7 @@ interface ChatState {
 
   // Streaming state
   streamingMessage: StreamingMessage | null;
+  streamMetrics: StreamMetrics;
   isStreaming: boolean;
   isLoading: boolean;
 
@@ -28,11 +45,24 @@ interface ChatState {
   // Mode per session
   sessionModes: Record<string, ChatMode>;
 
+  // Session-level metrics
+  sessionMetrics: Record<string, SessionMetrics>;
+
+  // Active model name + backend metadata (from /health)
+  modelName: string | null;
+  backendKind: string | null;       // "ollama" | "huggingface"
+  turboQuant: boolean;
+  contextLength: number | null;
+
   // Theme
   theme: "dark" | "light";
 
   // Sidebar
   sidebarOpen: boolean;
+
+  // Dreaming: set true when the backend emits `suggest_rest` (cognitive overload).
+  // ChatScreen reconciles this with the idle timer into one rest-card state.
+  restSuggested: boolean;
 
   // Actions
   setSessions: (sessions: Session[]) => void;
@@ -48,6 +78,15 @@ interface ChatState {
   setIsStreaming: (streaming: boolean) => void;
   setIsLoading: (loading: boolean) => void;
 
+  // Metrics actions
+  beginStream: () => void;
+  resetStreamMetrics: () => void;
+  recordTokenTimings: (isThinking: boolean, tokenCount: number) => void;
+  finalizeStreamMetrics: (sessionId: string) => void;
+
+  setModelName: (name: string) => void;
+  setBackendInfo: (info: { kind?: string; turbo_quant?: boolean; context_length?: number }) => void;
+
   setSessionState: (sessionId: string, state: SessionState) => void;
 
   setSessionMode: (sessionId: string, mode: ChatMode) => void;
@@ -57,6 +96,24 @@ interface ChatState {
 
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+
+  setRestSuggested: (suggested: boolean) => void;
+}
+
+const INITIAL_STREAM_METRICS: StreamMetrics = {
+  startedAt: null,
+  thinkingStartedAt: null,
+  thinkingEndedAt: null,
+  thinkingTokens: 0,
+  responseTokens: 0,
+  firstTokenAt: null,
+  requestSentAt: null,
+};
+
+// Rough token estimate from character count (4 chars ≈ 1 token for English/Russian mix)
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.max(1, Math.round(text.length / 4));
 }
 
 export const useChatStore = create<ChatState>()((set) => ({
@@ -64,31 +121,31 @@ export const useChatStore = create<ChatState>()((set) => ({
   activeSessionId: null,
   messages: {},
   streamingMessage: null,
+  streamMetrics: { ...INITIAL_STREAM_METRICS },
   isStreaming: false,
   isLoading: false,
   sessionStates: {},
   sessionModes: {},
+  sessionMetrics: {},
+  modelName: null,
+  backendKind: null,
+  turboQuant: false,
+  contextLength: null,
   theme: "dark",
   sidebarOpen: true,
+  restSuggested: false,
 
   setSessions: (sessions) => set({ sessions }),
-  addSession: (session) =>
-    set((state) => ({
-      sessions: [session, ...state.sessions],
-    })),
+  addSession: (session) => set((state) => ({ sessions: [session, ...state.sessions] })),
   removeSession: (sessionId) =>
     set((state) => ({
       sessions: state.sessions.filter((s) => s.id !== sessionId),
-      messages: Object.fromEntries(
-        Object.entries(state.messages).filter(([k]) => k !== sessionId),
-      ),
+      messages: Object.fromEntries(Object.entries(state.messages).filter(([k]) => k !== sessionId)),
     })),
   setActiveSession: (sessionId) => set({ activeSessionId: sessionId }),
 
   setMessages: (sessionId, messages) =>
-    set((state) => ({
-      messages: { ...state.messages, [sessionId]: messages },
-    })),
+    set((state) => ({ messages: { ...state.messages, [sessionId]: messages } })),
   addMessage: (sessionId, message) =>
     set((state) => ({
       messages: {
@@ -98,45 +155,104 @@ export const useChatStore = create<ChatState>()((set) => ({
     })),
 
   setStreamingMessage: (msg) => set({ streamingMessage: msg }),
+
   appendStreamingContent: (content, isThinking = false) =>
     set((state) => {
-      if (!state.streamingMessage) {
-        return {
-          streamingMessage: {
-            content: isThinking ? "" : content,
-            isThinking,
-            thinkingContent: isThinking ? content : "",
-          },
-        };
+      const now = performance.now();
+      const tokensDelta = estimateTokens(content);
+      const metrics = { ...state.streamMetrics };
+
+      // First token arrives
+      if (metrics.startedAt === null) {
+        metrics.startedAt = now;
+        if (metrics.requestSentAt !== null) {
+          metrics.firstTokenAt = now - metrics.requestSentAt;
+        }
       }
-      // If switching from thinking to response, keep thinking content
-      if (state.streamingMessage.isThinking && !isThinking) {
-        return {
-          streamingMessage: {
-            ...state.streamingMessage,
-            isThinking: false,
-            content: content,
-          },
-        };
-      }
-      // Append to appropriate field
+
       if (isThinking) {
-        return {
-          streamingMessage: {
-            ...state.streamingMessage,
-            thinkingContent: state.streamingMessage.thinkingContent + content,
-          },
-        };
+        if (metrics.thinkingStartedAt === null) metrics.thinkingStartedAt = now;
+        metrics.thinkingTokens += tokensDelta;
+      } else {
+        // First non-thinking token → close thinking phase
+        if (metrics.thinkingStartedAt !== null && metrics.thinkingEndedAt === null) {
+          metrics.thinkingEndedAt = now;
+        }
+        metrics.responseTokens += tokensDelta;
       }
+
+      // Build streaming message as before
+      let sm = state.streamingMessage;
+      if (!sm) {
+        sm = {
+          content: isThinking ? "" : content,
+          isThinking,
+          thinkingContent: isThinking ? content : "",
+        };
+      } else if (sm.isThinking && !isThinking) {
+        sm = { ...sm, isThinking: false, content: content };
+      } else if (isThinking) {
+        sm = { ...sm, thinkingContent: sm.thinkingContent + content };
+      } else {
+        sm = { ...sm, content: sm.content + content };
+      }
+
+      return { streamingMessage: sm, streamMetrics: metrics };
+    }),
+
+  setIsStreaming: (streaming) => set({ isStreaming: streaming }),
+  setIsLoading: (loading) => set({ isLoading: loading }),
+
+  beginStream: () =>
+    set(() => ({
+      streamMetrics: {
+        ...INITIAL_STREAM_METRICS,
+        requestSentAt: performance.now(),
+      },
+    })),
+
+  resetStreamMetrics: () => set({ streamMetrics: { ...INITIAL_STREAM_METRICS } }),
+
+  recordTokenTimings: () => {
+    /* handled in appendStreamingContent */
+  },
+
+  finalizeStreamMetrics: (sessionId) =>
+    set((state) => {
+      const sm = state.streamMetrics;
+      const totalTokens = sm.thinkingTokens + sm.responseTokens;
+      const latency =
+        sm.startedAt !== null && sm.requestSentAt !== null
+          ? performance.now() - sm.requestSentAt
+          : null;
+
+      const existing = state.sessionMetrics[sessionId] || {
+        totalTokens: 0,
+        latencies: [],
+        lastLatency: null,
+      };
+
+      const newLatencies = latency !== null ? [...existing.latencies, latency].slice(-10) : existing.latencies;
+
       return {
-        streamingMessage: {
-          ...state.streamingMessage,
-          content: state.streamingMessage.content + content,
+        sessionMetrics: {
+          ...state.sessionMetrics,
+          [sessionId]: {
+            totalTokens: existing.totalTokens + totalTokens,
+            latencies: newLatencies,
+            lastLatency: latency,
+          },
         },
       };
     }),
-  setIsStreaming: (streaming) => set({ isStreaming: streaming }),
-  setIsLoading: (loading) => set({ isLoading: loading }),
+
+  setModelName: (name) => set({ modelName: name }),
+  setBackendInfo: (info) =>
+    set({
+      backendKind: info.kind ?? null,
+      turboQuant: info.turbo_quant ?? false,
+      contextLength: info.context_length ?? null,
+    }),
 
   setSessionState: (sessionId, sessionState) =>
     set((state) => ({
@@ -171,4 +287,6 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  setRestSuggested: (suggested) => set({ restSuggested: suggested }),
 }));

@@ -10,38 +10,44 @@ Guides students through questions, not answers.
 - Использование Profiler и Planner агентов
 """
 
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.agents.base_agent import BaseAgent
 from src.models.llm_client import LLMClient
 from src.models.prompts import (
-    SOCRATIC_TUTOR_SYSTEM, TUTOR_RESPONSE_PROMPT,
-    SOCRATIC_QUESTION_TEMPLATES, ScaffoldingLevel, detect_frustration,
-    convert_to_russian_notation, RUSSIAN_MATH_NOTATION
+    SOCRATIC_TUTOR_SYSTEM,
+    TUTOR_RESPONSE_PROMPT,
+    ScaffoldingLevel,
+    convert_to_russian_notation,
+    detect_frustration,
 )
 
 # T051: Language Detection
 try:
-    from src.utils.language_detector import (
-        detect_language, Language, should_use_russian_notation
-    )
+    from src.utils.language_detector import Language, detect_language, should_use_russian_notation
+
     HAS_LANGUAGE_DETECTOR = True
 except ImportError:
     HAS_LANGUAGE_DETECTOR = False
     detect_language = None
     Language = None
-from src.data.schemas import (
-    Task, TutorMove, TutorResponse, ConversationTurn,
-    TutoringSession, StudentProfile, VerificationResult
-)
 from src.config import settings
+from src.data.schemas import (
+    StudentProfile,
+    Task,
+    TutoringSession,
+    TutorMove,
+    TutorResponse,
+    VerificationResult,
+)
 
 # Innovation imports (009-groundbreaking-innovations)
 try:
     from src.models.affective_detector import AffectiveDetector
+
     HAS_AFFECTIVE = True
 except ImportError:
     HAS_AFFECTIVE = False
@@ -49,6 +55,7 @@ except ImportError:
 
 try:
     from src.models.metacognitive_tracker import MetacognitiveTracker
+
     HAS_METACOGNITIVE = True
 except ImportError:
     HAS_METACOGNITIVE = False
@@ -56,6 +63,7 @@ except ImportError:
 
 try:
     from src.models.counterfactual_engine import CounterfactualEngine
+
     HAS_COUNTERFACTUAL = True
 except ImportError:
     HAS_COUNTERFACTUAL = False
@@ -63,10 +71,8 @@ except ImportError:
 
 # T031: Tool Integration
 try:
-    from src.tools import (
-        tool_registry, ensure_tools_registered,
-        ToolResult, ToolType, BaseTool
-    )
+    from src.tools import BaseTool, ToolResult, ToolType, ensure_tools_registered, tool_registry
+
     HAS_TOOLS = True
 except ImportError:
     HAS_TOOLS = False
@@ -77,12 +83,28 @@ except ImportError:
 
 # Native SKI tool calling
 try:
-    from src.tools.ski_tools import SKI_TOOL_DEFINITIONS, SKI_FUNCTIONS
+    from src.tools.ski_tools import SKI_FUNCTIONS, SKI_TOOL_DEFINITIONS
+
     HAS_SKI_TOOLS = True
 except ImportError:
     HAS_SKI_TOOLS = False
     SKI_TOOL_DEFINITIONS = []
     SKI_FUNCTIONS = {}
+
+# Knowledge Forge navigator tools
+try:
+    from src.tools.navigator_tools import (
+        NAVIGATOR_FUNCTIONS,
+        NAVIGATOR_TOOL_DEFINITIONS,
+        set_mastery_source,
+    )
+
+    HAS_NAVIGATOR_TOOLS = True
+except ImportError:
+    HAS_NAVIGATOR_TOOLS = False
+    NAVIGATOR_TOOL_DEFINITIONS = []
+    NAVIGATOR_FUNCTIONS = {}
+    set_mastery_source = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from src.memory.session_memory import SessionMemory
@@ -90,6 +112,7 @@ if TYPE_CHECKING:
 # Опциональные импорты для новой архитектуры
 try:
     from src.agents.orchestrator import AgentOrchestrator, TurnContext, create_orchestrator
+
     HAS_ORCHESTRATOR = True
 except ImportError:
     HAS_ORCHESTRATOR = False
@@ -98,6 +121,7 @@ except ImportError:
 
 try:
     from src.knowledge.rag_retriever import TutoringRAG
+
     HAS_RAG = True
 except ImportError:
     HAS_RAG = False
@@ -109,14 +133,14 @@ logger = logging.getLogger(__name__)
 class SocraticTutorAgent(BaseAgent):
     """
     Main tutoring agent implementing the Socratic method.
-    
+
     Teaching Structure (from SocraticLLM):
     1. Review - Understand student's current state
     2. Guidance/Heuristic - Lead with questions
     3. Rectification - Correct misconceptions gently
     4. Summarization - Reinforce learning after success
     """
-    
+
     def __init__(
         self,
         llm_client: LLMClient,
@@ -124,7 +148,7 @@ class SocraticTutorAgent(BaseAgent):
         use_rag: bool = True,
         use_affective: bool = True,
         use_metacognitive: bool = True,
-        use_counterfactual: bool = True
+        use_counterfactual: bool = True,
     ):
         """
         Инициализация агента репетитора.
@@ -138,9 +162,7 @@ class SocraticTutorAgent(BaseAgent):
             use_counterfactual: Использовать контрфактуальные объяснения
         """
         super().__init__(
-            name="SocraticTutor",
-            llm_client=llm_client,
-            system_prompt=SOCRATIC_TUTOR_SYSTEM
+            name="SocraticTutor", llm_client=llm_client, system_prompt=SOCRATIC_TUTOR_SYSTEM
         )
 
         # Strategy thresholds
@@ -162,9 +184,7 @@ class SocraticTutorAgent(BaseAgent):
         if self.use_orchestrator:
             try:
                 self.orchestrator = create_orchestrator(
-                    llm_client=llm_client,
-                    mode="full",
-                    verify=True
+                    llm_client=llm_client, mode="full", verify=True
                 )
                 logger.info("Оркестратор агентов инициализирован")
             except Exception as e:
@@ -191,10 +211,17 @@ class SocraticTutorAgent(BaseAgent):
                 logger.warning(f"Не удалось зарегистрировать инструменты: {e}")
                 self.use_tools = False
 
-        # Native SKI tool calling via Ollama Tools API
-        self.use_native_tools = HAS_SKI_TOOLS
-        self._ski_tool_defs = SKI_TOOL_DEFINITIONS if HAS_SKI_TOOLS else []
-        self._ski_functions = SKI_FUNCTIONS if HAS_SKI_TOOLS else {}
+        # Native SKI + Navigator tool calling via Ollama Tools API
+        self.use_native_tools = HAS_SKI_TOOLS or HAS_NAVIGATOR_TOOLS
+        self._ski_tool_defs = (SKI_TOOL_DEFINITIONS if HAS_SKI_TOOLS else []) + (
+            NAVIGATOR_TOOL_DEFINITIONS if HAS_NAVIGATOR_TOOLS else []
+        )
+        self._ski_functions = {
+            **(SKI_FUNCTIONS if HAS_SKI_TOOLS else {}),
+            **(NAVIGATOR_FUNCTIONS if HAS_NAVIGATOR_TOOLS else {}),
+        }
+        if HAS_NAVIGATOR_TOOLS:
+            logger.info("Knowledge Forge navigator tools registered")
 
         # === Innovation Features (009) ===
 
@@ -205,7 +232,9 @@ class SocraticTutorAgent(BaseAgent):
             try:
                 self.affective_detector = AffectiveDetector(
                     llm_client=llm_client,
-                    confidence_threshold=settings.AFFECTIVE_CONFIDENCE_THRESHOLD if hasattr(settings, 'AFFECTIVE_CONFIDENCE_THRESHOLD') else 0.6,
+                    confidence_threshold=settings.AFFECTIVE_CONFIDENCE_THRESHOLD
+                    if hasattr(settings, "AFFECTIVE_CONFIDENCE_THRESHOLD")
+                    else 0.6,
                 )
                 logger.info("Детектор эмоционального состояния инициализирован")
             except Exception as e:
@@ -236,11 +265,11 @@ class SocraticTutorAgent(BaseAgent):
 
         # Track response timing for affective analysis
         self._last_message_time: Optional[datetime] = None
-    
+
     def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process student message and generate tutoring response.
-        
+
         Args:
             input_data: {
                 "session": TutoringSession,
@@ -248,7 +277,7 @@ class SocraticTutorAgent(BaseAgent):
                 "student_profile": StudentProfile (optional),
                 "verification": VerificationResult (optional)
             }
-            
+
         Returns:
             {"response": TutorResponse}
         """
@@ -256,22 +285,22 @@ class SocraticTutorAgent(BaseAgent):
         student_message = input_data["student_message"]
         student_profile = input_data.get("student_profile")
         verification = input_data.get("verification")
-        
+
         response = self.generate_response(
             session=session,
             student_message=student_message,
             student_profile=student_profile,
-            verification_result=verification
+            verification_result=verification,
         )
-        
+
         return {"response": response}
-    
+
     def generate_response(
         self,
         session: TutoringSession,
         student_message: str,
         student_profile: Optional[StudentProfile] = None,
-        verification_result: Optional[VerificationResult] = None
+        verification_result: Optional[VerificationResult] = None,
     ) -> TutorResponse:
         """
         Generate a Socratic tutoring response.
@@ -288,7 +317,9 @@ class SocraticTutorAgent(BaseAgent):
         # Calculate response time for affective analysis
         response_time_ms = 0
         if self._last_message_time:
-            response_time_ms = int((datetime.now() - self._last_message_time).total_seconds() * 1000)
+            response_time_ms = int(
+                (datetime.now() - self._last_message_time).total_seconds() * 1000
+            )
         self._last_message_time = datetime.now()
 
         # === Innovation: Affective State Detection ===
@@ -298,14 +329,18 @@ class SocraticTutorAgent(BaseAgent):
                 affective_state = self.affective_detector.analyze_message(
                     message=student_message,
                     response_time_ms=response_time_ms,
-                    context=[{"role": t.role, "content": t.content} for t in session.conversation[-5:]],
-                    was_correct=verification_result.is_correct if verification_result else None
+                    context=[
+                        {"role": t.role, "content": t.content} for t in session.conversation[-5:]
+                    ],
+                    was_correct=verification_result.is_correct if verification_result else None,
                 )
                 affective_context = {
                     "state": affective_state.state_type.value,
                     "should_simplify": affective_state.should_simplify,
                     "should_encourage": affective_state.should_encourage,
-                    "adaptation_prompt": self.affective_detector.get_adaptation_prompt(affective_state),
+                    "adaptation_prompt": self.affective_detector.get_adaptation_prompt(
+                        affective_state
+                    ),
                 }
                 logger.debug(f"Affective state: {affective_state.state_type.value}")
             except Exception as e:
@@ -317,11 +352,16 @@ class SocraticTutorAgent(BaseAgent):
             try:
                 stuck_point = self.metacognitive_tracker.detect_stuck_point(
                     message=student_message,
-                    context=[{"role": t.role, "content": t.content} for t in session.conversation[-3:]],
-                    error_count=session.attempts - (1 if verification_result and verification_result.is_correct else 0),
+                    context=[
+                        {"role": t.role, "content": t.content} for t in session.conversation[-3:]
+                    ],
+                    error_count=session.attempts
+                    - (1 if verification_result and verification_result.is_correct else 0),
                 )
                 if stuck_point:
-                    metacognitive_prompt = self.metacognitive_tracker.get_metacognitive_prompt(stuck_point)
+                    metacognitive_prompt = self.metacognitive_tracker.get_metacognitive_prompt(
+                        stuck_point
+                    )
                     self.metacognitive_tracker.record_intervention(
                         stuck_point, "metacognitive_prompt", metacognitive_prompt
                     )
@@ -332,32 +372,41 @@ class SocraticTutorAgent(BaseAgent):
 
         # Используем оркестратор если доступен
         if self.use_orchestrator and self.orchestrator:
-            response = self._generate_with_orchestrator(
-                session, student_message, student_profile
-            )
+            response = self._generate_with_orchestrator(session, student_message, student_profile)
         else:
             # Иначе используем классический подход
             response = self._generate_classic(
-                session, student_message, student_profile, verification_result,
+                session,
+                student_message,
+                student_profile,
+                verification_result,
                 affective_context=affective_context,
-                metacognitive_prompt=metacognitive_prompt
+                metacognitive_prompt=metacognitive_prompt,
             )
 
         # === Innovation: Counterfactual Explanations ===
-        if (self.use_counterfactual and self.counterfactual_engine
-            and verification_result and not verification_result.is_correct):
+        if (
+            self.use_counterfactual
+            and self.counterfactual_engine
+            and verification_result
+            and not verification_result.is_correct
+        ):
             try:
                 counterfactual = self.counterfactual_engine.analyze_error(
                     student_answer=student_message,
                     correct_answer=str(session.task.answer) if session.task.answer else "",
                     task=session.task,
                     student_id=str(student_profile.id) if student_profile else "",
-                    session_id=str(session.id) if hasattr(session, 'id') else ""
+                    session_id=str(session.id) if hasattr(session, "id") else "",
                 )
                 # Append counterfactual to response
-                cf_display = self.counterfactual_engine.format_explanation_for_display(counterfactual)
+                cf_display = self.counterfactual_engine.format_explanation_for_display(
+                    counterfactual
+                )
                 response.message = response.message + "\n\n" + cf_display
-                response.internal_reasoning = (response.internal_reasoning or "") + f"\nCounterfactual: {counterfactual.missing_skill}"
+                response.internal_reasoning = (
+                    response.internal_reasoning or ""
+                ) + f"\nCounterfactual: {counterfactual.missing_skill}"
                 logger.debug(f"Counterfactual added: {counterfactual.missing_skill}")
             except Exception as e:
                 logger.warning(f"Counterfactual generation failed: {e}")
@@ -368,7 +417,7 @@ class SocraticTutorAgent(BaseAgent):
         self,
         session: TutoringSession,
         student_message: str,
-        student_profile: Optional[StudentProfile] = None
+        student_profile: Optional[StudentProfile] = None,
     ) -> TutorResponse:
         """
         Генерация ответа через многоагентный оркестратор.
@@ -382,10 +431,7 @@ class SocraticTutorAgent(BaseAgent):
         # Конвертируем историю сессии
         history = []
         for turn in session.conversation[-10:]:
-            history.append({
-                "role": turn.role,
-                "content": turn.content
-            })
+            history.append({"role": turn.role, "content": turn.content})
 
         # Создаём контекст для оркестратора
         context = TurnContext(
@@ -393,13 +439,12 @@ class SocraticTutorAgent(BaseAgent):
             student_input=student_message,
             correct_answer=str(session.task.answer) if session.task.answer else None,
             history=history,
-            topic=session.task.topic if hasattr(session.task, 'topic') else None
+            topic=session.task.topic if hasattr(session.task, "topic") else None,
         )
 
         # Обрабатываем через оркестратор
         result = self.orchestrator.process_turn(
-            context,
-            session_id=str(session.id) if hasattr(session, 'id') else None
+            context, session_id=str(session.id) if hasattr(session, "id") else None
         )
 
         # Конвертируем результат в TutorResponse
@@ -413,7 +458,7 @@ class SocraticTutorAgent(BaseAgent):
             message=result.response,
             internal_reasoning=f"Strategy: {result.plan.strategy.value if result.plan else 'unknown'}",
             hint_number=session.hints_used + 1 if move == TutorMove.HINT else None,
-            is_telling=move == TutorMove.TELL
+            is_telling=move == TutorMove.TELL,
         )
 
         # Логируем метрики
@@ -423,8 +468,8 @@ class SocraticTutorAgent(BaseAgent):
                 extra={
                     "total_ms": result.metrics.get("total_ms", 0),
                     "move": result.move_type,
-                    "verified": result.verification.is_valid if result.verification else "skipped"
-                }
+                    "verified": result.verification.is_valid if result.verification else "skipped",
+                },
             )
 
         return response
@@ -459,8 +504,9 @@ class SocraticTutorAgent(BaseAgent):
         # Add notation context from SKI
         try:
             from src.knowledge.ski import get_ski as _get_ski_instance
+
             _ski = _get_ski_instance()
-            _topic = session.task.topic if session.task and hasattr(session.task, 'topic') else None
+            _topic = session.task.topic if session.task and hasattr(session.task, "topic") else None
             if _topic:
                 _notation = _ski.get_notation_context(_topic)
                 if _notation:
@@ -483,10 +529,12 @@ class SocraticTutorAgent(BaseAgent):
 
         # Add conversation history
         for turn in history_turns:
-            messages.append({
-                "role": "user" if turn.role == "student" else "assistant",
-                "content": turn.content,
-            })
+            messages.append(
+                {
+                    "role": "user" if turn.role == "student" else "assistant",
+                    "content": turn.content,
+                }
+            )
 
         # Add current student message
         messages.append({"role": "user", "content": student_message})
@@ -543,7 +591,7 @@ class SocraticTutorAgent(BaseAgent):
         student_profile: Optional[StudentProfile] = None,
         verification_result: Optional[VerificationResult] = None,
         affective_context: Optional[Dict[str, Any]] = None,
-        metacognitive_prompt: Optional[str] = None
+        metacognitive_prompt: Optional[str] = None,
     ) -> TutorResponse:
         """
         Классическая генерация ответа (без оркестратора).
@@ -558,7 +606,7 @@ class SocraticTutorAgent(BaseAgent):
                 move=TutorMove.SCAFFOLDING,
                 message=metacognitive_prompt,
                 internal_reasoning="Metacognitive scaffolding - student stuck",
-                is_telling=False
+                is_telling=False,
             )
         # T031: Check if tools are needed and use them
         if self.use_tools:
@@ -571,30 +619,23 @@ class SocraticTutorAgent(BaseAgent):
                         session, student_message, tool_name, tool_result
                     )
                     if tool_response:
-                        self._log_action("tool_response_generated", {
-                            "tool": tool_name,
-                            "move": tool_response.move.value
-                        })
+                        self._log_action(
+                            "tool_response_generated",
+                            {"tool": tool_name, "move": tool_response.move.value},
+                        )
                         return tool_response
 
         # 1. Analyze current situation
-        situation = self._analyze_situation(
-            session, student_message, verification_result
-        )
+        situation = self._analyze_situation(session, student_message, verification_result)
 
         # 2. Select teaching strategy
         strategy = self._select_strategy(situation, session)
 
-        self._log_action("strategy_selected", {
-            "strategy": strategy,
-            "situation": situation
-        })
+        self._log_action("strategy_selected", {"strategy": strategy, "situation": situation})
 
         # 2.5. Try native tool calling first (LLM decides what to look up)
         if self.use_native_tools:
-            native_response = self._generate_with_native_tools(
-                session, student_message, strategy
-            )
+            native_response = self._generate_with_native_tools(session, student_message, strategy)
             if native_response:
                 # Safety check
                 if self._is_revealing_answer(native_response.message, session.task):
@@ -609,7 +650,7 @@ class SocraticTutorAgent(BaseAgent):
                 rag_context = self.rag.retrieve_context(
                     problem=session.task.problem,
                     student_response=student_message,
-                    topic=session.task.topic if hasattr(session.task, 'topic') else None
+                    topic=session.task.topic if hasattr(session.task, "topic") else None,
                 )
             except Exception as e:
                 logger.warning(f"RAG error: {e}")
@@ -621,7 +662,7 @@ class SocraticTutorAgent(BaseAgent):
             situation=situation,
             strategy=strategy,
             student_profile=student_profile,
-            rag_context=rag_context
+            rag_context=rag_context,
         )
 
         raw_response = self._call_llm(prompt, json_mode=True)
@@ -635,7 +676,7 @@ class SocraticTutorAgent(BaseAgent):
                 message=response_data["message"],
                 internal_reasoning=response_data.get("reasoning"),
                 hint_number=session.hints_used + 1 if strategy == "hint" else None,
-                is_telling=response_data.get("move") == "tell"
+                is_telling=response_data.get("move") == "tell",
             )
 
             # Safety check: Ensure we're not accidentally revealing the answer
@@ -643,27 +684,23 @@ class SocraticTutorAgent(BaseAgent):
                 self.logger.warning("answer_leak_detected", move=response.move)
                 response = self._sanitize_response(response, session.task)
 
-            self._log_action("response_generated", {
-                "move": response.move.value,
-                "is_telling": response.is_telling
-            })
+            self._log_action(
+                "response_generated",
+                {"move": response.move.value, "is_telling": response.is_telling},
+            )
 
             return response
 
         except json.JSONDecodeError:
             # Fallback to simple scaffolding response
             self.logger.warning("json_parse_failed", response=raw_response[:200])
-            return TutorResponse(
-                move=TutorMove.SCAFFOLDING,
-                message=raw_response,
-                is_telling=False
-            )
-    
+            return TutorResponse(move=TutorMove.SCAFFOLDING, message=raw_response, is_telling=False)
+
     def _analyze_situation(
         self,
         session: TutoringSession,
         student_message: str,
-        verification: Optional[VerificationResult]
+        verification: Optional[VerificationResult],
     ) -> Dict[str, Any]:
         """Analyze current tutoring situation."""
 
@@ -672,7 +709,7 @@ class SocraticTutorAgent(BaseAgent):
             "hints_used": session.hints_used,
             "conversation_length": len(session.conversation),
             "student_state": "working",
-            "scaffolding_level": self.current_scaffolding_level
+            "scaffolding_level": self.current_scaffolding_level,
         }
 
         # Check verification result
@@ -735,36 +772,32 @@ class SocraticTutorAgent(BaseAgent):
 
     # Patterns indicating calculator is needed
     CALCULATOR_PATTERNS = [
-        r'\d+\s*[\+\-\*\/\^]\s*\d+',  # 2 + 3, 5 * 4
-        r'\d+!',  # factorial
-        r'sqrt|sin|cos|tan|log|exp',  # math functions
-        r'вычисл|посчита|чему равн|сколько будет',  # Russian: calculate
-        r'calculate|compute|what is|solve',  # English
-        r'производн|derivative|интеграл|integral',  # calculus
-        r'упрост|simplify|factor|expand',  # algebra
+        r"\d+\s*[\+\-\*\/\^]\s*\d+",  # 2 + 3, 5 * 4
+        r"\d+!",  # factorial
+        r"sqrt|sin|cos|tan|log|exp",  # math functions
+        r"вычисл|посчита|чему равн|сколько будет",  # Russian: calculate
+        r"calculate|compute|what is|solve",  # English
+        r"производн|derivative|интеграл|integral",  # calculus
+        r"упрост|simplify|factor|expand",  # algebra
     ]
 
     # Patterns indicating web search might help
     WEB_SEARCH_PATTERNS = [
-        r'найди|поищи|search|find|look up',  # search commands
-        r'что такое|what is|who is|когда',  # definition questions
-        r'олимпиад|olympiad|егэ|огэ',  # exam-related
-        r'последн|recent|новост|2024|2025|2026',  # current info
+        r"найди|поищи|search|find|look up",  # search commands
+        r"что такое|what is|who is|когда",  # definition questions
+        r"олимпиад|olympiad|егэ|огэ",  # exam-related
+        r"последн|recent|новост|2024|2025|2026",  # current info
     ]
 
     # Patterns for knowledge base search
     KNOWLEDGE_PATTERNS = [
-        r'подсказк|hint|объясн|explain',  # hints/explanations
-        r'как решать|how to solve|метод',  # methods
-        r'ошибк|mistake|misconception',  # errors
-        r'пример|example|формул|formula',  # examples/formulas
+        r"подсказк|hint|объясн|explain",  # hints/explanations
+        r"как решать|how to solve|метод",  # methods
+        r"ошибк|mistake|misconception",  # errors
+        r"пример|example|формул|formula",  # examples/formulas
     ]
 
-    def _detect_tool_need(
-        self,
-        student_message: str,
-        session: "TutoringSession"
-    ) -> Optional[str]:
+    def _detect_tool_need(self, student_message: str, session: "TutoringSession") -> Optional[str]:
         """
         Detect if a tool is needed based on student message.
 
@@ -788,11 +821,14 @@ class SocraticTutorAgent(BaseAgent):
                 return "calculator"
 
         # Check if student explicitly asks for calculation in context
-        if session.task and hasattr(session.task, 'topic'):
+        if session.task and hasattr(session.task, "topic"):
             topic = session.task.topic.lower() if session.task.topic else ""
             # If working on calculus/algebra, calculator might help
-            if topic in ['calculus', 'algebra', 'derivatives', 'integrals']:
-                if any(word in message_lower for word in ['проверь', 'check', 'verify', 'покажи', 'show']):
+            if topic in ["calculus", "algebra", "derivatives", "integrals"]:
+                if any(
+                    word in message_lower
+                    for word in ["проверь", "check", "verify", "покажи", "show"]
+                ):
                     return "calculator"
 
         # Check web search patterns (only when explicitly requested)
@@ -808,10 +844,7 @@ class SocraticTutorAgent(BaseAgent):
         return None
 
     def _execute_tool(
-        self,
-        tool_name: str,
-        query: str,
-        session: Optional["TutoringSession"] = None
+        self, tool_name: str, query: str, session: Optional["TutoringSession"] = None
     ) -> Optional["ToolResult"]:
         """
         Execute a tool and return its result.
@@ -836,10 +869,10 @@ class SocraticTutorAgent(BaseAgent):
             # Prepare kwargs based on tool type
             kwargs = {}
             if session and session.task:
-                if hasattr(session.task, 'topic'):
-                    kwargs['topic'] = session.task.topic
+                if hasattr(session.task, "topic"):
+                    kwargs["topic"] = session.task.topic
                 if tool_name == "knowledge_search":
-                    kwargs['student_response'] = query
+                    kwargs["student_response"] = query
 
             result = tool.execute(query, **kwargs)
 
@@ -848,8 +881,8 @@ class SocraticTutorAgent(BaseAgent):
                 extra={
                     "tool": tool_name,
                     "success": result.success,
-                    "execution_time_ms": result.execution_time_ms
-                }
+                    "execution_time_ms": result.execution_time_ms,
+                },
             )
 
             return result
@@ -858,11 +891,7 @@ class SocraticTutorAgent(BaseAgent):
             logger.error(f"Tool execution error: {tool_name} - {e}")
             return None
 
-    def _format_tool_result(
-        self,
-        tool_result: "ToolResult",
-        tool_name: str
-    ) -> str:
+    def _format_tool_result(self, tool_result: "ToolResult", tool_name: str) -> str:
         """
         Format tool result for inclusion in tutor response.
 
@@ -913,10 +942,7 @@ class SocraticTutorAgent(BaseAgent):
 
         tools = []
         for name, tool in tool_registry.get_all().items():
-            tools.append({
-                "name": name,
-                "description": tool.description
-            })
+            tools.append({"name": name, "description": tool.description})
         return tools
 
     def _integrate_tool_in_response(
@@ -924,7 +950,7 @@ class SocraticTutorAgent(BaseAgent):
         session: "TutoringSession",
         student_message: str,
         tool_name: str,
-        tool_result: "ToolResult"
+        tool_result: "ToolResult",
     ) -> Optional[TutorResponse]:
         """
         Generate a response that integrates tool results.
@@ -969,7 +995,7 @@ class SocraticTutorAgent(BaseAgent):
                 move=TutorMove(response_data.get("move", "scaffolding")),
                 message=response_data["message"],
                 internal_reasoning=f"Tool used: {tool_name}",
-                is_telling=False
+                is_telling=False,
             )
 
         except Exception as e:
@@ -980,10 +1006,10 @@ class SocraticTutorAgent(BaseAgent):
 
     # Break suggestion thresholds
     BREAK_SUGGESTION_THRESHOLDS = {
-        "session_duration_minutes": 30,      # Suggest break after 30 minutes
-        "max_consecutive_errors": 4,         # Suggest break after 4 errors in a row
-        "cognitive_overload_score": 0.85,    # Suggest break at high cognitive load
-        "response_time_increase_ratio": 1.5, # 50% slowdown triggers suggestion
+        "session_duration_minutes": 30,  # Suggest break after 30 minutes
+        "max_consecutive_errors": 4,  # Suggest break after 4 errors in a row
+        "cognitive_overload_score": 0.85,  # Suggest break at high cognitive load
+        "response_time_increase_ratio": 1.5,  # 50% slowdown triggers suggestion
     }
 
     # Break suggestion messages (Russian)
@@ -1001,16 +1027,14 @@ class SocraticTutorAgent(BaseAgent):
             "Вижу, что ты устал или расстроен. Давай отдохнём немного! "
             "После перерыва всё станет понятнее. Вернёшься когда будешь готов."
         ),
-        "encouragement_after_break": (
-            "С возвращением! Давай продолжим. Где мы остановились?"
-        ),
+        "encouragement_after_break": ("С возвращением! Давай продолжим. Где мы остановились?"),
     }
 
     def should_suggest_break(
         self,
         session: TutoringSession,
         session_memory: Optional["SessionMemory"] = None,
-        cognitive_load_score: float = 0.5
+        cognitive_load_score: float = 0.5,
     ) -> tuple[bool, str]:
         """
         Check if a break should be suggested.
@@ -1070,7 +1094,7 @@ class SocraticTutorAgent(BaseAgent):
             move=TutorMove.ENCOURAGE,  # Break suggestion is a form of encouragement
             message=message,
             internal_reasoning=f"Break suggested due to: {reason}",
-            is_telling=False
+            is_telling=False,
         )
 
     def handle_return_from_break(self, session: TutoringSession) -> TutorResponse:
@@ -1087,14 +1111,14 @@ class SocraticTutorAgent(BaseAgent):
         self._reset_scaffolding()
 
         # Generate encouraging welcome back message
-        last_topic = session.task.topic if hasattr(session.task, 'topic') else "задача"
+        last_topic = session.task.topic if hasattr(session.task, "topic") else "задача"
 
         return TutorResponse(
             move=TutorMove.ENCOURAGE,
             message=f"С возвращением! Ты отдохнул? Давай продолжим работать над темой '{last_topic}'. "
-                    f"Напомни, где ты остановился или просто попробуй ещё раз.",
+            f"Напомни, где ты остановился или просто попробуй ещё раз.",
             internal_reasoning="Welcoming student back from break",
-            is_telling=False
+            is_telling=False,
         )
 
     def _check_and_suggest_break(
@@ -1102,7 +1126,7 @@ class SocraticTutorAgent(BaseAgent):
         session: TutoringSession,
         student_message: str,
         session_memory: Optional["SessionMemory"] = None,
-        cognitive_load_score: float = 0.5
+        cognitive_load_score: float = 0.5,
     ) -> Optional[TutorResponse]:
         """
         Check if break should be suggested and return response if so.
@@ -1135,8 +1159,10 @@ class SocraticTutorAgent(BaseAgent):
                 return None
 
         # Check if student is responding to break suggestion
-        if any(phrase in student_message.lower() for phrase in
-               ["вернулся", "готов", "продолжим", "продолжать", "после перерыва"]):
+        if any(
+            phrase in student_message.lower()
+            for phrase in ["вернулся", "готов", "продолжим", "продолжать", "после перерыва"]
+        ):
             return self.handle_return_from_break(session)
 
         # Check if break should be suggested
@@ -1150,14 +1176,10 @@ class SocraticTutorAgent(BaseAgent):
 
         return None
 
-    def _select_strategy(
-        self,
-        situation: Dict[str, Any],
-        session: TutoringSession
-    ) -> str:
+    def _select_strategy(self, situation: Dict[str, Any], session: TutoringSession) -> str:
         """
         Select tutoring strategy based on situation.
-        
+
         Priority:
         1. Student solved → encourage
         2. Student frustrated → hint or tell (last resort)
@@ -1167,18 +1189,18 @@ class SocraticTutorAgent(BaseAgent):
         6. Too many attempts → hint
         7. Default → scaffolding
         """
-        
+
         # Student solved it!
         if situation.get("student_state") == "solved":
             return "encourage"
-        
+
         # Student is frustrated - be supportive
         if situation.get("emotional_state") == "frustrated":
             if session.hints_used < self.max_hints_before_tell:
                 return "hint"
             else:
                 return "tell"  # ⚠️ Last resort
-        
+
         # Student used wrong method (answer correct but method wrong)
         if situation.get("error_type") == "wrong_method":
             return "rectify"
@@ -1186,25 +1208,25 @@ class SocraticTutorAgent(BaseAgent):
         # Student made an error
         if situation.get("student_state") == "made_error":
             return "rectify"
-        
+
         # Student is making progress
         if situation.get("student_state") == "partial_progress":
             return "encourage"
-        
+
         # Student is asking a question - answer with a question!
         if situation.get("is_asking_question"):
             return "problematize"
-        
+
         # Too many attempts without progress
         if session.attempts > self.max_attempts_before_hint:
             if session.hints_used < self.max_hints_before_tell:
                 return "hint"
             elif session.hints_used >= self.max_hints_before_tell:
                 return "tell"  # ⚠️ Only after all hints exhausted
-        
+
         # Default: Guide with questions
         return "scaffolding"
-    
+
     def _build_prompt(
         self,
         session: TutoringSession,
@@ -1212,38 +1234,40 @@ class SocraticTutorAgent(BaseAgent):
         situation: Dict[str, Any],
         strategy: str,
         student_profile: Optional[StudentProfile],
-        rag_context: Optional[Any] = None
+        rag_context: Optional[Any] = None,
     ) -> str:
         """Build prompt for LLM."""
 
         # Format conversation history (last 10 turns)
         history_turns = session.conversation[-10:]
-        history = "\n".join([
-            f"{turn.role.upper()}: {turn.content}"
-            for turn in history_turns
-        ]) if history_turns else "No previous conversation."
+        history = (
+            "\n".join([f"{turn.role.upper()}: {turn.content}" for turn in history_turns])
+            if history_turns
+            else "No previous conversation."
+        )
 
         # Get available hints (из задачи + из RAG)
-        available_hints = session.task.hints[session.hints_used:] if session.task.hints else []
+        available_hints = session.task.hints[session.hints_used :] if session.task.hints else []
 
         # Добавляем подсказки из RAG
-        if rag_context and hasattr(rag_context, 'hints'):
+        if rag_context and hasattr(rag_context, "hints"):
             for hint in rag_context.hints[:2]:  # Максимум 2 из RAG
-                if hasattr(hint, 'content'):
+                if hasattr(hint, "content"):
                     available_hints.append(f"[RAG] {hint.content}")
 
-        hints_str = "\n".join([
-            f"{i+1}. {hint}"
-            for i, hint in enumerate(available_hints)
-        ]) if available_hints else "No hints available."
+        hints_str = (
+            "\n".join([f"{i + 1}. {hint}" for i, hint in enumerate(available_hints)])
+            if available_hints
+            else "No hints available."
+        )
 
         # Build common mistakes string (из задачи + из RAG)
         mistakes_list = list(session.task.common_mistakes) if session.task.common_mistakes else []
 
         # Добавляем типичные ошибки из RAG
-        if rag_context and hasattr(rag_context, 'misconceptions'):
+        if rag_context and hasattr(rag_context, "misconceptions"):
             for misc in rag_context.misconceptions[:2]:  # Максимум 2 из RAG
-                if hasattr(misc, 'error_pattern'):
+                if hasattr(misc, "error_pattern"):
                     mistakes_list.append(f"[RAG] {misc.error_pattern}")
 
         mistakes_str = "\n".join(mistakes_list) if mistakes_list else "None specified."
@@ -1252,8 +1276,9 @@ class SocraticTutorAgent(BaseAgent):
         notation_text = ""
         try:
             from src.knowledge.ski import get_ski
+
             ski = get_ski()
-            topic = session.task.topic if hasattr(session.task, 'topic') else None
+            topic = session.task.topic if hasattr(session.task, "topic") else None
             if topic:
                 notation = ski.get_notation_context(topic)
                 if notation:
@@ -1268,14 +1293,15 @@ class SocraticTutorAgent(BaseAgent):
         few_shot_text = ""
         try:
             from src.knowledge.few_shot_bank import get_few_shot_bank
+
             bank = get_few_shot_bank()
-            topic = session.task.topic if hasattr(session.task, 'topic') else None
+            topic = session.task.topic if hasattr(session.task, "topic") else None
             skill = None
-            if hasattr(session.task, 'skills') and session.task.skills:
+            if hasattr(session.task, "skills") and session.task.skills:
                 skill = session.task.skills[0]
             examples = bank.retrieve_structured(
                 topic=topic,
-                difficulty=session.task.difficulty if hasattr(session.task, 'difficulty') else None,
+                difficulty=session.task.difficulty if hasattr(session.task, "difficulty") else None,
                 skill=skill,
                 limit=2,
             )
@@ -1298,51 +1324,47 @@ class SocraticTutorAgent(BaseAgent):
             max_hints=len(session.task.hints) if session.task.hints else 0,
             student_state=situation.get("student_state", "unknown"),
             strategy=strategy,
-            available_hints=hints_str
+            available_hints=hints_str,
         )
 
         return prompt
-    
+
     def _is_revealing_answer(self, message: str, task: Task) -> bool:
         """
         Check if response accidentally reveals the answer.
-        
+
         This is a safety check to ensure we maintain Socratic method.
         """
         answer_str = str(task.answer).lower().strip()
         message_lower = message.lower()
-        
+
         # Skip check for very short answers (could be coincidental)
         if len(answer_str) < 3:
             return False
-        
+
         # Direct answer check
         if answer_str in message_lower:
             return True
-        
+
         # Check for solution-revealing patterns
         revealing_patterns = [
-            f"the answer is",
-            f"solution is",
+            "the answer is",
+            "solution is",
             f"equals {answer_str}",
             f"= {answer_str}",
             f"result is {answer_str}",
         ]
-        
+
         for pattern in revealing_patterns:
             if pattern in message_lower:
                 return True
-        
+
         return False
-    
-    def _sanitize_response(
-        self,
-        response: TutorResponse,
-        task: Task
-    ) -> TutorResponse:
+
+    def _sanitize_response(self, response: TutorResponse, task: Task) -> TutorResponse:
         """
         Sanitize response that might reveal the answer.
-        
+
         Replace with a safe scaffolding response.
         """
         safe_message = (
@@ -1350,21 +1372,18 @@ class SocraticTutorAgent(BaseAgent):
             "What approach have you tried so far? "
             "What do you think is the key insight needed here?"
         )
-        
+
         return TutorResponse(
             move=TutorMove.SCAFFOLDING,
             message=safe_message,
             internal_reasoning="Original response sanitized to avoid answer leak",
-            is_telling=False
+            is_telling=False,
         )
 
     # === T051: Language-Aware Response Formatting ===
 
     def format_response_for_language(
-        self,
-        message: str,
-        student_input: str,
-        force_russian: bool = True
+        self, message: str, student_input: str, force_russian: bool = True
     ) -> str:
         """
         Format response with appropriate language and math notation.
@@ -1386,9 +1405,9 @@ class SocraticTutorAgent(BaseAgent):
 
         # Determine if we should use Russian notation
         use_russian = (
-            force_russian or
-            detection.language == Language.RUSSIAN or
-            should_use_russian_notation(student_input)
+            force_russian
+            or detection.language == Language.RUSSIAN
+            or should_use_russian_notation(student_input)
         )
 
         if use_russian:
@@ -1404,11 +1423,7 @@ class SocraticTutorAgent(BaseAgent):
             Dictionary with language detection results
         """
         if not HAS_LANGUAGE_DETECTOR:
-            return {
-                "language": "ru",
-                "use_russian_notation": True,
-                "confidence": 1.0
-            }
+            return {"language": "ru", "use_russian_notation": True, "confidence": 1.0}
 
         detection = detect_language(student_input)
 
@@ -1418,7 +1433,7 @@ class SocraticTutorAgent(BaseAgent):
             "confidence": detection.confidence,
             "math_notation": detection.math_notation.value,
             "has_russian_math": detection.has_russian_math,
-            "has_english_math": detection.has_english_math
+            "has_english_math": detection.has_english_math,
         }
 
     def generate_localized_hint(
@@ -1426,7 +1441,7 @@ class SocraticTutorAgent(BaseAgent):
         hint_template: str,
         topic: str,
         level: str = "conceptual",
-        context: Optional[Dict[str, str]] = None
+        context: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Generate a localized hint from template.
@@ -1456,6 +1471,7 @@ class SocraticTutorAgent(BaseAgent):
 
                 if level_hints:
                     import random
+
                     hint_template = random.choice(level_hints)
 
         except Exception as e:

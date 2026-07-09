@@ -1,20 +1,16 @@
 "use client";
 
-import { useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chatStore";
 import { createSession, deleteSession } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { MitsMark } from "@/components/cyber/MitsMark";
+import { Glitch } from "@/components/cyber/Glitch";
+import { useI18n, type StringKey } from "@/lib/i18n";
 import type { Session, ChatMode } from "@/types/api";
-
-const MODE_DOT_COLORS: Record<string, string> = {
-  chat: "bg-blue-400",
-  guided_learning: "bg-green-400",
-  task_generator: "bg-purple-400",
-};
 
 const topicLabels: Record<string, string> = {
   derivatives: "Производные",
@@ -25,24 +21,61 @@ const topicLabels: Record<string, string> = {
   linear_algebra: "Линейная алгебра",
 };
 
+const NAV_ITEMS: { id: string; icon: string; labelKey: StringKey | null; label?: string; href: string }[] = [
+  { id: "chat", icon: "◈", labelKey: "nav_chat", href: "/" },
+  { id: "graph", icon: "◎", labelKey: "nav_graph", href: "/graph" },
+  { id: "tasks", icon: "◇", labelKey: "nav_tasks", href: "/tasks" },
+  { id: "sources", icon: "▤", labelKey: "nav_sources", href: "/sources" },
+  { id: "profile", icon: "⊙", labelKey: "nav_profile", href: "/profile" },
+  { id: "settings", icon: "⚙", labelKey: null, label: "Настройки", href: "/settings" },
+];
+
 export function Sidebar() {
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
+  const pathname = usePathname() || "/";
+  const { t } = useI18n();
+  const { isAuthenticated, logout } = useAuth();
   const sessions = useChatStore((s) => s.sessions);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
-  const sidebarOpen = useChatStore((s) => s.sidebarOpen);
   const addSession = useChatStore((s) => s.addSession);
   const removeSession = useChatStore((s) => s.removeSession);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
-  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
-  const toggleTheme = useChatStore((s) => s.toggleTheme);
-  const theme = useChatStore((s) => s.theme);
+
+  const activeView =
+    pathname.startsWith("/chat") || pathname === "/"
+      ? "chat"
+      : pathname.startsWith("/graph")
+      ? "graph"
+      : pathname.startsWith("/tasks")
+      ? "tasks"
+      : pathname.startsWith("/sources")
+      ? "sources"
+      : pathname.startsWith("/profile")
+      ? "profile"
+      : pathname.startsWith("/settings")
+      ? "settings"
+      : null;
+
+  // Auto-hide sidebar with hover trigger, pinnable (localStorage persisted).
+  // Classic Claude Desktop behaviour: thin rail at rest, full panel on hover.
+  const [pinned, setPinned] = useState<boolean>(false);
+  const [hovered, setHovered] = useState<boolean>(false);
+  const open = pinned || hovered;
+
+  useEffect(() => {
+    const saved = localStorage.getItem("mits_sidebar_pinned");
+    if (saved === "1") setPinned(true);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("mits_sidebar_pinned", pinned ? "1" : "0");
+  }, [pinned]);
 
   const handleNewChat = useCallback(async () => {
     try {
-      const preferredMode = (typeof window !== "undefined"
-        ? localStorage.getItem("mits-preferred-mode") as ChatMode | null
-        : null) ?? "guided_learning";
+      const preferredMode =
+        (typeof window !== "undefined"
+          ? (localStorage.getItem("mits-preferred-mode") as ChatMode | null)
+          : null) ?? "guided_learning";
       const session = await createSession({ mode: preferredMode });
       const sessionData: Session = {
         id: session.id,
@@ -59,8 +92,8 @@ export function Sidebar() {
       addSession(sessionData);
       setActiveSession(session.id);
       router.push(`/chat/${session.id}`);
-    } catch (error) {
-      console.error("Failed to create session:", error);
+    } catch (e) {
+      console.error("Failed to create session:", e);
     }
   }, [addSession, setActiveSession, router]);
 
@@ -68,17 +101,16 @@ export function Sidebar() {
     (sessionId: string) => {
       setActiveSession(sessionId);
       router.push(`/chat/${sessionId}`);
-      // Close sidebar on mobile
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      }
+      // Collapse hover-opened sidebar after navigation
+      setHovered(false);
     },
-    [setActiveSession, router, setSidebarOpen],
+    [setActiveSession, router],
   );
 
   const handleDeleteSession = useCallback(
     async (e: React.MouseEvent, sessionId: string) => {
       e.stopPropagation();
+      e.preventDefault();
       try {
         await deleteSession(sessionId);
         removeSession(sessionId);
@@ -86,8 +118,8 @@ export function Sidebar() {
           setActiveSession(null);
           router.push("/");
         }
-      } catch (error) {
-        console.error("Failed to delete session:", error);
+      } catch (err) {
+        console.error("Failed to delete session:", err);
       }
     },
     [removeSession, activeSessionId, setActiveSession, router],
@@ -95,147 +127,245 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile overlay */}
-      {sidebarOpen && (
+      {/* Hover trigger strip — thin invisible strip on left edge to reveal sidebar */}
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 32,
+          bottom: 0,
+          width: 12,
+          zIndex: 9,
+        }}
+      />
+      {/* Rail indicator when sidebar closed — hidden when pinned or open */}
+      {!open && !pinned && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed",
+            left: 0,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 3,
+            height: 42,
+            borderRadius: "0 3px 3px 0",
+            background: "var(--violet)",
+            opacity: 0.3,
+            pointerEvents: "none",
+            zIndex: 8,
+            transition: "opacity 160ms",
+          }}
         />
       )}
 
-      {/* Sidebar */}
       <aside
-        className={cn(
-          "fixed md:static inset-y-0 left-0 z-40 w-72 bg-card border-r border-border flex flex-col transition-transform duration-200",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden md:border-0",
-        )}
+        className="flex flex-col relative"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          width: open ? 220 : 0,
+          flex: open && pinned ? "0 0 220px" : "0 0 0px",
+          position: pinned ? "relative" : "fixed",
+          left: 0,
+          top: pinned ? "auto" : 32,
+          bottom: pinned ? "auto" : 0,
+          height: pinned ? "auto" : "calc(100vh - 32px)",
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          transition:
+            "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+          borderRight: "1px solid var(--line)",
+          background: pinned ? "rgba(18, 10, 31, 0.6)" : "rgba(14, 8, 24, 0.95)",
+          backdropFilter: "blur(20px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          zIndex: pinned ? 2 : 10,
+          boxShadow:
+            "inset 0 1px 0 rgba(196, 169, 255, 0.06), inset -1px 0 0 rgba(165, 131, 255, 0.06)",
+          overflow: "hidden",
+        }}
       >
-        {/* Header */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl font-bold text-foreground">MITS</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              v1.0
+      {/* Brand */}
+      <div
+        style={{
+          padding: "14px 14px 12px",
+          borderBottom: "1px solid var(--line)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <MitsMark size={30} />
+          <div className="flex flex-col">
+            <Glitch className="font-display" text="MITS">
+              <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "0.04em" }}>
+                MITS
+              </span>
+            </Glitch>
+            <span className="ghost" style={{ fontSize: 9, letterSpacing: "0.22em" }}>
+              v.2.6.1
             </span>
           </div>
-          <Button
-            onClick={handleNewChat}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-            size="sm"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-4 h-4 mr-2"
-            >
-              <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-            </svg>
-            Новый чат
-          </Button>
         </div>
+      </div>
 
-        {/* Session list */}
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {sessions.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                Нет сессий
-              </p>
-            )}
-            {sessions.map((session) => (
-              <button
-                key={session.id}
-                onClick={() => handleSelectSession(session.id)}
-                className={cn(
-                  "w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors group",
-                  activeSessionId === session.id
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                )}
-              >
-                <span
-                  className={cn(
-                    "w-2 h-2 rounded-full shrink-0",
-                    MODE_DOT_COLORS[session.mode] ?? "bg-amber-500",
-                  )}
-                />
-                <span className="flex-1 truncate">
-                  {session.topic
-                    ? topicLabels[session.topic] || session.topic
-                    : "Свободная тема"}
-                </span>
-                <button
-                  onClick={(e) => handleDeleteSession(e, session.id)}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                    className="w-3.5 h-3.5"
-                  >
-                    <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
-                  </svg>
-                </button>
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
+      {/* New chat button */}
+      <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--line)" }}>
+        <button
+          onClick={handleNewChat}
+          className="cbtn cbtn-primary w-full justify-center"
+          style={{
+            padding: "10px 12px",
+            fontSize: 12,
+            letterSpacing: "0.12em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          ＋ {t("new_session")}
+        </button>
+      </div>
 
-        {/* Footer */}
-        <div className="p-3 border-t border-border space-y-1">
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-          >
-            {theme === "dark" ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path d="M10 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 2ZM10 15a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 15ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM15.657 5.404a.75.75 0 1 0-1.06-1.06l-1.061 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM6.464 14.596a.75.75 0 1 0-1.06-1.06l-1.06 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM18 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 18 10ZM5 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 5 10ZM14.596 15.657a.75.75 0 0 0 1.06-1.06l-1.06-1.061a.75.75 0 1 0-1.06 1.06l1.06 1.06ZM5.404 6.464a.75.75 0 0 0 1.06-1.06l-1.06-1.06a.75.75 0 1 0-1.06 1.06l1.06 1.06Z" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M7.455 2.004a.75.75 0 0 1 .26.77 7 7 0 0 0 9.958 7.967.75.75 0 0 1 1.067.853A8.5 8.5 0 1 1 6.647 1.921a.75.75 0 0 1 .808.083Z" clipRule="evenodd" />
-              </svg>
-            )}
-            {theme === "dark" ? "Светлая тема" : "Тёмная тема"}
-          </button>
-          <button
-            onClick={() => router.push("/profile")}
-            className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-              <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" />
-            </svg>
-            Профиль
-          </button>
-          {isAuthenticated ? (
-            <button
-              onClick={async () => {
-                await logout();
-                router.push("/");
+      {/* Nav */}
+      <nav style={{ padding: 8, display: "flex", flexDirection: "column", gap: 2 }}>
+        {NAV_ITEMS.map((it) => {
+          const active = activeView === it.id;
+          return (
+            <Link
+              key={it.id}
+              href={it.href}
+              onClick={() => {
+                // Collapse hover-opened sidebar after navigating
+                if (!pinned) setHovered(false);
               }}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+              className="font-mono flex items-center gap-3 relative transition-all"
+              style={{
+                textAlign: "left",
+                background: active
+                  ? "linear-gradient(90deg, rgba(165,131,255,0.18), rgba(165,131,255,0.04))"
+                  : "transparent",
+                borderLeft: "2px solid " + (active ? "var(--violet)" : "transparent"),
+                color: active ? "var(--text)" : "var(--text-dim)",
+                padding: "9px 12px",
+                fontSize: 12.5,
+                letterSpacing: "0.08em",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z" clipRule="evenodd" />
-                <path fillRule="evenodd" d="M19 10a.75.75 0 0 0-.75-.75H8.704l1.048-.943a.75.75 0 1 0-1.004-1.114l-2.5 2.25a.75.75 0 0 0 0 1.114l2.5 2.25a.75.75 0 1 0 1.004-1.114l-1.048-.943h9.546A.75.75 0 0 0 19 10Z" clipRule="evenodd" />
-              </svg>
-              <span className="truncate">{user?.display_name ?? "Выйти"}</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => router.push("/auth/login")}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z" clipRule="evenodd" />
-                <path fillRule="evenodd" d="M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z" clipRule="evenodd" />
-              </svg>
-              Войти
-            </button>
+              <span
+                style={{
+                  color: active ? "var(--yellow)" : "var(--violet)",
+                  fontSize: 16,
+                  flexShrink: 0,
+                }}
+              >
+                {it.icon}
+              </span>
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                {it.labelKey ? t(it.labelKey) : it.label}
+              </span>
+              {active && (
+                <span
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    color: "var(--yellow)",
+                    fontSize: 10,
+                  }}
+                >
+                  ›
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Session history */}
+      <div
+        style={{
+          padding: "8px 14px",
+          borderTop: "1px solid var(--line)",
+          marginTop: 4,
+          overflowY: "auto",
+          flex: "1 1 auto",
+          minHeight: 0,
+        }}
+      >
+        <div className="up ghost text-[9px] mb-2 tracking-[0.2em]">› {t("sessions")}</div>
+        <div className="flex flex-col gap-0.5 text-[11px]">
+          {sessions.length === 0 && (
+            <div className="ghost text-center py-4 text-[10px]">— пусто —</div>
           )}
+          {sessions.slice(0, 15).map((s) => {
+            const isActive = activeSessionId === s.id;
+            const title = s.topic ? topicLabels[s.topic] || s.topic : "Свободная тема";
+            return (
+              <button
+                key={s.id}
+                onClick={() => handleSelectSession(s.id)}
+                className={cn(
+                  "group flex items-center gap-2 cursor-pointer w-full text-left",
+                )}
+                style={{
+                  color: isActive ? "var(--text)" : "var(--text-muted)",
+                  padding: "4px 8px",
+                  borderLeft: "1px solid " + (isActive ? "var(--yellow)" : "transparent"),
+                  transition: "all 100ms",
+                }}
+              >
+                <span>{isActive ? "▸" : "·"}</span>
+                <span className="flex-1 truncate">{title}</span>
+                <span
+                  role="button"
+                  aria-label="delete"
+                  onClick={(e) => handleDeleteSession(e, s.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-cyber-error"
+                  style={{ fontSize: 10 }}
+                >
+                  ✕
+                </span>
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Footer */}
+      <div
+        className="flex items-center gap-2"
+        style={{ padding: 12, borderTop: "1px solid var(--line)" }}
+      >
+        <button
+          onClick={() => setPinned((p) => !p)}
+          className="cbtn cbtn-ghost !px-2 !py-1"
+          title={pinned ? "Открепить (авто-скрытие)" : "Закрепить"}
+          aria-label="toggle sidebar pin"
+          style={{ fontSize: 14 }}
+        >
+          {pinned ? "📌" : "📍"}
+        </button>
+        {isAuthenticated ? (
+          <button
+            className="cbtn cbtn-ghost flex-1 justify-center text-[10px]"
+            onClick={async () => {
+              await logout();
+              router.push("/");
+            }}
+          >
+            ⏻ {t("nav_logout")}
+          </button>
+        ) : (
+          <Link
+            href="/auth/login"
+            className="cbtn cbtn-ghost flex-1 justify-center text-[10px]"
+            style={{ textDecoration: "none" }}
+          >
+            ◆ {t("auth_login")}
+          </Link>
+        )}
+      </div>
       </aside>
     </>
   );
