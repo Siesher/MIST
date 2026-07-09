@@ -6,6 +6,7 @@ Contains 40+ skills with prerequisite relationships.
 """
 
 from typing import Dict, List, Set
+
 from src.data.schemas import SkillNode
 
 # ═══════════════════════════════════════════════════════════════════════════

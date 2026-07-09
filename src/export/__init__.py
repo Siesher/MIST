@@ -9,7 +9,7 @@ Provides export/import functionality:
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 __all__ = [
     "ExportFormat",

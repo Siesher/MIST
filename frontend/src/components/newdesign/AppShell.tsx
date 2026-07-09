@@ -100,6 +100,7 @@ function Sidebar() {
   const setActiveSession = useChatStore((s) => s.setActiveSession);
   const removeSession = useChatStore((s) => s.removeSession);
   const [creating, setCreating] = useState(false);
+  const [sidebarError, setSidebarError] = useState<string | null>(null);
 
   // Active session id derived from the URL (/chat/<id>)
   const activeId = useMemo(() => {
@@ -125,6 +126,7 @@ function Sidebar() {
   const handleNewChat = async () => {
     if (creating) return;
     setCreating(true);
+    setSidebarError(null);
     try {
       const preferredMode =
         (typeof window !== "undefined"
@@ -146,7 +148,8 @@ function Sidebar() {
       setActiveSession(session.id);
       router.push(`/chat/${session.id}`);
     } catch (e) {
-      console.error("Failed to create session:", e);
+      const msg = e instanceof Error ? e.message : "Ошибка создания сессии";
+      setSidebarError(msg);
     } finally {
       setCreating(false);
     }
@@ -160,7 +163,8 @@ function Sidebar() {
     try {
       await deleteSession(id);
     } catch (e) {
-      console.error("Failed to delete session:", e);
+      const msg = e instanceof Error ? e.message : "Ошибка удаления сессии";
+      setSidebarError(msg);
     }
     removeSession(id);
     if (id === activeId) router.push("/");
@@ -187,6 +191,21 @@ function Sidebar() {
         <span>{t("new_session")}</span>
         <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono), monospace", fontSize: 10, opacity: 0.7 }}>⌘N</span>
       </button>
+      {sidebarError && (
+        <div
+          style={{
+            margin: "4px 8px 0",
+            padding: "5px 8px",
+            fontSize: 11,
+            color: "var(--red, #f87171)",
+            background: "color-mix(in srgb, var(--red, #f87171) 12%, transparent)",
+            borderRadius: 6,
+            lineHeight: 1.4,
+          }}
+        >
+          {sidebarError}
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <div className="section-label">{t("sessions")}</div>

@@ -15,18 +15,23 @@ T046: Knowledge Decay on Session Start
 """
 
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any, List, Tuple
-from dataclasses import dataclass, field
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
-from src.memory.interfaces import ISessionMemory, IStudentMemory, MemoryContext
-from src.memory.session_memory import SessionMemory, create_session_memory, TurnType
-from src.memory.student_memory import StudentMemory, create_student_memory
 from src.data.schemas import (
-    Task, CognitiveLoad, KnowledgeState, SessionSummary,
-    HintType, Difficulty, CognitiveLoadLevel, ConversationTurn
+    CognitiveLoad,
+    CognitiveLoadLevel,
+    ConversationTurn,
+    Difficulty,
+    KnowledgeState,
+    SessionSummary,
+    Task,
 )
+from src.memory.interfaces import MemoryContext
+from src.memory.session_memory import SessionMemory, TurnType, create_session_memory
+from src.memory.student_memory import StudentMemory, create_student_memory
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +166,7 @@ class MemoryManager:
             session_id=session_id,
             knowledge_state_snapshot={
                 topic_id: tm.mastery
-                for topic_id, tm in knowledge_state.topic_masteries.items()
+                for topic_id, tm in knowledge_state.topics.items()
             },
             decay_applied=decay_applied
         ))
@@ -372,13 +377,13 @@ class MemoryManager:
 
         # Determine topics to avoid (recent failures)
         topics_to_avoid = []
-        for topic_id, tm in knowledge_state.topic_masteries.items():
-            if tm.mastery < 0.3 and tm.attempts > 5:
+        for topic_id, tm in knowledge_state.topics.items():
+            if tm.mastery < 0.3 and tm.practice_count > 5:
                 topics_to_avoid.append(topic_id)
 
         # Topics to reinforce (almost mastered)
         topics_to_reinforce = []
-        for topic_id, tm in knowledge_state.topic_masteries.items():
+        for topic_id, tm in knowledge_state.topics.items():
             if 0.6 <= tm.mastery < 0.8:
                 topics_to_reinforce.append(topic_id)
 

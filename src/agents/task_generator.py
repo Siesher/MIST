@@ -17,6 +17,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.agents.base_agent import BaseAgent
+from src.agents.task_answer_verifier import verify_task_answer
 from src.data.schemas import Difficulty, Subject, Task
 from src.models.llm_client import LLMClient
 from src.models.prompts import TASK_GENERATOR_PROMPT, TASK_GENERATOR_SYSTEM
@@ -272,6 +273,10 @@ class TaskGeneratorAgent(BaseAgent):
 
         return {"task": task}
 
+    # Total candidate generations when answer verification is on:
+    # 1 initial + up to 2 regenerations on a provably wrong reference answer.
+    MAX_VERIFY_ATTEMPTS = 3
+
     def generate_task(
         self,
         topic: str,
@@ -279,6 +284,7 @@ class TaskGeneratorAgent(BaseAgent):
         skills: List[str] = None,
         subject: Subject = Subject.MATH,
         student_level: dict = None,
+        verify_answer: bool = True,
     ) -> Task:
         """
         Generate a single educational task.
@@ -289,6 +295,8 @@ class TaskGeneratorAgent(BaseAgent):
             skills: Specific skills to test
             subject: Subject area
             student_level: Student's current mastery levels
+            verify_answer: Re-derive the reference answer with SymPy and
+                regenerate (up to 2 retries) when it is provably wrong.
 
         Returns:
             Generated Task object
@@ -338,23 +346,44 @@ class TaskGeneratorAgent(BaseAgent):
 
         self._log_action("generating_task", {"topic": topic, "difficulty": difficulty.value})
 
-        response = self._call_llm(prompt, json_mode=True, thinking=False)
-        task_data = _parse_task_json(response, self.logger)
-        if task_data is None:
-            # One retry with a gentler temperature before giving up
-            self.logger.warning("task_json_parse_failed_retrying")
-            response = self._call_llm(
-                prompt + "\n\nВажно: возвращай ТОЛЬКО валидный JSON-объект.",
-                json_mode=True,
-                thinking=False,
-                temperature=0.5,
+        # Generation loop with SymPy answer verification:
+        #   verdict True  → accept;
+        #   verdict None  → task not machine-checkable, accept as-is;
+        #   verdict False → reference answer provably wrong, regenerate.
+        max_attempts = self.MAX_VERIFY_ATTEMPTS if verify_answer else 1
+        task_data: Optional[Dict[str, Any]] = None
+        rejected: Optional[Dict[str, Any]] = None
+        for attempt in range(1, max_attempts + 1):
+            candidate = self._generate_task_data(prompt)
+            if not verify_answer:
+                task_data = candidate
+                break
+            verdict = verify_task_answer(
+                topic=topic,
+                problem=str(candidate.get("problem", "")),
+                answer=str(candidate.get("answer", "")),
             )
-            task_data = _parse_task_json(response, self.logger)
+            if verdict is False:
+                self.logger.warning(
+                    "task_answer_verification_failed",
+                    topic=topic,
+                    attempt=attempt,
+                    answer=str(candidate.get("answer", ""))[:120],
+                )
+                rejected = candidate
+                continue
+            task_data = candidate
+            self._log_action(
+                "task_answer_verified",
+                {"topic": topic, "attempt": attempt, "verdict": "pass" if verdict else "unverifiable"},
+            )
+            break
 
         if task_data is None:
-            preview = (response or "")[:300].replace("\n", " ")
-            self.logger.error("task_generation_failed_all_attempts", preview=preview)
-            raise ValueError(f"Failed to generate valid task after 2 attempts. Response preview: {preview}")
+            # All attempts produced provably wrong answers — surface the last one
+            # rather than failing the whole request, but log loudly.
+            self.logger.error("task_answer_verification_exhausted", topic=topic, attempts=max_attempts)
+            task_data = rejected
 
         try:
             # Normalize fields - LLM may return lists instead of strings
@@ -390,6 +419,27 @@ class TaskGeneratorAgent(BaseAgent):
         except (KeyError, TypeError) as e:
             self.logger.error("task_generation_failed", error=str(e))
             raise ValueError(f"Failed to generate valid task: {e}")
+
+    def _generate_task_data(self, prompt: str) -> Dict[str, Any]:
+        """One LLM task generation with the JSON-parse retry (raises ValueError on failure)."""
+        response = self._call_llm(prompt, json_mode=True, thinking=False)
+        task_data = _parse_task_json(response, self.logger)
+        if task_data is None:
+            # One retry with a gentler temperature before giving up
+            self.logger.warning("task_json_parse_failed_retrying")
+            response = self._call_llm(
+                prompt + "\n\nВажно: возвращай ТОЛЬКО валидный JSON-объект.",
+                json_mode=True,
+                thinking=False,
+                temperature=0.5,
+            )
+            task_data = _parse_task_json(response, self.logger)
+
+        if task_data is None:
+            preview = (response or "")[:300].replace("\n", " ")
+            self.logger.error("task_generation_failed_all_attempts", preview=preview)
+            raise ValueError(f"Failed to generate valid task after 2 attempts. Response preview: {preview}")
+        return task_data
 
     def generate_batch(self, topic: str, difficulty: Difficulty, count: int = 5, **kwargs) -> List[Task]:
         """Generate multiple tasks for a topic."""

@@ -1,0 +1,26 @@
+# systemd user unit — MITS LLM stack (llama-swap + llama-server on :8090).
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp scripts/llm/mits-llm.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now mits-llm
+#   # авто-старт без логина: loginctl enable-linger siesher
+#
+# Smoke: curl -s http://127.0.0.1:8090/v1/models
+
+[Unit]
+Description=MITS LLM stack (llama-swap -> llama-server, port 8090)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/siesher/.local/opt/llama-swap/llama-swap \
+    --config /home/siesher/Work/MITS/scripts/llm/config.yaml \
+    --listen 127.0.0.1:8090
+Environment=LD_LIBRARY_PATH=/home/siesher/.local/opt/llama-b9859
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

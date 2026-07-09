@@ -185,3 +185,10 @@ frontend/.claude/
 /new_design/
 /new_presentation/
 /presentation/
+
+# Runtime artifacts
+data/logs/
+
+# Transient SQLite runtime files (WAL/SHM) — never commit
+backend/data/*.db-wal
+backend/data/*.db-shm

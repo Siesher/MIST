@@ -5,7 +5,7 @@ Provides RAG-based hint and explanation retrieval from the knowledge base.
 """
 
 import time
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, Optional
 
 from src.tools import BaseTool, ToolResult, ToolType
 
@@ -42,7 +42,7 @@ class KnowledgeSearchTool(BaseTool):
                 self._initialized = True
             except ImportError:
                 self._initialized = True  # Mark as initialized but RAG unavailable
-            except Exception as e:
+            except Exception:
                 self._initialized = True
                 # Log error but don't crash
 

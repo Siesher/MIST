@@ -87,7 +87,7 @@ del lines[n_tokens_inside]
 
 # Now insert new_pre_lines AFTER t_gen_idx
 lines[t_gen_idx + 1:t_gen_idx + 1] = new_pre_lines
-print(f'  + truncation/think_close flags inserted after t_gen')
+print('  + truncation/think_close flags inserted after t_gen')
 
 # Replacement #2: Add fields to completions.append dict
 old_append = "            'completion_text': visible,  # saved для Phase 0b async judge\n"
@@ -100,7 +100,7 @@ new_append = (
 append_idx = find_line_idx("'completion_text': visible")
 assert append_idx >= 0
 lines[append_idx] = new_append
-print(f'  + n_tokens/truncated/has_think_close added to completions dict')
+print('  + n_tokens/truncated/has_think_close added to completions dict')
 
 # Replacement #3: Add aggregate metrics to return dict
 # Find the return statement and inject new keys before 'mode': ... line
@@ -120,7 +120,7 @@ new_agg_lines = [
     "        'n_non_truncated': sum(1 for c in completions if not c.get('truncated')),\n",
 ]
 lines[mode_idx:mode_idx] = new_agg_lines
-print(f'  + truncation_rate / think_close_rate / accuracy_non_truncated в return dict')
+print('  + truncation_rate / think_close_rate / accuracy_non_truncated в return dict')
 
 cell['source'] = lines
 
@@ -166,7 +166,7 @@ new_tail = [
 # Slice replace from old_loop_start to old_socratic_note inclusive
 lines9[old_loop_start:old_socratic_note + 1] = new_tail
 cell9['source'] = lines9
-print(f'  + Cell 9 print output extended with truncation/think_close metrics')
+print('  + Cell 9 print output extended with truncation/think_close metrics')
 
 
 NB.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')

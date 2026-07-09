@@ -4,9 +4,10 @@ Algorithmic Tasks Collection — Коллекция алгоритмически
 Файл с определениями всех задач.
 """
 
-from src.data.algo_task_bank import AlgorithmicTask, Difficulty, Category
-from src.execution.code_executor import TestCase
 from typing import List
+
+from src.data.algo_task_bank import AlgorithmicTask, Category, Difficulty
+from src.execution.code_executor import TestCase
 
 
 def get_easy_tasks() -> List[AlgorithmicTask]:
@@ -53,7 +54,7 @@ for i, num in enumerate(nums):
     seen[num] = i""",
             solution_explanation="Используем хэш-таблицу для поиска за O(1)"
         ),
-        
+
         # === 2. Palindrome Check ===
         AlgorithmicTask(
             id="palindrome",
@@ -89,7 +90,7 @@ for i, num in enumerate(nums):
 cleaned = ''.join(c.lower() for c in s if c.isalnum())
 print("YES" if cleaned == cleaned[::-1] else "NO")""",
         ),
-        
+
         # === 3. FizzBuzz ===
         AlgorithmicTask(
             id="fizzbuzz",
@@ -129,7 +130,7 @@ for i in range(1, n + 1):
     else:
         print(i)""",
         ),
-        
+
         # === 4. Reverse Array ===
         AlgorithmicTask(
             id="reverse_array",
@@ -154,7 +155,7 @@ for i in range(1, n + 1):
             solution_code="""arr = list(map(int, input().split()))
 print(*arr[::-1])""",
         ),
-        
+
         # === 5. Count Vowels ===
         AlgorithmicTask(
             id="count_vowels",
@@ -181,7 +182,7 @@ print(*arr[::-1])""",
 vowels = set('aeiou')
 print(sum(1 for c in s if c in vowels))""",
         ),
-        
+
         # === 6. Find Maximum ===
         AlgorithmicTask(
             id="find_max",
@@ -210,7 +211,7 @@ for num in arr[1:]:
         maximum = num
 print(maximum)""",
         ),
-        
+
         # === 7. Sum of Digits ===
         AlgorithmicTask(
             id="digit_sum",
@@ -235,7 +236,7 @@ print(maximum)""",
             solution_code="""n = input()
 print(sum(int(d) for d in n))""",
         ),
-        
+
         # === 8. Factorial ===
         AlgorithmicTask(
             id="factorial",
@@ -265,7 +266,7 @@ for i in range(2, n + 1):
     result *= i
 print(result)""",
         ),
-        
+
         # === 9. Fibonacci ===
         AlgorithmicTask(
             id="fibonacci",
@@ -302,7 +303,7 @@ else:
         a, b = b, a + b
     print(b)""",
         ),
-        
+
         # === 10. Is Prime ===
         AlgorithmicTask(
             id="is_prime",
@@ -393,7 +394,7 @@ while left <= right:
         right = mid - 1
 print(result)""",
         ),
-        
+
         # === 12. Merge Sorted Arrays ===
         AlgorithmicTask(
             id="merge_sorted",
@@ -433,7 +434,7 @@ result.extend(a[i:])
 result.extend(b[j:])
 print(*result)""",
         ),
-        
+
         # === 13. Valid Parentheses ===
         AlgorithmicTask(
             id="valid_parens",
@@ -479,7 +480,7 @@ for c in s:
         stack.pop()
 print("YES" if valid and not stack else "NO")""",
         ),
-        
+
         # === 14. Anagram Check ===
         AlgorithmicTask(
             id="anagram",
@@ -510,7 +511,7 @@ print("YES" if valid and not stack else "NO")""",
 s2 = input().lower()
 print("YES" if sorted(s1) == sorted(s2) else "NO")""",
         ),
-        
+
         # === 15. Longest Substring Without Repeating ===
         AlgorithmicTask(
             id="longest_substring",
@@ -553,7 +554,7 @@ else:
         max_len = max(max_len, right - left + 1)
     print(max_len)""",
         ),
-        
+
         # === 16. Group Anagrams ===
         AlgorithmicTask(
             id="group_anagrams",
@@ -589,7 +590,7 @@ for word in words:
 for key in order:
     print(' '.join(groups[key]))""",
         ),
-        
+
         # === 17. Maximum Subarray (Kadane) ===
         AlgorithmicTask(
             id="max_subarray",
@@ -623,7 +624,7 @@ for num in arr[1:]:
     max_sum = max(max_sum, current)
 print(max_sum)""",
         ),
-        
+
         # === 18. Reverse Linked List (simulation) ===
         AlgorithmicTask(
             id="reverse_list",
@@ -651,7 +652,7 @@ while left < right:
     right -= 1
 print(*arr)""",
         ),
-        
+
         # === 19. Count Inversions ===
         AlgorithmicTask(
             id="count_inversions",
@@ -685,7 +686,7 @@ for i in range(len(arr)):
             count += 1
 print(count)""",
         ),
-        
+
         # === 20. Unique Paths (DP Grid) ===
         AlgorithmicTask(
             id="unique_paths",
@@ -764,7 +765,7 @@ for i in range(1, m + 1):
             dp[i][j] = max(dp[i-1][j], dp[i][j-1])
 print(dp[m][n])""",
         ),
-        
+
         # === 22. Edit Distance ===
         AlgorithmicTask(
             id="edit_distance",
@@ -807,7 +808,7 @@ for i in range(1, m + 1):
             dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
 print(dp[m][n])""",
         ),
-        
+
         # === 23. Knapsack 0/1 ===
         AlgorithmicTask(
             id="knapsack",
@@ -844,7 +845,7 @@ for w, v in items:
         dp[j] = max(dp[j], dp[j - w] + v)
 print(dp[W])""",
         ),
-        
+
         # === 24. Coin Change ===
         AlgorithmicTask(
             id="coin_change",
@@ -881,7 +882,7 @@ for i in range(1, amount + 1):
             dp[i] = min(dp[i], dp[i - coin] + 1)
 print(dp[amount] if dp[amount] != float('inf') else -1)""",
         ),
-        
+
         # === 25. Word Break ===
         AlgorithmicTask(
             id="word_break",
@@ -919,7 +920,7 @@ for i in range(1, n + 1):
             break
 print("YES" if dp[n] else "NO")""",
         ),
-        
+
         # === 26. Merge Intervals ===
         AlgorithmicTask(
             id="merge_intervals",
@@ -957,7 +958,7 @@ for start, end in intervals[1:]:
 for a, b in merged:
     print(a, b)""",
         ),
-        
+
         # === 27. Quick Sort ===
         AlgorithmicTask(
             id="quicksort",
@@ -994,7 +995,7 @@ for a, b in merged:
 arr = list(map(int, input().split()))
 print(*quicksort(arr))""",
         ),
-        
+
         # === 28. Number of Islands (BFS/DFS) ===
         AlgorithmicTask(
             id="num_islands",
@@ -1040,7 +1041,7 @@ for i in range(m):
             count += 1
 print(count)""",
         ),
-        
+
         # === 29. Longest Increasing Subsequence ===
         AlgorithmicTask(
             id="lis",
@@ -1074,7 +1075,7 @@ for i in range(1, n):
             dp[i] = max(dp[i], dp[j] + 1)
 print(max(dp))""",
         ),
-        
+
         # === 30. Median of Sorted Arrays ===
         AlgorithmicTask(
             id="median_sorted",

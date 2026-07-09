@@ -28,9 +28,8 @@ Usage:
 from __future__ import annotations
 
 import io
-import os
-import sys
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -68,8 +67,8 @@ def step_merge() -> None:
 
     log("Importing torch + transformers + peft...")
     import torch
-    from transformers import AutoModelForImageTextToText, AutoTokenizer
     from peft import PeftModel
+    from transformers import AutoModelForImageTextToText, AutoTokenizer
 
     log(f"Loading base {BASE_HF} в fp16 (low_cpu_mem_usage)...")
     t0 = time.time()
@@ -80,7 +79,7 @@ def step_merge() -> None:
     )
     log(f"  Base loaded in {time.time() - t0:.1f}s")
 
-    log(f"Loading tokenizer...")
+    log("Loading tokenizer...")
     tok = AutoTokenizer.from_pretrained(BASE_HF)
 
     log(f"Applying GSPO LoRA from {GSPO_ADAPTER}...")
@@ -88,7 +87,7 @@ def step_merge() -> None:
     peft_model = PeftModel.from_pretrained(base, GSPO_ADAPTER)
     log(f"  LoRA applied in {time.time() - t0:.1f}s")
 
-    log(f"Merging adapter (merge_and_unload)...")
+    log("Merging adapter (merge_and_unload)...")
     t0 = time.time()
     merged = peft_model.merge_and_unload()
     log(f"  Merged in {time.time() - t0:.1f}s")

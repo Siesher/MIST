@@ -10,24 +10,22 @@ Tests cover:
 - Memory estimation
 """
 
-import math
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
 from src.inference.turbo_quant import (
     TurboQuantConfig,
     TurboQuantEngine,
     compute_codebook,
-    generate_rotation_matrix,
     generate_qjl_matrix,
+    generate_rotation_matrix,
     get_codebook,
 )
 from src.inference.turbo_quant_cache import (
     TurboQuantCache,
     create_turbo_quant_cache,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────
 

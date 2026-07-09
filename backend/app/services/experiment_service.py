@@ -1,13 +1,13 @@
 """Experiment service for A/B testing framework."""
 
-import random
 import logging
-from typing import Optional, Dict, Any, List
+import random
+from typing import Any, Dict, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.tables import ExperimentTable, ExperimentParticipantTable
+from backend.app.models.tables import ExperimentParticipantTable, ExperimentTable
 
 logger = logging.getLogger(__name__)
 

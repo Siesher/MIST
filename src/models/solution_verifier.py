@@ -5,10 +5,10 @@ Parses LaTeX to SymPy expressions, compares steps against expected answer,
 and identifies the first error in a multi-step solution.
 """
 
-import re
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+import re
 from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

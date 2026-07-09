@@ -14,9 +14,9 @@ import argparse
 import json
 import logging
 import pickle
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 import sys
+from pathlib import Path
+from typing import Any, Dict, List
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -156,8 +156,8 @@ def compute_embeddings(
 ):
     """Compute embeddings for a list of texts."""
     try:
-        from sentence_transformers import SentenceTransformer
         import numpy as np
+        from sentence_transformers import SentenceTransformer
     except ImportError:
         logger.error("sentence-transformers not installed. Run: pip install sentence-transformers")
         return None

@@ -424,7 +424,7 @@ class VerifierAgent:
                 try:
                     result = float(parts[0]) / float(parts[1])
                     variants.append(f"{result:.4f}")
-                except:
+                except (ValueError, ZeroDivisionError):
                     pass
 
         return variants

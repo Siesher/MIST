@@ -15,25 +15,24 @@ Each generated task has a mathematically verified correct answer.
 import logging
 import random
 import uuid
-from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
+from src.config import get_settings
 from src.data.schemas import (
+    Difficulty,
     GeneratedTask,
     VerificationStatus,
-    Difficulty,
 )
 from src.utils.sympy_utils import (
+    is_sympy_available,
     safe_diff,
     safe_integrate,
     safe_limit,
     safe_solve,
-    safe_parse_expr,
-    verify_equality,
     to_latex,
-    is_sympy_available,
+    verify_equality,
 )
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 

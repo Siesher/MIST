@@ -4,7 +4,12 @@ import { useCallback } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { useWebSocket } from "./useWebSocket";
 import { sendMessage as sendMessageRest, getHint as getHintRest } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
 import type { Message, WSServerMessage, ChatMode } from "@/types/api";
+
+// Single source of truth for base URL — consistent with src/lib/api.ts
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_V1 = `${API_BASE}/api/v1`;
 
 interface UseChatOptions {
   sessionId: string;
@@ -201,12 +206,15 @@ export function useChat({ sessionId, useStreaming = true }: UseChatOptions) {
         // Send via WebSocket
         wsSendRaw({ type: "mode_change", mode });
       } else {
-        // Fallback to REST
+        // Fallback to REST — use API_V1 (consistent with src/lib/api.ts)
         try {
-          const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-          await fetch(`${API_BASE}/sessions/${sessionId}/mode`, {
+          const token = getAccessToken();
+          await fetch(`${API_V1}/sessions/${sessionId}/mode`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ mode }),
           });
         } catch {

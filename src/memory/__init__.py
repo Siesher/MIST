@@ -13,24 +13,15 @@ Based on:
 """
 
 from .interfaces import ISessionMemory, IStudentMemory, MemoryContext
-from .session_memory import (
-    SessionMemory,
-    create_session_memory,
-    TurnType,
-    Turn,
-    SessionContext
-)
-from .student_memory import (
-    StudentMemory,
-    create_student_memory
-)
 from .manager import (
-    MemoryManager,
-    create_memory_manager,
     MemoryEvent,
+    MemoryManager,
+    SessionEndedEvent,
     SessionStartedEvent,
-    SessionEndedEvent
+    create_memory_manager,
 )
+from .session_memory import SessionContext, SessionMemory, Turn, TurnType, create_session_memory
+from .student_memory import StudentMemory, create_student_memory
 
 __all__ = [
     # Interfaces

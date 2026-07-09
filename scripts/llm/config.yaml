@@ -1,0 +1,41 @@
+# llama-swap config — MITS production LLM stack (Linux / CachyOS, RTX 5070 Ti 16GB).
+# Порт 8090 (см. .env: LLM_BASE_URL=http://127.0.0.1:8090/v1, LLM_MODEL=mits-tutor).
+#
+# Бинарники: mainline llama.cpp b9859 Vulkan prebuilt (~/.local/opt/llama-b9859).
+#   На этой машине НЕТ CUDA toolkit — Vulkan backend, GPU: Vulkan0 = RTX 5070 Ti.
+#   turbo3 KV недоступен в mainline — q8_0 KV.
+# Модель: mits-kto.q4km.gguf (восстановлена из Siesher/mits-qwen3-9b-kto,
+#   см. scripts/llm/fetch_model.sh).
+#
+# --parallel 2 выбран по load-тесту 2026-07-02 (scripts/llm/ws_load_test.py):
+#   см. docs/ отчёт — при 5+ одновременных диалогах на -np выше растёт TTFT.
+
+healthCheckTimeout: 600
+logLevel: info
+
+macros:
+  llama_bin: /home/siesher/.local/opt/llama-b9859
+
+models:
+  mits-tutor:
+    cmd: |
+      ${llama_bin}/llama-server
+      --model /home/siesher/Work/MITS/training/models/mits-kto.q4km.gguf
+      --port ${PORT}
+      --host 127.0.0.1
+      --ctx-size 32768
+      -ngl 99
+      --device Vulkan0
+      --threads 8
+      --batch-size 2048
+      --ubatch-size 512
+      --flash-attn on
+      --cache-type-k q8_0
+      --cache-type-v q8_0
+      --jinja
+      --parallel 2
+      --no-context-shift
+    ttl: 3600
+    aliases:
+      - mits-tutor-9b-think
+      - mits-tutor-9b-fast

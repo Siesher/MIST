@@ -118,7 +118,11 @@ function TaskCard({ topic, difficulty, problem }: { topic?: string; difficulty?:
           {difficulty ? ` · ${difficulty}` : ""}
         </div>
         <h3 className="task-title">{topic || t("task_current")}</h3>
-        {problem && <div className="task-formula">{problem}</div>}
+        {problem && (
+          <div className="task-formula">
+            <SmartContent content={problem} />
+          </div>
+        )}
         <div className="task-meta">
           <span>
             {t("difficulty")}: <b>{difficulty || "—"}</b>

@@ -19,19 +19,22 @@ T043, T046, T047: Student Memory Implementation
 
 import json
 import logging
-import sqlite3
 import math
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field
+import sqlite3
 from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from src.memory.interfaces import IStudentMemory
 from src.data.schemas import (
-    KnowledgeState, TopicMastery, SessionSummary,
-    HintType, Difficulty, CognitiveLoadLevel
+    CognitiveLoadLevel,
+    HintType,
+    KnowledgeState,
+    SessionSummary,
+    TopicMastery,
 )
+from src.memory.interfaces import IStudentMemory
 
 logger = logging.getLogger(__name__)
 
@@ -284,14 +287,14 @@ class StudentMemory(IStudentMemory):
 
         topic_masteries = {}
         for row in rows:
+            # Имена kwargs должны совпадать с полями TopicMastery (pydantic v2
+            # молча игнорирует лишние — данные терялись без ошибки)
             topic_masteries[row["topic_id"]] = TopicMastery(
                 topic_id=row["topic_id"],
                 mastery=row["mastery"],
-                dkt_mastery=row["dkt_mastery"],
-                attempts=row["attempts"],
-                correct=row["correct_attempts"],
-                last_practice=datetime.fromisoformat(row["last_practice"]) if row["last_practice"] else None,
-                hints_used=row["hints_used_total"]
+                practice_count=row["attempts"],
+                correct_count=row["correct_attempts"],
+                last_practiced=datetime.fromisoformat(row["last_practice"]) if row["last_practice"] else None,
             )
 
         # Calculate overall mastery
@@ -302,9 +305,8 @@ class StudentMemory(IStudentMemory):
 
         return KnowledgeState(
             student_id=student_id,
-            topic_masteries=topic_masteries,
+            topics=topic_masteries,
             overall_mastery=overall,
-            last_updated=datetime.now()
         )
 
     def update_knowledge_state(

@@ -255,7 +255,7 @@ def main():
 
         browser.close()
 
-    print(f"\n=== Сборка PPTX с видео + автозапуском ===")
+    print("\n=== Сборка PPTX с видео + автозапуском ===")
     print(f"Вход: {PPTX_IN.name}")
     shutil.copy2(PPTX_IN, PPTX_OUT)
 

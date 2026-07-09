@@ -54,9 +54,6 @@ interface ChatState {
   turboQuant: boolean;
   contextLength: number | null;
 
-  // Theme
-  theme: "dark" | "light";
-
   // Sidebar
   sidebarOpen: boolean;
 
@@ -90,9 +87,6 @@ interface ChatState {
   setSessionState: (sessionId: string, state: SessionState) => void;
 
   setSessionMode: (sessionId: string, mode: ChatMode) => void;
-
-  setTheme: (theme: "dark" | "light") => void;
-  toggleTheme: () => void;
 
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -131,7 +125,6 @@ export const useChatStore = create<ChatState>()((set) => ({
   backendKind: null,
   turboQuant: false,
   contextLength: null,
-  theme: "dark",
   sidebarOpen: true,
   restSuggested: false,
 
@@ -267,23 +260,6 @@ export const useChatStore = create<ChatState>()((set) => ({
       sessionModes: { ...state.sessionModes, [sessionId]: mode },
     }));
   },
-
-  setTheme: (theme) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mits-theme", theme);
-      document.documentElement.classList.toggle("dark", theme === "dark");
-    }
-    set({ theme });
-  },
-  toggleTheme: () =>
-    set((state) => {
-      const newTheme = state.theme === "dark" ? "light" : "dark";
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mits-theme", newTheme);
-        document.documentElement.classList.toggle("dark", newTheme === "dark");
-      }
-      return { theme: newTheme };
-    }),
 
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<title>MITS — Интеллектуальный тьюторинг</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="styles-enhancements.css"/>
+<style>
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: #0E0A1A;
+    color: #E9DFFF;
+    font-family: 'Geist', system-ui, sans-serif;
+  }
+  #root { display: block; }
+  body { overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Те же компоненты, что и в дизайн-витрине index.html -->
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="chat-app-data.jsx"></script>
+<script type="text/babel" src="pages.jsx"></script>
+<script type="text/babel" src="enhancements.jsx"></script>
+<script type="text/babel" src="chat-app.jsx"></script>
+
+<!-- Точка входа демо: один полноэкранный ChatApp вместо доски артбордов -->
+<script type="text/babel" data-presets="env,react">
+const { useEffect } = React;
+
+function App() {
+  // Магнитный hover — навешивается на .magnetic элементы глобально.
+  useEffect(() => {
+    const handler = (e) => {
+      const el = e.target && e.target.closest && e.target.closest('.magnetic');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const x = e.clientX - (r.left + r.width / 2);
+      const y = e.clientY - (r.top + r.height / 2);
+      el.style.transform = `translate(${x * 0.18}px, ${y * 0.18}px)`;
+    };
+    const leave = (e) => {
+      const el = e.target && e.target.closest && e.target.closest('.magnetic');
+      if (el) el.style.transform = '';
+    };
+    document.addEventListener('mousemove', handler);
+    document.addEventListener('mouseleave', leave, true);
+    return () => {
+      document.removeEventListener('mousemove', handler);
+      document.removeEventListener('mouseleave', leave, true);
+    };
+  }, []);
+
+  return <ChatApp themeName="midnight" initialLang="ru" initialView="chat"/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

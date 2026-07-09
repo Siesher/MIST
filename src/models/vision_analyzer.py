@@ -11,33 +11,31 @@ VRAM Management: Vision models are loaded on demand and unloaded
 after use to manage limited GPU memory.
 """
 
-import logging
 import base64
+import logging
 import re
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
-from pathlib import Path
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 try:
-    from PIL import Image
     import io
+
+    from PIL import Image
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
 
+from src.config import get_settings
 from src.data.schemas import (
+    HandwrittenSolution,
     RecognitionConfidence,
     SolutionStep,
-    HandwrittenSolution,
 )
 from src.utils.sympy_utils import (
     safe_parse_expr,
     verify_equality,
-    safe_diff,
-    safe_integrate,
 )
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -754,7 +752,6 @@ class VisionAnalyzer:
 # ═══════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import asyncio
     logging.basicConfig(level=logging.DEBUG)
 
     analyzer = VisionAnalyzer()

@@ -8,6 +8,7 @@ Tests:
 import io
 import sys
 import time
+
 import requests
 
 # Force UTF-8 stdout — Windows default cp1251 cannot encode Russian Cyrillic в print().

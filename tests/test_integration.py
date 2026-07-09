@@ -12,19 +12,17 @@ MITS Integration Tests
 T054: Integration Test for Full Tutoring Session
 """
 
-import pytest
 import json
-import time
-import os
 import sys
-from pathlib import Path
+import time
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+
+import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.config import settings
 
 
 # === Mock LLM Client ===
@@ -99,7 +97,7 @@ def mock_llm():
 @pytest.fixture
 def sample_task():
     """Create sample tutoring task."""
-    from src.data.schemas import Task, Difficulty
+    from src.data.schemas import Difficulty, Task
 
     return Task(
         id="test-task-001",
@@ -155,9 +153,7 @@ class TestOrchestratorIntegration:
 
     def test_orchestrator_process_turn(self, mock_llm, sample_task):
         """Test full turn processing."""
-        from src.agents.orchestrator import (
-            AgentOrchestrator, TurnContext, OrchestratorMode
-        )
+        from src.agents.orchestrator import AgentOrchestrator, OrchestratorMode, TurnContext
 
         orchestrator = AgentOrchestrator(
             llm_client=mock_llm,
@@ -209,9 +205,7 @@ class TestOrchestratorIntegration:
 
     def test_orchestrator_graceful_degradation(self, mock_llm):
         """Test graceful degradation when agents fail."""
-        from src.agents.orchestrator import (
-            AgentOrchestrator, TurnContext, PipelineTrace
-        )
+        from src.agents.orchestrator import AgentOrchestrator, PipelineTrace, TurnContext
 
         orchestrator = AgentOrchestrator(
             llm_client=mock_llm,
@@ -237,9 +231,7 @@ class TestOrchestratorIntegration:
 
     def test_pipeline_tracing(self, mock_llm, sample_task):
         """Test pipeline trace collection."""
-        from src.agents.orchestrator import (
-            AgentOrchestrator, TurnContext, OrchestratorMode
-        )
+        from src.agents.orchestrator import AgentOrchestrator, OrchestratorMode, TurnContext
 
         orchestrator = AgentOrchestrator(
             llm_client=mock_llm,
@@ -326,7 +318,7 @@ class TestMemoryIntegration:
 
         # Retrieve knowledge state
         state = memory.get_knowledge_state("test-student")
-        assert "algebra.quadratic" in state.topic_masteries
+        assert "algebra.quadratic" in state.topics
 
     def test_memory_manager_session_lifecycle(self, tmp_path):
         """Test full session lifecycle through memory manager."""
@@ -367,7 +359,7 @@ class TestLanguageSupport:
 
     def test_language_detection_russian(self):
         """Test Russian language detection."""
-        from src.utils.language_detector import detect_language, Language
+        from src.utils.language_detector import Language, detect_language
 
         result = detect_language("Решите уравнение: $x^2 - 5x + 6 = 0$")
         assert result.language == Language.RUSSIAN
@@ -375,7 +367,7 @@ class TestLanguageSupport:
 
     def test_language_detection_english(self):
         """Test English language detection."""
-        from src.utils.language_detector import detect_language, Language
+        from src.utils.language_detector import Language, detect_language
 
         result = detect_language("Solve the equation: $x^2 - 5x + 6 = 0$")
         assert result.language == Language.ENGLISH
@@ -392,7 +384,7 @@ class TestLanguageSupport:
 
     def test_russian_notation_detection(self):
         """Test detection of Russian vs English notation."""
-        from src.utils.language_detector import detect_language, MathNotation
+        from src.utils.language_detector import detect_language
 
         # Russian notation
         russian_expr = "Найдите $\\text{tg}(x)$ если $\\sin(x) = 0.5$"
@@ -460,22 +452,22 @@ class TestTutorAgent:
 class TestKnowledgeTracking:
     """Test knowledge tracking integration."""
 
-    def test_bkt_update(self):
+    def test_bkt_update(self, tmp_path):
         """Test BKT knowledge update."""
         from src.models.knowledge_tracing import KnowledgeTracker
 
-        tracker = KnowledgeTracker()
+        # storage_path=tmp_path: record_attempt автосохраняет профиль на диск,
+        # реальный data/students/ засорять нельзя
+        tracker = KnowledgeTracker(storage_path=str(tmp_path))
 
-        # Record correct answer
-        tracker.record_response(
+        updated = tracker.record_attempt(
             student_id="test-student",
-            skill="quadratic_equations",
-            correct=True,
-            response_time_ms=30000
+            skills=["quadratic_equations"],
+            is_correct=True,
         )
 
-        state = tracker.get_knowledge_state("test-student")
-        assert "quadratic_equations" in state
+        assert "quadratic_equations" in updated
+        assert updated["quadratic_equations"] > 0.3  # mastery вырос после верного ответа
 
     def test_knowledge_decay(self, tmp_path):
         """Test Ebbinghaus knowledge decay."""
@@ -496,7 +488,8 @@ class TestKnowledgeTracking:
 
         # Get initial state
         state_before = memory.get_knowledge_state("decay-test")
-        initial_mastery = state_before.topic_masteries["algebra.quadratic"].mastery
+        initial_mastery = state_before.topics["algebra.quadratic"].mastery
+        assert initial_mastery > 0.0
 
         # Apply decay (in real usage this happens over time)
         memory.apply_knowledge_decay("decay-test")
@@ -588,8 +581,8 @@ class TestFullTutoringSession:
         # Verify session ended
         assert session_id not in memory_manager._sessions
 
-        print(f"\n=== Integration Test Complete ===")
-        print(f"Turns processed: 3")
+        print("\n=== Integration Test Complete ===")
+        print("Turns processed: 3")
         print(f"Final move: {result3.move_type}")
         print(f"Total LLM calls: {mock_llm.call_count}")
 

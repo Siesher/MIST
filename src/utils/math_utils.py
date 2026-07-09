@@ -4,15 +4,11 @@ MITS Math Utilities
 Helper functions for mathematical operations using SymPy.
 """
 
-import sympy as sp
-from sympy.parsing.sympy_parser import (
-    parse_expr, 
-    standard_transformations, 
-    implicit_multiplication
-)
-from typing import Optional, Tuple
 import re
+from typing import Optional, Tuple
 
+import sympy as sp
+from sympy.parsing.sympy_parser import implicit_multiplication, parse_expr, standard_transformations
 
 TRANSFORMATIONS = standard_transformations + (implicit_multiplication,)
 
@@ -20,7 +16,7 @@ TRANSFORMATIONS = standard_transformations + (implicit_multiplication,)
 def clean_expression(expr: str) -> str:
     """Clean mathematical expression for parsing."""
     expr = expr.strip()
-    
+
     replacements = [
         ('^', '**'),
         ('×', '*'),
@@ -29,15 +25,15 @@ def clean_expression(expr: str) -> str:
         ('−', '-'),
         ('√', 'sqrt'),
     ]
-    
+
     for old, new in replacements:
         expr = expr.replace(old, new)
-    
+
     # 2x -> 2*x
     expr = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expr)
     # 2(x) -> 2*(x)
     expr = re.sub(r'(\d)\(', r'\1*(', expr)
-    
+
     return expr
 
 
@@ -94,15 +90,15 @@ def expressions_equal(expr1: str, expr2: str) -> Tuple[bool, float]:
     try:
         p1 = parse_math(expr1)
         p2 = parse_math(expr2)
-        
+
         if p1 is None or p2 is None:
             return False, 0.0
-        
+
         diff = sp.simplify(p1 - p2)
         is_equal = diff == 0
-        
+
         return is_equal, 0.95 if is_equal else 0.1
-        
+
     except Exception:
         return False, 0.0
 

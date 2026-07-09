@@ -11,11 +11,11 @@ Based on research:
 - Deep Knowledge Tracing and Cognitive Load Estimation (2025)
 """
 
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-import logging
 
 logger = logging.getLogger(__name__)
 

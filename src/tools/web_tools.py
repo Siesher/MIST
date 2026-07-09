@@ -139,12 +139,26 @@ def fetch_url(url: str, max_chars: int = 4000) -> str:
         )
 
     try:
-        r = httpx.get(
-            url,
+        # Анти-SSRF: редиректы обрабатываем вручную, перепроверяя каждый хоп —
+        # иначе публичный URL может 302-нуть на 127.0.0.1 (llama-swap) или метадату.
+        with httpx.Client(
             timeout=15.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": "MITS-Tutor/1.0 (educational)"},
-        )
+        ) as client:
+            r = client.get(url)
+            for _ in range(5):  # максимум 5 редиректов
+                if not r.is_redirect:
+                    break
+                next_url = str(r.next_request.url) if r.next_request else ""
+                if not next_url.startswith(("http://", "https://")) or not is_public_url(next_url):
+                    return json.dumps(
+                        {
+                            "error": "Редирект заблокирован: приватный или локальный адрес недопустим"
+                        },
+                        ensure_ascii=False,
+                    )
+                r = client.get(next_url)
         r.raise_for_status()
     except Exception as e:
         logger.warning("fetch_url error: %s %s", url, e)

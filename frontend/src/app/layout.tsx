@@ -16,13 +16,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
-          crossOrigin="anonymous"
-        />
-      </head>
       {/* new_design "midnight" theme. The `.app` grid fills the viewport; Geist
           fonts arrive via the @import at the top of newdesign.css. */}
       <body

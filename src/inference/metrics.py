@@ -10,15 +10,15 @@ Extended in Feature 010 for:
 - Performance alerts
 """
 
+import logging
 import sqlite3
+import threading
 import time
 import uuid
-import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Callable
-import logging
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,15 @@
 """MITS Data Module"""
 
 from src.data.schemas import (
-    Task, Difficulty, Subject, TutorMove,
-    TutorResponse, ConversationTurn, TutoringSession,
-    StudentProfile, VerificationResult
+    ConversationTurn,
+    Difficulty,
+    StudentProfile,
+    Subject,
+    Task,
+    TutoringSession,
+    TutorMove,
+    TutorResponse,
+    VerificationResult,
 )
 
 __all__ = [

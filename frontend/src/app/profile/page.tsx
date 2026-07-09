@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NewAppShell } from "@/components/newdesign/AppShell";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { getProfile } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import type { StudentProfile } from "@/types/api";
@@ -123,6 +124,7 @@ function pillAlias(domain: string): string {
 }
 
 export default function ProfilePage() {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [knowledge, setKnowledge] = useState<KnowledgeState | null>(null);
@@ -202,7 +204,7 @@ export default function ProfilePage() {
             <div className="page-head-info">
               <h1>Профиль</h1>
               <div className="page-sub">
-                Максим Сухацкий · МГТУ им. Баумана · apprentice → journeyman
+                {user?.display_name ?? "Студент"} · МГТУ им. Баумана · apprentice → journeyman
               </div>
             </div>
             <button className="btn-secondary">Редактировать</button>
@@ -211,15 +213,23 @@ export default function ProfilePage() {
           <div className="page-body">
             {/* Hero — avatar + identity + status chips. */}
             <div className="profile-hero">
-              <div className="profile-avatar">МС</div>
+              <div className="profile-avatar">
+                {user?.display_name
+                  ? user.display_name
+                      .split(" ")
+                      .map((w) => w[0])
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()
+                  : "?"}
+              </div>
               <div className="profile-info">
-                <h2 className="profile-name">Максим Сухацкий</h2>
-                <div className="profile-meta">siesher · когорта &apos;25 · main contributor</div>
+                <h2 className="profile-name">{user?.display_name ?? "Студент"}</h2>
+                <div className="profile-meta">{user?.email ?? ""}</div>
                 <div className="profile-chips">
                   <span className="profile-chip">Socratic mode</span>
                   <span className="profile-chip">streak {streak}</span>
                   <span className="profile-chip">RU / EN</span>
-                  <span className="profile-chip">github · siesher</span>
                 </div>
               </div>
             </div>

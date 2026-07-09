@@ -11,12 +11,12 @@ Knowledge Tracing — Отслеживание знаний студента
 - Ebbinghaus Forgetting Curve для моделирования забывания
 """
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 import json
-import math
 import logging
+import math
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from src.models.dkt_model import DKTModel
@@ -122,7 +122,7 @@ class StudentModel:
     skill_to_id: Dict[str, int] = field(default_factory=dict)
     id_to_skill: Dict[int, str] = field(default_factory=dict)
     next_skill_id: int = 0
-    
+
     # Иерархия навыков (skill -> prerequisites)
     SKILL_HIERARCHY = {
         # Базовая алгебра
@@ -130,11 +130,11 @@ class StudentModel:
         "fractions": ["arithmetic"],
         "linear_equations": ["arithmetic"],
         "quadratic_equations": ["linear_equations"],
-        
+
         # Функции
         "functions_basics": ["linear_equations"],
         "function_composition": ["functions_basics"],
-        
+
         # Calculus
         "limits": ["functions_basics"],
         "derivatives_basic": ["limits"],
@@ -143,16 +143,16 @@ class StudentModel:
         "quotient_rule": ["derivatives_basic"],
         "chain_rule": ["derivatives_basic", "function_composition"],
         "derivatives_advanced": ["power_rule", "product_rule", "chain_rule"],
-        
+
         "integrals_basic": ["derivatives_basic"],
         "integration_by_parts": ["integrals_basic", "product_rule"],
         "integration_substitution": ["integrals_basic", "chain_rule"],
-        
+
         # Тригонометрия
         "trigonometry_basics": ["functions_basics"],
         "trig_identities": ["trigonometry_basics"],
         "trig_derivatives": ["derivatives_basic", "trigonometry_basics"],
-        
+
         # Программирование
         "variables": [],
         "conditionals": ["variables"],
@@ -163,7 +163,7 @@ class StudentModel:
         "algorithms": ["data_structures", "recursion"],
         "oop": ["functions_prog"],
     }
-    
+
     def get_skill(self, skill_name: str) -> SkillState:
         """Получить или создать состояние навыка."""
         if skill_name not in self.skills:
@@ -285,7 +285,7 @@ class StudentModel:
                 logger.debug(f"  {name}: {old:.2f} -> {new:.2f}")
 
         return decayed_skills
-    
+
     def update_skill(self, skill_name: str, is_correct: bool) -> float:
         """
         Обновить mastery навыка используя гибридный BKT/DKT подход.
@@ -371,34 +371,34 @@ class StudentModel:
         p_l_new = p_l_posterior + (1 - p_l_posterior) * skill.p_learn
 
         return min(0.99, max(0.01, p_l_new))
-    
+
     def get_mastery(self, skill_name: str) -> float:
         """Получить текущий уровень владения навыком."""
         return self.get_skill(skill_name).mastery
-    
+
     def get_weakest_skills(self, n: int = 3) -> List[Tuple[str, float]]:
         """Получить N самых слабых навыков."""
         if not self.skills:
             return []
-        
+
         sorted_skills = sorted(
             self.skills.items(),
             key=lambda x: x[1].mastery
         )
         return [(s.name, s.mastery) for _, s in sorted_skills[:n]]
-    
+
     def get_strongest_skills(self, n: int = 3) -> List[Tuple[str, float]]:
         """Получить N самых сильных навыков."""
         if not self.skills:
             return []
-        
+
         sorted_skills = sorted(
             self.skills.items(),
             key=lambda x: x[1].mastery,
             reverse=True
         )
         return [(s.name, s.mastery) for _, s in sorted_skills[:n]]
-    
+
     def get_ready_skills(self) -> List[str]:
         """
         Получить навыки, к изучению которых студент готов
@@ -408,26 +408,26 @@ class StudentModel:
         for skill, prereqs in self.SKILL_HIERARCHY.items():
             if skill in self.skills and self.skills[skill].mastery > 0.6:
                 continue  # Уже освоен
-            
+
             # Проверяем prerequisites
             prereqs_met = all(
                 self.get_mastery(p) > 0.6 for p in prereqs
             ) if prereqs else True
-            
+
             if prereqs_met:
                 ready.append(skill)
-        
+
         return ready
-    
+
     def recommend_next_skill(self) -> Optional[str]:
         """Рекомендовать следующий навык для изучения."""
         ready = self.get_ready_skills()
         if not ready:
             return None
-        
+
         # Выбираем навык с наименьшим mastery из готовых
         return min(ready, key=lambda s: self.get_mastery(s))
-    
+
     def predict_success(self, skill_name: str) -> float:
         """
         Предсказать вероятность успеха на задаче с данным навыком.
@@ -436,16 +436,16 @@ class StudentModel:
         """
         skill = self.get_skill(skill_name)
         p_l = skill.mastery
-        
+
         return p_l * (1 - skill.p_slip) + (1 - p_l) * skill.p_guess
-    
+
     def get_recommended_difficulty(self) -> str:
         """Рекомендовать сложность следующей задачи."""
         if not self.skills:
             return "easy"
-        
+
         avg_mastery = sum(s.mastery for s in self.skills.values()) / len(self.skills)
-        
+
         if avg_mastery < 0.3:
             return "easy"
         elif avg_mastery < 0.5:
@@ -454,7 +454,7 @@ class StudentModel:
             return "hard"
         else:
             return "olympiad"
-    
+
     def to_dict(self) -> dict:
         """Сериализация в словарь."""
         return {
@@ -479,7 +479,7 @@ class StudentModel:
             "skill_to_id": self.skill_to_id,
             "next_skill_id": self.next_skill_id
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "StudentModel":
         """Десериализация из словаря."""
@@ -508,14 +508,14 @@ class StudentModel:
         model.next_skill_id = data.get("next_skill_id", len(model.skill_to_id))
 
         return model
-    
+
     def get_summary(self) -> str:
         """Получить текстовое резюме знаний студента."""
         if not self.skills:
             return "📊 Пока нет данных о навыках"
-        
+
         lines = ["📊 **Профиль знаний:**\n"]
-        
+
         # Сильные навыки
         strong = self.get_strongest_skills(3)
         if strong:
@@ -523,7 +523,7 @@ class StudentModel:
             for skill, mastery in strong:
                 bar = "█" * int(mastery * 10) + "░" * (10 - int(mastery * 10))
                 lines.append(f"  • {skill}: {bar} {mastery:.0%}")
-        
+
         # Слабые навыки
         weak = self.get_weakest_skills(3)
         if weak:
@@ -531,14 +531,14 @@ class StudentModel:
             for skill, mastery in weak:
                 bar = "█" * int(mastery * 10) + "░" * (10 - int(mastery * 10))
                 lines.append(f"  • {skill}: {bar} {mastery:.0%}")
-        
+
         # Рекомендация
         next_skill = self.recommend_next_skill()
         if next_skill:
             lines.append(f"\n🎯 **Рекомендую изучить:** {next_skill}")
-        
+
         lines.append(f"\n📚 Решено задач: {self.total_problems_solved}")
-        
+
         return "\n".join(lines)
 
 

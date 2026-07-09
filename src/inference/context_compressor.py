@@ -7,11 +7,11 @@ Uses sliding window + key event extraction approach.
 Feature 010: Performance Optimization
 """
 
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
-import logging
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

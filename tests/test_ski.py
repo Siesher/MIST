@@ -5,12 +5,10 @@ Tests loading, lookups, search, and edge cases.
 """
 
 import json
-import tempfile
+
 import pytest
-from pathlib import Path
 
 from src.knowledge.ski import KnowledgeCard, StructuredKnowledgeIndex
-
 
 # ── Fixtures ─────────────────────────────────────────────────────
 

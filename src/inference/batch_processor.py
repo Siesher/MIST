@@ -12,14 +12,13 @@ T036: Batch Processor для MITS.
 Feature 010: Enhanced with time-windowed batch embedding processing.
 """
 
-import asyncio
 import logging
+import threading
 import time
-from typing import List, Dict, Any, Optional, Callable, TypeVar, Generic
-from dataclasses import dataclass, field
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-import threading
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
 
 # Feature 010: Load configuration
 try:
@@ -533,8 +532,8 @@ class EmbeddingBatchProcessor:
         Returns:
             Эмбеддинг (ждёт завершения батча)
         """
-        import threading
         import queue
+        import threading
 
         # Check cache first
         with self._lock:

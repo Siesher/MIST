@@ -2,6 +2,10 @@
 
 import pytest
 
+# Без pytest-playwright коллекция этой папки падала бы с ImportError —
+# в CI плагин не ставится, e2e скипаются целиком
+pytest.importorskip("playwright", reason="e2e требует playwright + pytest-playwright")
+
 
 def pytest_configure(config):
     config.addinivalue_line(

@@ -3,10 +3,10 @@ Tests for dynamic structured few-shot retrieval.
 """
 
 import json
-import pytest
-from pathlib import Path
 
-from src.knowledge.few_shot_bank import FewShotBank, FewShotExample
+import pytest
+
+from src.knowledge.few_shot_bank import FewShotBank
 
 
 @pytest.fixture

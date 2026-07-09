@@ -49,6 +49,9 @@ export function SmartContent({ content }: Props) {
 
   return (
     <>
+      {/* Index keys are acceptable here: segments are append-only during streaming
+          (splitSegments re-parses the whole string but the prefix is stable), so
+          React will never reorder or delete a segment at a lower index. */}
       {segments.map((seg, i) => {
         if (seg.kind === "mermaid") {
           return <MermaidBlock key={i} code={seg.content} />;

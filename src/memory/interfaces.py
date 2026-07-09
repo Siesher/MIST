@@ -4,17 +4,23 @@ Memory System Interfaces
 Abstract base classes defining contracts for session and student memory.
 """
 
-from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
-
 import sys
+from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data.schemas import (
-    Task, CognitiveLoad, KnowledgeState, TopicMastery,
-    SessionSummary, HintType, Difficulty, ConversationTurn
+    CognitiveLoad,
+    ConversationTurn,
+    Difficulty,
+    HintType,
+    KnowledgeState,
+    SessionSummary,
+    Task,
+    TopicMastery,
 )
 
 
